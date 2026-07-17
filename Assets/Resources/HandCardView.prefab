@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7297803707384486184}
   - component: {fileID: 4758169881461946567}
   - component: {fileID: -7323867296730796566}
-  - component: {fileID: 638028472546512435}
   - component: {fileID: 87139429229166464}
   m_Layer: 5
   m_Name: HandCardView
@@ -37,7 +36,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -104.1, y: -571.8}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 180, y: 250}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &4758169881461946567
@@ -56,8 +55,10 @@ MonoBehaviour:
   costText: {fileID: 4195893400430775102}
   nameText: {fileID: 4345479471303603929}
   visualRoot: {fileID: 4033625534850315273}
+  selfRect: {fileID: 7297803707384486184}
   hoverRiseAmount: 67
   hoverLerpSpeed: 12
+  slotLerpSpeed: 14
 --- !u!114 &-7323867296730796566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -68,18 +69,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb330503dd794d34d9b3896ea512ae62, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &638028472546512435
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2739018339656131991}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a913cf5bfb108764094ed7f4f3cb4045, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!114 &87139429229166464

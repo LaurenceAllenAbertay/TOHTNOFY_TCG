@@ -13,6 +13,7 @@ namespace DDD.TNFY.TCG.Core
         public int MaxHealth { get; set; }
         public int CurrentHealth { get; set; }
         public bool PlacedThisTurn { get; set; }
+        public bool HasMovedThisTurn { get; set; }
         public Keyword GrantedKeywords { get; set; }
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();

@@ -12,10 +12,10 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            ItemCardDrag itemDrag = eventData.pointerDrag.GetComponent<ItemCardDrag>();
-            if (itemDrag != null && itemDrag.IsDraggingItemCard)
+            HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
+            if (handDrag != null && handDrag.IsDraggingItemCard)
             {
-                itemDrag.HandleDroppedOnBoardArea();
+                handDrag.HandleDroppedOnBoardArea();
             }
         }
     }

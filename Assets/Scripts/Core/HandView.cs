@@ -11,11 +11,16 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private Transform handContainer;
         [SerializeField] private UI.HandCardView faceUpCardPrefab;
         [SerializeField] private UI.HandCardView faceDownCardPrefab;
+        [SerializeField] private float cardSlotWidth = 160f;
+        [SerializeField] private float cardSpacing = 0f;
+        [SerializeField] private float cardSlotY = 0f;
 
         private readonly List<UI.HandCardView> spawnedViews = new List<UI.HandCardView>();
         private bool? shownFaceUp;
         private int shownHandCount = -1;
         private CardData shownLastCard;
+
+        public IReadOnlyList<UI.HandCardView> SpawnedViews => spawnedViews;
 
         private void Update()
         {
@@ -42,6 +47,63 @@ namespace DDD.TNFY.TCG.Core
             shownFaceUp = isFaceUp;
             shownHandCount = hand.Count;
             shownLastCard = lastCard;
+        }
+
+        public void CommitReorder()
+        {
+            if (gameManager == null || gameManager.State == null)
+            {
+                return;
+            }
+
+            List<CardData> hand = gameManager.State.GetPlayer(side).Hand;
+
+            spawnedViews.Sort((a, b) => a.transform.GetSiblingIndex().CompareTo(b.transform.GetSiblingIndex()));
+
+            hand.Clear();
+            foreach (UI.HandCardView view in spawnedViews)
+            {
+                if (view.Card != null)
+                {
+                    hand.Add(view.Card);
+                }
+            }
+
+            shownHandCount = hand.Count;
+            shownLastCard = hand.Count > 0 ? hand[hand.Count - 1] : null;
+
+            RefreshSlotPositions(snapImmediately: false);
+        }
+
+        public void RefreshSlotPositions(bool snapImmediately)
+        {
+            int count = spawnedViews.Count;
+
+            List<UI.HandCardView> orderedViews = new List<UI.HandCardView>(spawnedViews);
+            orderedViews.Sort((a, b) => a.transform.GetSiblingIndex().CompareTo(b.transform.GetSiblingIndex()));
+
+            for (int rank = 0; rank < orderedViews.Count; rank++)
+            {
+                UI.HandCardView view = orderedViews[rank];
+
+                if (view == null)
+                {
+                    continue;
+                }
+
+                Vector2 position = GetSlotAnchoredPosition(rank, count);
+
+                view.SetSlotTarget(position, snapImmediately);
+            }
+        }
+
+        public Vector2 GetSlotAnchoredPosition(int index, int totalCount)
+        {
+            float slotStride = cardSlotWidth + cardSpacing;
+            float totalWidth = totalCount > 0 ? (totalCount * slotStride) - cardSpacing : 0f;
+            float firstSlotX = -totalWidth / 2f + cardSlotWidth / 2f;
+
+            return new Vector2(firstSlotX + (index * slotStride), cardSlotY);
         }
 
         private void Rebuild(bool isFaceUp, List<CardData> hand)
@@ -74,6 +136,8 @@ namespace DDD.TNFY.TCG.Core
 
                 spawnedViews.Add(view);
             }
+
+            RefreshSlotPositions(snapImmediately: true);
         }
     }
 }

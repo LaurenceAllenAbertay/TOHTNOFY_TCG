@@ -376,6 +376,8 @@ namespace DDD.TNFY.TCG.Core
             state.Board.RemoveUnit(side, fromSlot);
             state.Board.PlaceUnit(side, toSlot, unit);
 
+            unit.HasMovedThisTurn = true;
+
             if (!isNimble)
             {
                 state.HasUsedMoveThisTurn = true;
@@ -396,6 +398,7 @@ namespace DDD.TNFY.TCG.Core
             if (unit.PlacedThisTurn && !isNimble) return false;
             if (state.Board.GetUnit(side, toSlot) != null) return false;
             if (!isNimble && state.HasUsedMoveThisTurn) return false;
+            if (isNimble && unit.HasMovedThisTurn) return false;
 
             int distance = toSlot - fromSlot;
             int maxRange = unit.HasKeyword(Keyword.Agile) ? 2 : 1;
@@ -424,6 +427,7 @@ namespace DDD.TNFY.TCG.Core
                 if (unit != null)
                 {
                     unit.PlacedThisTurn = false;
+                    unit.HasMovedThisTurn = false;
                 }
             }
 

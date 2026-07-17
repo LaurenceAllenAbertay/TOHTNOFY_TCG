@@ -1471,7 +1471,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 466868581}
-  - component: {fileID: 466868582}
   - component: {fileID: 466868583}
   m_Layer: 5
   m_Name: PlayerAHand
@@ -1499,32 +1498,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -127.9}
   m_SizeDelta: {x: 1165.1, y: 325.1}
   m_Pivot: {x: 0.5, y: 0}
---- !u!114 &466868582
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 466868580}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
-  m_ChildAlignment: 4
-  m_Spacing: 0
-  m_ChildForceExpandWidth: 0
-  m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 1
-  m_ChildControlHeight: 0
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
-  m_ReverseArrangement: 0
 --- !u!114 &466868583
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1542,6 +1515,9 @@ MonoBehaviour:
   handContainer: {fileID: 466868581}
   faceUpCardPrefab: {fileID: 4758169881461946567, guid: 0e4ef8bc1fd00ca4ca0fe13dda31c2af, type: 3}
   faceDownCardPrefab: {fileID: 4758169881461946567, guid: c53eae322f0ca6e4ab98d02727a3da8a, type: 3}
+  cardSlotWidth: 180
+  cardSpacing: 0
+  cardSlotY: 0
 --- !u!1 &511515818
 GameObject:
   m_ObjectHideFlags: 0
@@ -3932,8 +3908,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 108.71001}
-  m_SizeDelta: {x: 1732.6, y: 682.58}
+  m_AnchoredPosition: {x: 0, y: 60.379}
+  m_SizeDelta: {x: 1271.6476, y: 806.36}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1365202013
 MonoBehaviour:
@@ -4438,7 +4414,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1699180750}
-  - component: {fileID: 1699180751}
   - component: {fileID: 1699180752}
   m_Layer: 5
   m_Name: PlayerBHand
@@ -4466,32 +4441,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -105}
   m_SizeDelta: {x: 1165.1, y: 325.09998}
   m_Pivot: {x: 0.5, y: 1}
---- !u!114 &1699180751
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1699180749}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
-  m_ChildAlignment: 4
-  m_Spacing: 0
-  m_ChildForceExpandWidth: 0
-  m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 1
-  m_ChildControlHeight: 0
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
-  m_ReverseArrangement: 0
 --- !u!114 &1699180752
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4509,6 +4458,9 @@ MonoBehaviour:
   handContainer: {fileID: 1699180750}
   faceUpCardPrefab: {fileID: 4758169881461946567, guid: 0e4ef8bc1fd00ca4ca0fe13dda31c2af, type: 3}
   faceDownCardPrefab: {fileID: 4758169881461946567, guid: c53eae322f0ca6e4ab98d02727a3da8a, type: 3}
+  cardSlotWidth: 180
+  cardSpacing: 0
+  cardSlotY: 0
 --- !u!1 &1704741067
 GameObject:
   m_ObjectHideFlags: 0

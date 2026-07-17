@@ -1,11 +1,12 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 using DDD.TNFY.TCG.Core;
 
 namespace DDD.TNFY.TCG.UI
 {
-    public class BoardCardView : MonoBehaviour
+    public class BoardCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         [SerializeField] private Image artImage;
         [SerializeField] private TextMeshProUGUI attackText;
@@ -48,6 +49,21 @@ namespace DDD.TNFY.TCG.UI
             {
                 healthText.text = CardDisplayFormatter.GetHealthText(unit);
             }
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (eventData.dragging || Unit == null)
+            {
+                return;
+            }
+
+            CardHoverPreview.Show(Unit.SourceCard, transform.position);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            CardHoverPreview.Hide();
         }
     }
 }

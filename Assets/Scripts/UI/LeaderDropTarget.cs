@@ -26,10 +26,10 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            ItemCardDrag itemDrag = eventData.pointerDrag.GetComponent<ItemCardDrag>();
-            if (itemDrag != null)
+            HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
+            if (handDrag != null)
             {
-                itemDrag.HandleDroppedOnLeader(this);
+                handDrag.HandleDroppedOnLeader(this);
             }
         }
     }
