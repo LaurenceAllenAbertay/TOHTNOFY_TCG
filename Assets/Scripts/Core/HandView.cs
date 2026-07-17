@@ -14,6 +14,8 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private float cardSlotWidth = 160f;
         [SerializeField] private float cardSpacing = 0f;
         [SerializeField] private float cardSlotY = 0f;
+        [SerializeField] private int compactHandCardThreshold = 6;
+        [SerializeField] private float minCardSlotWidth = 60f;
 
         private readonly List<UI.HandCardView> spawnedViews = new List<UI.HandCardView>();
         private bool? shownFaceUp;
@@ -99,11 +101,37 @@ namespace DDD.TNFY.TCG.Core
 
         public Vector2 GetSlotAnchoredPosition(int index, int totalCount)
         {
-            float slotStride = cardSlotWidth + cardSpacing;
-            float totalWidth = totalCount > 0 ? (totalCount * slotStride) - cardSpacing : 0f;
-            float firstSlotX = -totalWidth / 2f + cardSlotWidth / 2f;
+            float slotWidth = GetEffectiveSlotWidth(totalCount);
+            float spacing = GetEffectiveSpacing(slotWidth);
+            float slotStride = slotWidth + spacing;
+            float totalWidth = totalCount > 0 ? (totalCount * slotStride) - spacing : 0f;
+            float firstSlotX = -totalWidth / 2f + slotWidth / 2f;
 
             return new Vector2(firstSlotX + (index * slotStride), cardSlotY);
+        }
+
+        private float GetEffectiveSlotWidth(int totalCount)
+        {
+            if (totalCount < compactHandCardThreshold)
+            {
+                return cardSlotWidth;
+            }
+
+            float rowWidthBudget = compactHandCardThreshold * cardSlotWidth;
+            float compactedWidth = rowWidthBudget / totalCount;
+
+            return Mathf.Max(minCardSlotWidth, compactedWidth);
+        }
+
+        private float GetEffectiveSpacing(float effectiveSlotWidth)
+        {
+            if (cardSlotWidth <= 0f)
+            {
+                return cardSpacing;
+            }
+
+            float scale = effectiveSlotWidth / cardSlotWidth;
+            return cardSpacing * scale;
         }
 
         private void Rebuild(bool isFaceUp, List<CardData> hand)

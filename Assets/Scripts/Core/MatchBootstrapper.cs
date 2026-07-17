@@ -11,6 +11,9 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private List<CardData> testCardPool = new List<CardData>();
         [SerializeField] private int copiesOfEachCard = 3;
 
+        [Header("Leader Setup")]
+        [SerializeField] private List<LeaderData> leaderPool = new List<LeaderData>();
+
         private GameManager manager;
 
         private void Awake()
@@ -21,6 +24,7 @@ namespace DDD.TNFY.TCG.Core
         private void Start()
         {
             BuildTestDecks();
+            AssignRandomLeaders();
             manager.Phases.StartMatch();
         }
 
@@ -43,6 +47,17 @@ namespace DDD.TNFY.TCG.Core
             }
 
             ListShuffler.Shuffle(player.Deck);
+        }
+
+        private void AssignRandomLeaders()
+        {
+            if (leaderPool.Count == 0)
+            {
+                return;
+            }
+
+            manager.State.PlayerA.Leader = leaderPool[Random.Range(0, leaderPool.Count)];
+            manager.State.PlayerB.Leader = leaderPool[Random.Range(0, leaderPool.Count)];
         }
     }
 }

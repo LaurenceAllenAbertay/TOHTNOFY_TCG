@@ -31,7 +31,7 @@ namespace DDD.TNFY.TCG.UI
             canvasGroup.blocksRaycasts = visible;
         }
 
-        public void Bind(BoardUnit unit)
+        public void Bind(BoardUnit unit, GameState state)
         {
             Unit = unit;
 
@@ -42,7 +42,7 @@ namespace DDD.TNFY.TCG.UI
 
             if (attackText != null)
             {
-                attackText.text = CardDisplayFormatter.GetAttackText(unit);
+                attackText.text = CardDisplayFormatter.GetAttackText(unit, state);
             }
 
             if (healthText != null)

@@ -64,6 +64,10 @@ namespace DDD.TNFY.TCG.Effects
                 case EffectActionType.ReduceOpponentMana:
                     ExecuteReduceOpponentMana(effect, context);
                     break;
+
+                case EffectActionType.HealAdjacentUnits:
+                    ExecuteHealAdjacentUnits(effect, context, phases);
+                    break;
             }
         }
 
@@ -161,7 +165,7 @@ namespace DDD.TNFY.TCG.Effects
                 return;
             }
 
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DelayedKill, effect.amount));
+            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DelayedKill, effect.amount, sourceOwner: context.SourceOwner));
         }
 
         private static void ExecuteBounceUnit(EffectContext context, PhaseManager phases)
@@ -204,7 +208,7 @@ namespace DDD.TNFY.TCG.Effects
 
                 if (unit.CurrentHealth <= 0)
                 {
-                    phases.KillUnit(unit);
+                    phases.KillUnit(unit, context.SourceOwner);
                 }
             }
             else if (context.ChosenTarget.Kind == EffectTargetKind.Leader)
@@ -217,6 +221,30 @@ namespace DDD.TNFY.TCG.Effects
         {
             Player opponent = context.GameState.GetPlayer(context.SourceOwner.Opposite());
             opponent.Statuses.Add(new ActiveStatusEffect(StatusEffectType.OpponentManaReduction, 1, effect.amount));
+        }
+
+        private static void ExecuteHealAdjacentUnits(CardEffect effect, EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            int slotIndex = context.SourceUnit.SlotIndex;
+            PlayerSide side = context.SourceUnit.Owner;
+
+            BoardUnit leftNeighbor = slotIndex - 1 >= 0 ? context.Board.GetUnit(side, slotIndex - 1) : null;
+            BoardUnit rightNeighbor = slotIndex + 1 < Board.SlotsPerSide ? context.Board.GetUnit(side, slotIndex + 1) : null;
+
+            if (leftNeighbor != null)
+            {
+                phases.HealUnit(leftNeighbor, effect.amount);
+            }
+
+            if (rightNeighbor != null)
+            {
+                phases.HealUnit(rightNeighbor, effect.amount);
+            }
         }
     }
 }

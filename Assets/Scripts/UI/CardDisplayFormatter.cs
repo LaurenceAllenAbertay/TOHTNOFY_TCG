@@ -30,9 +30,9 @@ namespace DDD.TNFY.TCG.UI
             return card.Health.ToString();
         }
 
-        public static string GetAttackText(BoardUnit unit)
+        public static string GetAttackText(BoardUnit unit, GameState state)
         {
-            return unit.CurrentAttack.ToString();
+            return unit.GetCurrentAttack(state).ToString();
         }
 
         public static string GetHealthText(BoardUnit unit)

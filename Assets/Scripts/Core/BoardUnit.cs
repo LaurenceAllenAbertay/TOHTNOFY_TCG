@@ -18,11 +18,20 @@ namespace DDD.TNFY.TCG.Core
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
 
-        public int CurrentAttack => SourceCard.Attack + BonusAttack;
-
-        public bool HasKeyword(Keyword keyword)
+        public int GetCurrentAttack(GameState state)
         {
-            return SourceCard.HasKeyword(keyword) || (GrantedKeywords & keyword) != 0;
+            return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state);
+        }
+
+        public int GetEffectiveMaxHealth(GameState state)
+        {
+            return AuraCalculator.GetEffectiveMaxHealth(this, state);
+        }
+
+        public bool HasKeyword(Keyword keyword, GameState state)
+        {
+            bool hasBaseKeyword = SourceCard.HasKeyword(keyword) || (GrantedKeywords & keyword) != 0;
+            return hasBaseKeyword || AuraCalculator.HasAuraKeyword(this, state, keyword);
         }
 
         public void GrantKeyword(Keyword keyword)

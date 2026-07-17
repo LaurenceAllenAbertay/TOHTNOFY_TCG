@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2441098d78c82f74fa8bc93b8f89b432, type: 3}
+  m_Name: Brodie
+  m_EditorClassIdentifier: 
+  leaderId: brodie
+  leaderName: Brodie
+  maxHealth: 40
+  portrait: {fileID: 0}
+  abilityText: Your units gain +1 max health.
+  firstUnitCostDiscount: 0
+  itemDrawIntervalTurns: 0
+  effects: []
+  auras:
+  - scope: 0
+    activationCondition: 0
+    grant:
+      action: 6
+      amount: 1
+      keyword: 0

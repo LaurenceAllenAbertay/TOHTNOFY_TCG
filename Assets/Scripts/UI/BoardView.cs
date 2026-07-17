@@ -37,7 +37,8 @@ namespace DDD.TNFY.TCG.UI
 
         private void RefreshSide(PlayerSide side, Transform[] containers, BoardUnit[] shownUnits, BoardCardView[] spawnedViews)
         {
-            Board board = gameManager.State.Board;
+            GameState gameState = gameManager.State;
+            Board board = gameState.Board;
 
             for (int i = 0; i < Board.SlotsPerSide; i++)
             {
@@ -47,7 +48,7 @@ namespace DDD.TNFY.TCG.UI
                 {
                     if (currentUnit != null && spawnedViews[i] != null)
                     {
-                        spawnedViews[i].Bind(currentUnit);
+                        spawnedViews[i].Bind(currentUnit, gameState);
                     }
 
                     continue;
@@ -62,7 +63,7 @@ namespace DDD.TNFY.TCG.UI
                 if (currentUnit != null && boardCardViewPrefab != null && containers[i] != null)
                 {
                     BoardCardView view = Instantiate(boardCardViewPrefab, containers[i]);
-                    view.Bind(currentUnit);
+                    view.Bind(currentUnit, gameState);
                     spawnedViews[i] = view;
                 }
 

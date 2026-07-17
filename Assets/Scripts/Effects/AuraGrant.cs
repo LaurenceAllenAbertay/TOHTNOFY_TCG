@@ -1,14 +1,13 @@
 using System;
+using DDD.TNFY.TCG.Cards;
 
 namespace DDD.TNFY.TCG.Effects
 {
     [Serializable]
-    public class CardEffect
+    public class AuraGrant
     {
-        public EffectTriggerType trigger;
         public EffectActionType action;
-        public TargetType targetType;
         public int amount;
-        public bool oncePerTurn;
+        public Keyword keyword;
     }
 }

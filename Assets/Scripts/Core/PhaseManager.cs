@@ -16,6 +16,9 @@ namespace DDD.TNFY.TCG.Core
 
         public void StartMatch()
         {
+            ApplyLeaderHealth(state.PlayerA);
+            ApplyLeaderHealth(state.PlayerB);
+
             state.PlayerA.CurrentMana = 0;
             state.PlayerA.MaxManaThisGame = 0;
             state.PlayerB.CurrentMana = 0;
@@ -24,6 +27,17 @@ namespace DDD.TNFY.TCG.Core
             state.ActivePlayer = state.FirstPlayer;
             state.TurnNumber = 1;
             EnterMulliganPhase();
+        }
+
+        private void ApplyLeaderHealth(Player player)
+        {
+            if (player.Leader == null)
+            {
+                return;
+            }
+
+            player.MaxLeaderHealth = player.Leader.MaxHealth;
+            player.LeaderHealth = player.Leader.MaxHealth;
         }
 
         public void EnterMulliganPhase()
@@ -103,6 +117,14 @@ namespace DDD.TNFY.TCG.Core
             active.CurrentMana = System.Math.Max(0, active.MaxManaThisGame - active.PendingManaReduction);
             active.PendingManaReduction = 0;
 
+            if (active.MaxManaThisGame >= Player.MaxMana)
+            {
+                active.HasReachedMaxMana = true;
+            }
+
+            active.OwnTurnCount++;
+            TryTriggerPeriodicItemDraw(active);
+
             int drawCount = state.TurnNumber == 1 && state.ActivePlayer == state.FirstPlayer ? 0 : 1;
 
             for (int i = 0; i < drawCount; i++)
@@ -124,13 +146,35 @@ namespace DDD.TNFY.TCG.Core
             state.CurrentPhase = TurnPhase.Play;
         }
 
+        private void TryTriggerPeriodicItemDraw(Player player)
+        {
+            if (player.Leader == null || player.Leader.ItemDrawIntervalTurns <= 0)
+            {
+                return;
+            }
+
+            if (player.OwnTurnCount % player.Leader.ItemDrawIntervalTurns != 0)
+            {
+                return;
+            }
+
+            player.DrawRandomItemCard();
+        }
+
         public bool TryPlayUnit(UnitCardData card, int slotIndex)
         {
             if (!CanPlayUnit(card, slotIndex)) return false;
 
             Player active = state.GetActivePlayerData();
+            int effectiveCost = AuraCalculator.GetUnitCost(card, active);
 
-            active.CurrentMana -= card.ManaCost;
+            active.CurrentMana -= effectiveCost;
+
+            if (active.Leader != null && active.Leader.FirstUnitCostDiscount > 0)
+            {
+                active.HasUsedFirstUnitDiscountThisTurn = true;
+            }
+
             active.Hand.Remove(card);
 
             BoardUnit unit = new BoardUnit(card, state.ActivePlayer, slotIndex);
@@ -144,8 +188,9 @@ namespace DDD.TNFY.TCG.Core
         public bool CanPlayUnit(UnitCardData card, int slotIndex)
         {
             Player active = state.GetActivePlayerData();
+            int effectiveCost = AuraCalculator.GetUnitCost(card, active);
 
-            if (!active.CanAfford(card)) return false;
+            if (active.CurrentMana < effectiveCost) return false;
             if (state.Board.GetUnit(state.ActivePlayer, slotIndex) != null) return false;
             if (!active.Hand.Contains(card)) return false;
             if (!IsSlotLegalForPlacement(slotIndex)) return false;
@@ -161,7 +206,7 @@ namespace DDD.TNFY.TCG.Core
             for (int i = 0; i < Board.SlotsPerSide; i++)
             {
                 BoardUnit opposingUnit = state.Board.GetUnit(opponentSide, i);
-                if (opposingUnit != null && opposingUnit.HasKeyword(Keyword.Taunt))
+                if (opposingUnit != null && opposingUnit.HasKeyword(Keyword.Taunt, state))
                 {
                     tauntSlots.Add(i);
                 }
@@ -199,14 +244,14 @@ namespace DDD.TNFY.TCG.Core
                 bool wasStunned = ConsumeStunIfPresent(attacker);
                 bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
 
-                if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush)) continue;
+                if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush, state)) continue;
                 if (wasStunned) continue;
 
                 int attackCount = hadDoubleAttack ? 2 : 1;
 
                 for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
                 {
-                    if (attacker.HasKeyword(Keyword.BifurcatedAttack))
+                    if (attacker.HasKeyword(Keyword.BifurcatedAttack, state))
                     {
                         int beforeSlot = i - 1;
                         int afterSlot = i + 1;
@@ -239,19 +284,20 @@ namespace DDD.TNFY.TCG.Core
         private void ResolveAttack(BoardUnit attacker, int targetSlot)
         {
             BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
+            int attackerCurrentAttack = attacker.GetCurrentAttack(state);
 
             if (defender != null)
             {
-                defender.CurrentHealth -= attacker.CurrentAttack;
+                defender.CurrentHealth -= attackerCurrentAttack;
 
                 if (defender.CurrentHealth <= 0)
                 {
-                    state.Board.RemoveUnit(state.ActivePlayer.Opposite(), targetSlot);
+                    KillUnit(defender, state.ActivePlayer);
                 }
             }
             else
             {
-                DamageLeader(state.ActivePlayer.Opposite(), attacker.CurrentAttack);
+                DamageLeader(state.ActivePlayer.Opposite(), attackerCurrentAttack);
             }
         }
 
@@ -269,7 +315,7 @@ namespace DDD.TNFY.TCG.Core
 
         public void HealUnit(BoardUnit unit, int amount)
         {
-            unit.CurrentHealth = System.Math.Min(unit.CurrentHealth + amount, unit.MaxHealth);
+            unit.CurrentHealth = System.Math.Min(unit.CurrentHealth + amount, unit.GetEffectiveMaxHealth(state));
         }
 
         public void HealLeader(PlayerSide side, int amount)
@@ -278,9 +324,11 @@ namespace DDD.TNFY.TCG.Core
             player.LeaderHealth = System.Math.Min(player.LeaderHealth + amount, player.MaxLeaderHealth);
         }
 
-        public void KillUnit(BoardUnit unit)
+        public void KillUnit(BoardUnit unit, PlayerSide killer)
         {
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
+            TriggerLeaderEffects(EffectTriggerType.UnitDied, killer, unit);
+            TriggerLeaderEffectsFor(state.GetPlayer(killer), EffectTriggerType.UnitKilled, killer, unit);
         }
 
         public void BounceUnit(BoardUnit unit)
@@ -326,7 +374,8 @@ namespace DDD.TNFY.TCG.Core
 
                     if (status.RemainingTriggers <= 0)
                     {
-                        KillUnit(unit);
+                        PlayerSide killer = status.SourceOwner ?? unit.Owner.Opposite();
+                        KillUnit(unit, killer);
                         break;
                     }
                 }
@@ -371,7 +420,7 @@ namespace DDD.TNFY.TCG.Core
 
             PlayerSide side = state.ActivePlayer;
             BoardUnit unit = state.Board.GetUnit(side, fromSlot);
-            bool isNimble = unit.HasKeyword(Keyword.Nimble);
+            bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
 
             state.Board.RemoveUnit(side, fromSlot);
             state.Board.PlaceUnit(side, toSlot, unit);
@@ -393,7 +442,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (unit == null) return false;
 
-            bool isNimble = unit.HasKeyword(Keyword.Nimble);
+            bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
 
             if (unit.PlacedThisTurn && !isNimble) return false;
             if (state.Board.GetUnit(side, toSlot) != null) return false;
@@ -401,7 +450,7 @@ namespace DDD.TNFY.TCG.Core
             if (isNimble && unit.HasMovedThisTurn) return false;
 
             int distance = toSlot - fromSlot;
-            int maxRange = unit.HasKeyword(Keyword.Agile) ? 2 : 1;
+            int maxRange = unit.HasKeyword(Keyword.Agile, state) ? 2 : 1;
 
             if (distance == 0 || System.Math.Abs(distance) > maxRange) return false;
 
@@ -432,6 +481,10 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.HasUsedMoveThisTurn = false;
+            state.PlayerA.TriggeredOncePerTurnEffects.Clear();
+            state.PlayerB.TriggeredOncePerTurnEffects.Clear();
+            state.PlayerA.HasUsedFirstUnitDiscountThisTurn = false;
+            state.PlayerB.HasUsedFirstUnitDiscountThisTurn = false;
 
             if (state.ActivePlayer == state.FirstPlayer.Opposite())
             {
@@ -499,6 +552,45 @@ namespace DDD.TNFY.TCG.Core
                 if (effect.trigger == EffectTriggerType.OnPlay)
                 {
                     EffectExecutor.Execute(effect, context, this);
+                }
+            }
+
+            TriggerLeaderEffects(EffectTriggerType.OnPlay, unit.Owner, unit);
+        }
+
+        private void TriggerLeaderEffects(EffectTriggerType trigger, PlayerSide triggeringPlayer, BoardUnit sourceUnit)
+        {
+            TriggerLeaderEffectsFor(state.PlayerA, trigger, triggeringPlayer, sourceUnit);
+            TriggerLeaderEffectsFor(state.PlayerB, trigger, triggeringPlayer, sourceUnit);
+        }
+
+        private void TriggerLeaderEffectsFor(Player leaderOwner, EffectTriggerType trigger, PlayerSide triggeringPlayer, BoardUnit sourceUnit)
+        {
+            if (leaderOwner.Leader == null)
+            {
+                return;
+            }
+
+            EffectTarget defaultTarget = EffectTarget.ForLeader(leaderOwner.Side);
+            EffectContext context = new EffectContext(state, leaderOwner.Side, sourceUnit, defaultTarget, triggeringPlayer);
+
+            foreach (CardEffect effect in leaderOwner.Leader.Effects)
+            {
+                if (effect.trigger != trigger)
+                {
+                    continue;
+                }
+
+                if (effect.oncePerTurn && leaderOwner.TriggeredOncePerTurnEffects.Contains(effect))
+                {
+                    continue;
+                }
+
+                EffectExecutor.Execute(effect, context, this);
+
+                if (effect.oncePerTurn)
+                {
+                    leaderOwner.TriggeredOncePerTurnEffects.Add(effect);
                 }
             }
         }

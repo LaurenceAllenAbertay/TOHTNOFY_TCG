@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.Core;
 
 namespace DDD.TNFY.TCG.UI
 {
@@ -45,6 +46,16 @@ namespace DDD.TNFY.TCG.UI
             instance.BeginShow(card, screenPosition);
         }
 
+        public static void Show(LeaderData leader, Vector3 screenPosition)
+        {
+            if (instance == null || leader == null)
+            {
+                return;
+            }
+
+            instance.BeginShowLeader(leader, screenPosition);
+        }
+
         public static void Hide()
         {
             if (instance == null)
@@ -69,6 +80,22 @@ namespace DDD.TNFY.TCG.UI
             }
 
             pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, screenPosition));
+        }
+
+        private void BeginShowLeader(LeaderData leader, Vector3 screenPosition)
+        {
+            CancelPendingHide();
+            CancelPendingShow();
+
+            bool alreadyVisible = root != null && root.activeSelf;
+
+            if (alreadyVisible)
+            {
+                DisplayLeader(leader, screenPosition);
+                return;
+            }
+
+            pendingShowCoroutine = StartCoroutine(ShowLeaderAfterDelay(leader, screenPosition));
         }
 
         private void BeginHide()
@@ -114,6 +141,13 @@ namespace DDD.TNFY.TCG.UI
             DisplayCard(card, screenPosition);
         }
 
+        private System.Collections.IEnumerator ShowLeaderAfterDelay(LeaderData leader, Vector3 screenPosition)
+        {
+            yield return new WaitForSeconds(hoverDelaySeconds);
+            pendingShowCoroutine = null;
+            DisplayLeader(leader, screenPosition);
+        }
+
         private void DisplayCard(CardData card, Vector3 screenPosition)
         {
             if (root != null)
@@ -121,15 +155,7 @@ namespace DDD.TNFY.TCG.UI
                 root.SetActive(true);
             }
 
-            if (rootRect != null)
-            {
-                bool cardIsOnLeftHalf = screenPosition.x < Screen.width / 2f;
-                float targetX = cardIsOnLeftHalf ? leftSideX : rightSideX;
-
-                Vector2 anchoredPosition = rootRect.anchoredPosition;
-                anchoredPosition.x = targetX;
-                rootRect.anchoredPosition = anchoredPosition;
-            }
+            PositionPreview(screenPosition);
 
             if (artImage != null)
             {
@@ -143,6 +169,7 @@ namespace DDD.TNFY.TCG.UI
 
             if (costText != null)
             {
+                costText.gameObject.SetActive(true);
                 costText.text = CardDisplayFormatter.GetCostText(card);
             }
 
@@ -171,6 +198,62 @@ namespace DDD.TNFY.TCG.UI
                     healthText.text = CardDisplayFormatter.GetHealthText(unitCard);
                 }
             }
+        }
+
+        private void DisplayLeader(LeaderData leader, Vector3 screenPosition)
+        {
+            if (root != null)
+            {
+                root.SetActive(true);
+            }
+
+            PositionPreview(screenPosition);
+
+            if (artImage != null)
+            {
+                artImage.sprite = leader.Portrait;
+            }
+
+            if (nameText != null)
+            {
+                nameText.text = leader.LeaderName;
+            }
+
+            if (costText != null)
+            {
+                costText.gameObject.SetActive(false);
+            }
+
+            if (abilityText != null)
+            {
+                abilityText.text = leader.AbilityText;
+            }
+
+            if (attackText != null)
+            {
+                attackText.gameObject.SetActive(false);
+            }
+
+            if (healthText != null)
+            {
+                healthText.gameObject.SetActive(true);
+                healthText.text = leader.MaxHealth.ToString();
+            }
+        }
+
+        private void PositionPreview(Vector3 screenPosition)
+        {
+            if (rootRect == null)
+            {
+                return;
+            }
+
+            bool isOnLeftHalf = screenPosition.x < Screen.width / 2f;
+            float targetX = isOnLeftHalf ? leftSideX : rightSideX;
+
+            Vector2 anchoredPosition = rootRect.anchoredPosition;
+            anchoredPosition.x = targetX;
+            rootRect.anchoredPosition = anchoredPosition;
         }
     }
 }

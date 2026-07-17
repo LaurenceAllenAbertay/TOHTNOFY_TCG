@@ -15,6 +15,8 @@ namespace DDD.TNFY.TCG.Effects
         GrantRush,
         ApplyLeaderDamageShield,
         DealDamageToTarget,
-        ReduceOpponentMana
+        ReduceOpponentMana,
+        GrantKeyword,
+        HealAdjacentUnits
     }
 }

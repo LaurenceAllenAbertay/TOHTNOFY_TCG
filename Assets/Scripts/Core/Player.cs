@@ -13,14 +13,19 @@ namespace DDD.TNFY.TCG.Core
         public PlayerSide Side { get; }
         public List<CardData> Deck { get; } = new List<CardData>();
         public List<CardData> Hand { get; } = new List<CardData>();
+        public LeaderData Leader { get; set; }
 
         public int CurrentMana { get; set; }
         public int MaxManaThisGame { get; set; }
         public int MaxLeaderHealth { get; set; } = StartingLeaderHealth;
         public int LeaderHealth { get; set; } = StartingLeaderHealth;
         public int PendingManaReduction { get; set; }
+        public bool HasReachedMaxMana { get; set; }
+        public bool HasUsedFirstUnitDiscountThisTurn { get; set; }
+        public int OwnTurnCount { get; set; }
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
+        public HashSet<CardEffect> TriggeredOncePerTurnEffects { get; } = new HashSet<CardEffect>();
 
         public Player(PlayerSide side)
         {
@@ -54,6 +59,28 @@ namespace DDD.TNFY.TCG.Core
 
             CardData drawn = Deck[0];
             Deck.RemoveAt(0);
+
+            if (Hand.Count < MaxHandSize)
+            {
+                Hand.Add(drawn);
+            }
+
+            return drawn;
+        }
+
+        public CardData DrawRandomItemCard()
+        {
+            List<CardData> itemCards = Deck.FindAll(card => card is ItemCardData);
+
+            if (itemCards.Count == 0)
+            {
+                return null;
+            }
+
+            System.Random rng = new System.Random();
+            CardData drawn = itemCards[rng.Next(itemCards.Count)];
+
+            Deck.Remove(drawn);
 
             if (Hand.Count < MaxHandSize)
             {
