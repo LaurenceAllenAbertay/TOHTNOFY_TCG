@@ -10,18 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Firestarter
+  m_Name: Montague
   m_EditorClassIdentifier: 
-  cardId: firestarter
-  cardName: Firestarter
-  manaCost: 2
+  cardId: montague
+  cardName: Montague
+  manaCost: 4
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Deal 2 damage to opposing unit.
-  effects:
-  - trigger: 0
-    action: 0
-    targetType: 0
-    amount: 2
+  abilityText: Taunt
+  effects: []
   attack: 2
-  health: 3
+  health: 8
+  keywords: 1

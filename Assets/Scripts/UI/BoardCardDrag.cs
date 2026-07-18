@@ -68,6 +68,23 @@ namespace DDD.TNFY.TCG.UI
             }
         }
 
+        private bool IsPendingFreeMoveEligible()
+        {
+            GameState state = gameManager.State;
+
+            if (!state.HasPendingFreeMove)
+            {
+                return false;
+            }
+
+            if (boardCardView.Unit == state.PendingFreeMoveExcludedUnit)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private bool CanDragThisUnit()
         {
             if (boardCardView.Unit == null)
@@ -80,7 +97,9 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
-            if (gameManager.State.CurrentPhase != TurnPhase.Move)
+            bool isMovePhase = gameManager.State.CurrentPhase == TurnPhase.Move;
+
+            if (!isMovePhase && !IsPendingFreeMoveEligible())
             {
                 return false;
             }
@@ -174,6 +193,20 @@ namespace DDD.TNFY.TCG.UI
             }
 
             int fromSlot = boardCardView.Unit.SlotIndex;
+            GameState state = gameManager.State;
+
+            if (state.HasPendingFreeMove && IsPendingFreeMoveEligible())
+            {
+                if (gameManager.Phases.MoveUnitFree(boardCardView.Unit.Owner, fromSlot, slot.SlotIndex))
+                {
+                    state.HasPendingFreeMove = false;
+                    state.PendingFreeMoveExcludedUnit = null;
+                    droppedOnLegalSlot = true;
+                    Debug.Log($"[BoardCardDrag] Pending free move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
+                }
+
+                return;
+            }
 
             if (gameManager.Phases.TryMoveUnit(fromSlot, slot.SlotIndex))
             {
@@ -195,12 +228,13 @@ namespace DDD.TNFY.TCG.UI
 
             int fromSlot = boardCardView.Unit.SlotIndex;
             PlayerSide owner = boardCardView.Unit.Owner;
+            bool useFreeMoveRules = gameManager.State.HasPendingFreeMove && IsPendingFreeMoveEligible();
 
             foreach (BoardSlotDropTarget slot in GetAllSlotDropTargets())
             {
                 bool shouldHighlight = show
                     && slot.Side == owner
-                    && gameManager.Phases.CanMoveUnit(fromSlot, slot.SlotIndex);
+                    && gameManager.Phases.CanMoveUnit(fromSlot, slot.SlotIndex, ignoreMoveLimitAndCost: useFreeMoveRules);
 
                 slot.SetHighlighted(shouldHighlight);
             }

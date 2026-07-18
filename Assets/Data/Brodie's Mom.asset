@@ -10,15 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Nimble
+  m_Name: Brodie's Mom
   m_EditorClassIdentifier: 
-  cardId: nimble
-  cardName: Nimble
-  manaCost: 1
+  cardId: brodiesmom
+  cardName: Brodie's Mom
+  manaCost: 2
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 
-  effects: []
-  attack: 1
-  health: 1
-  keywords: 16
+  abilityText: 'On Play: Heal your leader 1 health.'
+  effects:
+  - trigger: 0
+    action: 4
+    targetType: 4
+    amount: 1
+    oncePerTurn: 0
+  attack: 3
+  health: 2
+  keywords: 0

@@ -165,6 +165,8 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!CanPlayUnit(card, slotIndex)) return false;
 
+            CancelPendingTargetedEffectIfNonMandatory();
+
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
 
@@ -187,6 +189,8 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanPlayUnit(UnitCardData card, int slotIndex)
         {
+            if (HasBlockingPendingTargetedEffect()) return false;
+
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
 
@@ -231,7 +235,23 @@ namespace DDD.TNFY.TCG.Core
 
         public void EnterAttackPhase()
         {
+            CancelPendingTargetedEffectIfNonMandatory();
+
+            if (HasBlockingPendingTargetedEffect())
+            {
+                Debug.LogWarning("[PhaseManager] EnterAttackPhase blocked: an On-Play effect is still awaiting a target.");
+                return;
+            }
+
             state.CurrentPhase = TurnPhase.Attack;
+
+            if (state.HasPendingFreeMove)
+            {
+                Debug.Log("[PhaseManager] Unused pending free move expired at end of Play phase.");
+            }
+
+            state.HasPendingFreeMove = false;
+            state.PendingFreeMoveExcludedUnit = null;
 
             TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
 
@@ -243,6 +263,7 @@ namespace DDD.TNFY.TCG.Core
 
                 bool wasStunned = ConsumeStunIfPresent(attacker);
                 bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
+                int temporaryAttackBonus = ConsumeStatusMagnitude(attacker, StatusEffectType.TemporaryAttackNextAttack);
 
                 if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush, state)) continue;
                 if (wasStunned) continue;
@@ -258,17 +279,17 @@ namespace DDD.TNFY.TCG.Core
 
                         if (beforeSlot >= 0)
                         {
-                            ResolveAttack(attacker, beforeSlot);
+                            ResolveAttack(attacker, beforeSlot, temporaryAttackBonus);
                         }
 
                         if (afterSlot < Board.SlotsPerSide)
                         {
-                            ResolveAttack(attacker, afterSlot);
+                            ResolveAttack(attacker, afterSlot, temporaryAttackBonus);
                         }
                     }
                     else
                     {
-                        ResolveAttack(attacker, i);
+                        ResolveAttack(attacker, i, temporaryAttackBonus);
                     }
                 }
             }
@@ -281,10 +302,10 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void ResolveAttack(BoardUnit attacker, int targetSlot)
+        private void ResolveAttack(BoardUnit attacker, int targetSlot, int temporaryAttackBonus = 0)
         {
             BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
-            int attackerCurrentAttack = attacker.GetCurrentAttack(state);
+            int attackerCurrentAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
 
             if (defender != null)
             {
@@ -358,6 +379,21 @@ namespace DDD.TNFY.TCG.Core
             return false;
         }
 
+        private static int ConsumeStatusMagnitude(BoardUnit unit, StatusEffectType type)
+        {
+            for (int i = 0; i < unit.Statuses.Count; i++)
+            {
+                if (unit.Statuses[i].Type == type)
+                {
+                    int magnitude = unit.Statuses[i].Magnitude;
+                    unit.Statuses.RemoveAt(i);
+                    return magnitude;
+                }
+            }
+
+            return 0;
+        }
+
         private void TickDelayedKills(Player owner)
         {
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
@@ -422,6 +458,14 @@ namespace DDD.TNFY.TCG.Core
             BoardUnit unit = state.Board.GetUnit(side, fromSlot);
             bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
 
+            Player mover = state.GetPlayer(side);
+            LeaderData moverLeader = mover.Leader;
+
+            if (moverLeader != null && moverLeader.MoveManaCost > 0)
+            {
+                mover.CurrentMana -= moverLeader.MoveManaCost;
+            }
+
             state.Board.RemoveUnit(side, fromSlot);
             state.Board.PlaceUnit(side, toSlot, unit);
 
@@ -432,10 +476,59 @@ namespace DDD.TNFY.TCG.Core
                 state.HasUsedMoveThisTurn = true;
             }
 
+            GrantCodyMoveBonusIfApplicable(unit);
+
             return true;
         }
 
-        public bool CanMoveUnit(int fromSlot, int toSlot)
+        public bool MoveUnitFree(PlayerSide side, int fromSlot, int toSlot)
+        {
+            if (state.ActivePlayer != side) return false;
+            if (!CanMoveUnit(fromSlot, toSlot, ignoreMoveLimitAndCost: true)) return false;
+
+            BoardUnit unit = state.Board.GetUnit(side, fromSlot);
+
+            state.Board.RemoveUnit(side, fromSlot);
+            state.Board.PlaceUnit(side, toSlot, unit);
+
+            GrantCodyMoveBonusIfApplicable(unit);
+
+            return true;
+        }
+
+        public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
+        {
+            if (unitA == null || unitB == null || unitA == unitB) return false;
+
+            PlayerSide sideA = unitA.Owner;
+            PlayerSide sideB = unitB.Owner;
+            int slotA = unitA.SlotIndex;
+            int slotB = unitB.SlotIndex;
+
+            state.Board.RemoveUnit(sideA, slotA);
+            state.Board.RemoveUnit(sideB, slotB);
+
+            state.Board.PlaceUnit(sideA, slotB, unitA);
+            state.Board.PlaceUnit(sideB, slotA, unitB);
+
+            GrantCodyMoveBonusIfApplicable(unitA);
+            GrantCodyMoveBonusIfApplicable(unitB);
+
+            return true;
+        }
+
+        private void GrantCodyMoveBonusIfApplicable(BoardUnit unit)
+        {
+            Player owner = state.GetPlayer(unit.Owner);
+            LeaderData ownerLeader = owner.Leader;
+
+            if (ownerLeader != null && ownerLeader.MoveTemporaryAttackBonus > 0)
+            {
+                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackNextAttack, 1, ownerLeader.MoveTemporaryAttackBonus));
+            }
+        }
+
+        public bool CanMoveUnit(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost = false)
         {
             PlayerSide side = state.ActivePlayer;
             BoardUnit unit = state.Board.GetUnit(side, fromSlot);
@@ -444,10 +537,18 @@ namespace DDD.TNFY.TCG.Core
 
             bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
 
-            if (unit.PlacedThisTurn && !isNimble) return false;
+            if (!ignoreMoveLimitAndCost)
+            {
+                if (unit.PlacedThisTurn && !isNimble) return false;
+                if (!isNimble && state.HasUsedMoveThisTurn) return false;
+                if (isNimble && unit.HasMovedThisTurn) return false;
+
+                Player mover = state.GetPlayer(side);
+                int moveManaCost = mover.Leader != null ? mover.Leader.MoveManaCost : 0;
+                if (mover.CurrentMana < moveManaCost) return false;
+            }
+
             if (state.Board.GetUnit(side, toSlot) != null) return false;
-            if (!isNimble && state.HasUsedMoveThisTurn) return false;
-            if (isNimble && unit.HasMovedThisTurn) return false;
 
             int distance = toSlot - fromSlot;
             int maxRange = unit.HasKeyword(Keyword.Agile, state) ? 2 : 1;
@@ -499,6 +600,8 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!CanPlayItem(card, target)) return false;
 
+            CancelPendingTargetedEffectIfNonMandatory();
+
             Player active = state.GetActivePlayerData();
 
             active.CurrentMana -= card.ManaCost;
@@ -513,6 +616,12 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanPlayItem(ItemCardData card, EffectTarget target)
         {
+            if (HasBlockingPendingTargetedEffect())
+            {
+                Debug.Log("[PhaseManager] CanPlayItem FAIL: a mandatory On-Play effect is still awaiting a target.");
+                return false;
+            }
+
             Player active = state.GetActivePlayerData();
 
             if (!active.CanAfford(card))
@@ -549,13 +658,124 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (CardEffect effect in unit.SourceCard.Effects)
             {
-                if (effect.trigger == EffectTriggerType.OnPlay)
+                if (effect.trigger != EffectTriggerType.OnPlay)
+                {
+                    continue;
+                }
+
+                if (RequiresChosenTarget(effect.targetType))
+                {
+                    DeferTargetedEffect(effect, unit);
+                }
+                else
                 {
                     EffectExecutor.Execute(effect, context, this);
                 }
             }
 
             TriggerLeaderEffects(EffectTriggerType.OnPlay, unit.Owner, unit);
+        }
+
+        private static bool RequiresChosenTarget(TargetType targetType)
+        {
+            return targetType != TargetType.None && targetType != TargetType.Board;
+        }
+
+        private void DeferTargetedEffect(CardEffect effect, BoardUnit sourceUnit)
+        {
+            bool hasValidTarget = BoardHasValidTarget(effect.targetType, sourceUnit.Owner, sourceUnit);
+
+            if (!hasValidTarget)
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s On-Play effect has no valid target on board — fizzling.");
+                return;
+            }
+
+            state.PendingTargetedEffect = effect;
+            state.PendingTargetedEffectSource = sourceUnit;
+            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s On-Play effect is now awaiting a target click.");
+        }
+
+        private bool BoardHasValidTarget(TargetType targetType, PlayerSide sourceOwner, BoardUnit excludingUnit = null)
+        {
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit candidateA = state.Board.GetUnit(PlayerSide.PlayerA, i);
+                if (candidateA != null && candidateA != excludingUnit && EffectTargeting.IsValidTarget(targetType, EffectTarget.ForUnit(candidateA), state))
+                {
+                    return true;
+                }
+
+                BoardUnit candidateB = state.Board.GetUnit(PlayerSide.PlayerB, i);
+                if (candidateB != null && candidateB != excludingUnit && EffectTargeting.IsValidTarget(targetType, EffectTarget.ForUnit(candidateB), state))
+                {
+                    return true;
+                }
+            }
+
+            if (EffectTargeting.IsValidTarget(targetType, EffectTarget.ForLeader(PlayerSide.PlayerA), state))
+            {
+                return true;
+            }
+
+            if (EffectTargeting.IsValidTarget(targetType, EffectTarget.ForLeader(PlayerSide.PlayerB), state))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryResolvePendingTargetedEffect(EffectTarget chosenTarget)
+        {
+            if (state.PendingTargetedEffect == null || state.PendingTargetedEffectSource == null)
+            {
+                return false;
+            }
+
+            if (chosenTarget.Kind == EffectTargetKind.Unit && chosenTarget.Unit == state.PendingTargetedEffectSource)
+            {
+                return false;
+            }
+
+            if (!EffectTargeting.IsValidTarget(state.PendingTargetedEffect.targetType, chosenTarget, state))
+            {
+                return false;
+            }
+
+            CardEffect effect = state.PendingTargetedEffect;
+            BoardUnit sourceUnit = state.PendingTargetedEffectSource;
+
+            state.PendingTargetedEffect = null;
+            state.PendingTargetedEffectSource = null;
+
+            EffectContext context = new EffectContext(state, sourceUnit.Owner, sourceUnit, chosenTarget);
+            EffectExecutor.Execute(effect, context, this);
+
+            return true;
+        }
+
+        public bool HasBlockingPendingTargetedEffect()
+        {
+            return state.PendingTargetedEffect != null && state.PendingTargetedEffect.mandatoryTarget;
+        }
+
+        public void CancelPendingTargetedEffectIfNonMandatory()
+        {
+            if (state.PendingTargetedEffect == null)
+            {
+                return;
+            }
+
+            if (state.PendingTargetedEffect.mandatoryTarget)
+            {
+                return;
+            }
+
+            Debug.Log($"[PhaseManager] Non-mandatory pending effect on {state.PendingTargetedEffectSource?.SourceCard?.CardName} was cancelled.");
+
+            state.PendingTargetedEffect = null;
+            state.PendingTargetedEffectSource = null;
         }
 
         private void TriggerLeaderEffects(EffectTriggerType trigger, PlayerSide triggeringPlayer, BoardUnit sourceUnit)

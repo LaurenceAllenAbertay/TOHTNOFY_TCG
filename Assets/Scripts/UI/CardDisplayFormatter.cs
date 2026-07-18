@@ -35,9 +35,10 @@ namespace DDD.TNFY.TCG.UI
             return unit.GetCurrentAttack(state).ToString();
         }
 
-        public static string GetHealthText(BoardUnit unit)
+        public static string GetHealthText(BoardUnit unit, GameState state)
         {
-            return unit.CurrentHealth.ToString();
+            int effectiveMax = unit.GetEffectiveMaxHealth(state);
+            return $"{unit.CurrentHealth}/{effectiveMax}";
         }
     }
 }

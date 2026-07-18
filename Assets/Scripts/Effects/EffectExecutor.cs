@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
+using UnityEngine;
 
 namespace DDD.TNFY.TCG.Effects
 {
@@ -67,6 +69,18 @@ namespace DDD.TNFY.TCG.Effects
 
                 case EffectActionType.HealAdjacentUnits:
                     ExecuteHealAdjacentUnits(effect, context, phases);
+                    break;
+
+                case EffectActionType.MoveAllyUnit:
+                    ExecuteMoveAllyUnit(context);
+                    break;
+
+                case EffectActionType.SwapUnitSlot:
+                    ExecuteSwapUnitSlot(context, phases);
+                    break;
+
+                case EffectActionType.DealDamageToAllEnemyUnits:
+                    ExecuteDealDamageToAllEnemyUnits(effect, context, phases);
                     break;
             }
         }
@@ -244,6 +258,55 @@ namespace DDD.TNFY.TCG.Effects
             if (rightNeighbor != null)
             {
                 phases.HealUnit(rightNeighbor, effect.amount);
+            }
+        }
+
+        private static void ExecuteMoveAllyUnit(EffectContext context)
+        {
+            context.GameState.HasPendingFreeMove = true;
+            context.GameState.PendingFreeMoveExcludedUnit = context.SourceUnit;
+            Debug.Log($"[EffectExecutor] Pending free move granted, excluding {context.SourceUnit?.SourceCard?.CardName}");
+        }
+
+        private static void ExecuteSwapUnitSlot(EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            phases.SwapUnitSlots(context.SourceUnit, context.ChosenTarget.Unit);
+        }
+
+        private static void ExecuteDealDamageToAllEnemyUnits(CardEffect effect, EffectContext context, PhaseManager phases)
+        {
+            PlayerSide enemySide = context.SourceOwner.Opposite();
+
+            List<BoardUnit> targets = new List<BoardUnit>();
+
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit unit = context.Board.GetUnit(enemySide, i);
+
+                if (unit != null)
+                {
+                    targets.Add(unit);
+                }
+            }
+
+            foreach (BoardUnit unit in targets)
+            {
+                unit.CurrentHealth -= effect.amount;
+
+                if (unit.CurrentHealth <= 0)
+                {
+                    phases.KillUnit(unit, context.SourceOwner);
+                }
             }
         }
     }

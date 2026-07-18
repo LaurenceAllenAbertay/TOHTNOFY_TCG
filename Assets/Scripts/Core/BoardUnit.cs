@@ -20,7 +20,22 @@ namespace DDD.TNFY.TCG.Core
 
         public int GetCurrentAttack(GameState state)
         {
-            return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state);
+            return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state) + GetPendingTemporaryAttackBonus();
+        }
+
+        private int GetPendingTemporaryAttackBonus()
+        {
+            int bonus = 0;
+
+            foreach (ActiveStatusEffect status in Statuses)
+            {
+                if (status.Type == StatusEffectType.TemporaryAttackNextAttack)
+                {
+                    bonus += status.Magnitude;
+                }
+            }
+
+            return bonus;
         }
 
         public int GetEffectiveMaxHealth(GameState state)

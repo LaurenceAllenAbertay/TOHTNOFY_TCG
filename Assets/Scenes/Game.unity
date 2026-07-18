@@ -1518,6 +1518,8 @@ MonoBehaviour:
   cardSlotWidth: 180
   cardSpacing: 0
   cardSlotY: 0
+  compactHandCardThreshold: 6
+  minCardSlotWidth: 60
 --- !u!1 &511515818
 GameObject:
   m_ObjectHideFlags: 0
@@ -4461,6 +4463,8 @@ MonoBehaviour:
   cardSlotWidth: 180
   cardSpacing: 0
   cardSlotY: 0
+  compactHandCardThreshold: 6
+  minCardSlotWidth: 60
 --- !u!1 &1704741067
 GameObject:
   m_ObjectHideFlags: 0
@@ -4791,26 +4795,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   testCardPool:
-  - {fileID: 11400000, guid: 725d52391e48fca4c9b7f5f2352b4133, type: 2}
-  - {fileID: 11400000, guid: cd34e152819cd0143b687ba709d6e1d3, type: 2}
-  - {fileID: 11400000, guid: aae1341c2cd4e1d45b99914688174b16, type: 2}
-  - {fileID: 11400000, guid: 54caed9a2d246dc4081de5179708af78, type: 2}
-  - {fileID: 11400000, guid: 3adba099345368e4e912aafaa0d8529a, type: 2}
   - {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
-  - {fileID: 11400000, guid: 13d74b73773eb5541b70fee5b3510f50, type: 2}
-  - {fileID: 11400000, guid: b3f9592e49d90cd489435da4f15cd246, type: 2}
-  - {fileID: 11400000, guid: ff5b4ad1367c6ea45ae350a77f07c966, type: 2}
+  - {fileID: 11400000, guid: 9e11828a4ebf551439d1733b8f6210ad, type: 2}
+  - {fileID: 11400000, guid: 6f5b2a791e4111940b43c20716adfc03, type: 2}
+  - {fileID: 11400000, guid: 725d52391e48fca4c9b7f5f2352b4133, type: 2}
   copiesOfEachCard: 3
   leaderPool:
   - {fileID: 11400000, guid: 496f4d2ad2304514d97fd93f2d983876, type: 2}
   - {fileID: 11400000, guid: 8f9d3feaffeb7b74d918f167f9311e2f, type: 2}
-  - {fileID: 11400000, guid: bb9b48000d6bdb74d8904f14ba6996d4, type: 2}
-  - {fileID: 11400000, guid: 2fc6d9e08cc0181408f88d4167edf37b, type: 2}
-  - {fileID: 11400000, guid: dd144a564546f9c4980c32fa4f1127ee, type: 2}
-  - {fileID: 11400000, guid: 3e8bed4634c7c2045985ae12aabf1d7d, type: 2}
-  - {fileID: 11400000, guid: 46f96990158f91e47aeb1382036beba6, type: 2}
-  - {fileID: 11400000, guid: bdbc1ae944e5a5d4f93c33ae6be6cb4e, type: 2}
-  - {fileID: 11400000, guid: 04d7f180c09e849468812e0cdd420e8b, type: 2}
 --- !u!1 &1750904537
 GameObject:
   m_ObjectHideFlags: 0

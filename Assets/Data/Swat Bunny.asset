@@ -10,14 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Warbeast
+  m_Name: Swat Bunny
   m_EditorClassIdentifier: 
-  cardId: warbeast
-  cardName: Warbeast
-  manaCost: 5
+  cardId: swatbunny
+  cardName: Swat Bunny
+  manaCost: 3
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 
+  abilityText: Rush
   effects: []
-  attack: 6
+  attack: 2
   health: 5
+  keywords: 2

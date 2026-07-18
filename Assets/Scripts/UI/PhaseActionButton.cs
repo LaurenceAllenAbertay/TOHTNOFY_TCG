@@ -13,6 +13,7 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI label;
 
         private TurnPhase? shownPhase;
+        private bool? shownHasPendingTarget;
 
         private void Awake()
         {
@@ -30,23 +31,26 @@ namespace DDD.TNFY.TCG.UI
             }
 
             TurnPhase currentPhase = gameManager.State.CurrentPhase;
+            bool hasPendingTarget = gameManager.Phases.HasBlockingPendingTargetedEffect();
 
-            if (shownPhase == currentPhase)
+            if (shownPhase == currentPhase && shownHasPendingTarget == hasPendingTarget)
             {
                 return;
             }
 
-            Refresh(currentPhase);
+            Refresh(currentPhase, hasPendingTarget);
             shownPhase = currentPhase;
+            shownHasPendingTarget = hasPendingTarget;
         }
 
-        private void Refresh(TurnPhase phase)
+        private void Refresh(TurnPhase phase, bool hasPendingTarget)
         {
             bool isRelevantPhase = phase == TurnPhase.Play || phase == TurnPhase.Move || phase == TurnPhase.TurnEnd;
+            bool isInteractable = isRelevantPhase && !hasPendingTarget;
 
             if (button != null)
             {
-                button.interactable = isRelevantPhase;
+                button.interactable = isInteractable;
             }
 
             if (buttonImage != null)
@@ -61,6 +65,12 @@ namespace DDD.TNFY.TCG.UI
 
             if (!isRelevantPhase || label == null)
             {
+                return;
+            }
+
+            if (hasPendingTarget)
+            {
+                label.text = "Choose Target...";
                 return;
             }
 

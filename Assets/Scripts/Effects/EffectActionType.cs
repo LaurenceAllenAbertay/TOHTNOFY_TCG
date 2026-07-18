@@ -17,6 +17,9 @@ namespace DDD.TNFY.TCG.Effects
         DealDamageToTarget,
         ReduceOpponentMana,
         GrantKeyword,
-        HealAdjacentUnits
+        HealAdjacentUnits,
+        MoveAllyUnit,
+        SwapUnitSlot,
+        DealDamageToAllEnemyUnits
     }
 }

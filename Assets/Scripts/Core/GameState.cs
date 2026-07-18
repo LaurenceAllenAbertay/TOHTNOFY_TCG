@@ -1,3 +1,5 @@
+using DDD.TNFY.TCG.Effects;
+
 namespace DDD.TNFY.TCG.Core
 {
     public class GameState
@@ -13,6 +15,12 @@ namespace DDD.TNFY.TCG.Core
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }
         public PlayerSide? Winner { get; set; }
+
+        public bool HasPendingFreeMove { get; set; }
+        public BoardUnit PendingFreeMoveExcludedUnit { get; set; }
+
+        public CardEffect PendingTargetedEffect { get; set; }
+        public BoardUnit PendingTargetedEffectSource { get; set; }
 
         public Player GetPlayer(PlayerSide side)
         {

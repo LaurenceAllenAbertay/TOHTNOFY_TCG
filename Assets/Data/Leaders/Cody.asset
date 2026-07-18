@@ -16,14 +16,11 @@ MonoBehaviour:
   leaderName: Cody
   maxHealth: 30
   portrait: {fileID: 0}
-  abilityText: Your units gain Nimble.
+  abilityText: Moving a unit during the Move phase costs 1 mana. Every time a unit
+    moves, it gains +1 temporary attack.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 1
+  moveTemporaryAttackBonus: 1
   effects: []
-  auras:
-  - scope: 0
-    activationCondition: 0
-    grant:
-      action: 14
-      amount: 0
-      keyword: 16
+  auras: []

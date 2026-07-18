@@ -110,6 +110,11 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
+            if (gameManager.Phases.HasBlockingPendingTargetedEffect())
+            {
+                return false;
+            }
+
             return handCardView.Card is UnitCardData || handCardView.Card is ItemCardData;
         }
 

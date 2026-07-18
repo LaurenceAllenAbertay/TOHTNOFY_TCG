@@ -10,15 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Agile
+  m_Name: Side-Eye Cat
   m_EditorClassIdentifier: 
-  cardId: agile
-  cardName: Agile
-  manaCost: 1
+  cardId: sideeyecat
+  cardName: Side-Eye Cat
+  manaCost: 4
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 
-  effects: []
-  attack: 1
-  health: 1
-  keywords: 8
+  abilityText: 'On Play: Move an ally unit. Does not count toward this turn''s move
+    limit.'
+  effects:
+  - trigger: 0
+    action: 16
+    targetType: 0
+    amount: 0
+    oncePerTurn: 0
+    mandatoryTarget: 0
+  attack: 3
+  health: 6
+  keywords: 0
