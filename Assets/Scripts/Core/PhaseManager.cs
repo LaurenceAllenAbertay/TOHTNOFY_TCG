@@ -569,6 +569,12 @@ namespace DDD.TNFY.TCG.Core
             state.CurrentPhase = TurnPhase.TurnEnd;
         }
 
+        public void PassMoveToEndTurn()
+        {
+            EnterTurnEndPhase();
+            EndTurn();
+        }
+
         public void EndTurn()
         {
             for (int i = 0; i < Board.SlotsPerSide; i++)
@@ -730,16 +736,19 @@ namespace DDD.TNFY.TCG.Core
         {
             if (state.PendingTargetedEffect == null || state.PendingTargetedEffectSource == null)
             {
+                Debug.Log("[PhaseManager] TryResolvePendingTargetedEffect FAIL: no pending effect.");
                 return false;
             }
 
             if (chosenTarget.Kind == EffectTargetKind.Unit && chosenTarget.Unit == state.PendingTargetedEffectSource)
             {
+                Debug.Log("[PhaseManager] TryResolvePendingTargetedEffect FAIL: clicked the source unit itself.");
                 return false;
             }
 
             if (!EffectTargeting.IsValidTarget(state.PendingTargetedEffect.targetType, chosenTarget, state))
             {
+                Debug.Log($"[PhaseManager] TryResolvePendingTargetedEffect FAIL: target invalid for targetType={state.PendingTargetedEffect.targetType}, chosenTarget.Kind={chosenTarget.Kind}");
                 return false;
             }
 
@@ -751,6 +760,8 @@ namespace DDD.TNFY.TCG.Core
 
             EffectContext context = new EffectContext(state, sourceUnit.Owner, sourceUnit, chosenTarget);
             EffectExecutor.Execute(effect, context, this);
+
+            Debug.Log($"[PhaseManager] TryResolvePendingTargetedEffect SUCCESS: {effect.action} resolved.");
 
             return true;
         }

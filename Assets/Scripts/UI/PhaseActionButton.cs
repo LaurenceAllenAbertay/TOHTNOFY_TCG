@@ -45,7 +45,7 @@ namespace DDD.TNFY.TCG.UI
 
         private void Refresh(TurnPhase phase, bool hasPendingTarget)
         {
-            bool isRelevantPhase = phase == TurnPhase.Play || phase == TurnPhase.Move || phase == TurnPhase.TurnEnd;
+            bool isRelevantPhase = phase == TurnPhase.Play || phase == TurnPhase.Move;
             bool isInteractable = isRelevantPhase && !hasPendingTarget;
 
             if (button != null)
@@ -80,9 +80,6 @@ namespace DDD.TNFY.TCG.UI
                     label.text = "Attack!";
                     break;
                 case TurnPhase.Move:
-                    label.text = "Pass";
-                    break;
-                case TurnPhase.TurnEnd:
                     label.text = "End Turn";
                     break;
             }
@@ -101,10 +98,7 @@ namespace DDD.TNFY.TCG.UI
                     gameManager.Phases.EnterAttackPhase();
                     break;
                 case TurnPhase.Move:
-                    gameManager.Phases.EnterTurnEndPhase();
-                    break;
-                case TurnPhase.TurnEnd:
-                    gameManager.Phases.EndTurn();
+                    gameManager.Phases.PassMoveToEndTurn();
                     break;
             }
         }
