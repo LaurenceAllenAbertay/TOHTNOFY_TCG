@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: Professor Pickle
+  m_EditorClassIdentifier: 
+  cardId: professorpickle
+  cardName: Professor Pickle
+  manaCost: 1
+  rarity: 0
+  cardArt: {fileID: 0}
+  abilityText: 'On Death: Draw a card.'
+  effects:
+  - trigger: 3
+    action: 0
+    targetType: 0
+    amount: 1
+    oncePerTurn: 0
+    mandatoryTarget: 1
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 1
+    cardCategory: 0
+  attack: 2
+  health: 1
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

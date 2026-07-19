@@ -21,6 +21,16 @@ namespace DDD.TNFY.TCG.UI
             return card.AbilityText;
         }
 
+        public static string GetAbilityText(BoardUnit unit)
+        {
+            if (unit.IsSilenced)
+            {
+                return "Silenced";
+            }
+
+            return unit.SourceCard.AbilityText;
+        }
+
         public static string GetAttackText(UnitCardData card)
         {
             return card.Attack.ToString();

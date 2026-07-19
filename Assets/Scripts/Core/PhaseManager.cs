@@ -159,6 +159,7 @@ namespace DDD.TNFY.TCG.Core
             {
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
                 if (unit == null) continue;
+                if (unit.IsSilenced) continue;
 
                 foreach (CardEffect effect in unit.SourceCard.Effects)
                 {
@@ -560,6 +561,11 @@ namespace DDD.TNFY.TCG.Core
 
         private void TriggerOnAttack(BoardUnit attacker, BoardUnit defender, int damageDealt)
         {
+            if (attacker.IsSilenced)
+            {
+                return;
+            }
+
             EffectTarget selfTarget = EffectTarget.ForUnit(attacker);
             EffectContext context = new EffectContext(state, attacker.Owner, attacker, selfTarget);
 
@@ -644,23 +650,30 @@ namespace DDD.TNFY.TCG.Core
 
         private void TriggerOnDeath(BoardUnit unit)
         {
-            foreach (CardEffect effect in unit.SourceCard.Effects)
+            if (unit.IsSilenced)
             {
-                if (effect.trigger != EffectTriggerType.OnDeath)
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnDeath effects.");
+            }
+            else
+            {
+                foreach (CardEffect effect in unit.SourceCard.Effects)
                 {
-                    continue;
-                }
+                    if (effect.trigger != EffectTriggerType.OnDeath)
+                    {
+                        continue;
+                    }
 
-                if (RequiresChosenTarget(effect.targetType))
-                {
-                    Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s On-Death effect requires a chosen target, which isn't supported yet since the source unit is already off the board — skipping.");
-                    continue;
-                }
+                    if (RequiresChosenTarget(effect.targetType))
+                    {
+                        Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s On-Death effect requires a chosen target, which isn't supported yet since the source unit is already off the board — skipping.");
+                        continue;
+                    }
 
-                EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDeath effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}, LeaderSide={immediateTarget.LeaderSide}.");
-                EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                EffectExecutor.Execute(effect, context, this);
+                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
+                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDeath effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}, LeaderSide={immediateTarget.LeaderSide}.");
+                    EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
+                    EffectExecutor.Execute(effect, context, this);
+                }
             }
 
             if (unit.HasKeyword(Keyword.Unstable, state))
@@ -701,10 +714,77 @@ namespace DDD.TNFY.TCG.Core
 
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
 
-            if (!owner.TryAddCardToHand(unit.SourceCard))
+            int permanentAttack = unit.SourceCard.Attack + unit.BonusAttack;
+            int permanentHealth = unit.MaxHealth;
+            bool hasPermanentStatChange = unit.BonusAttack != 0 || unit.MaxHealth != unit.SourceCard.Health;
+
+            CardData cardForHand = unit.SourceCard;
+
+            if (hasPermanentStatChange)
+            {
+                cardForHand = unit.SourceCard.CreateStatOverrideClone(permanentAttack, permanentHealth);
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} bounced with permanently modified stats — cloned as {permanentAttack}/{permanentHealth}.");
+            }
+
+            if (!owner.TryAddCardToHand(cardForHand))
             {
                 Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} could not be bounced — {owner.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
             }
+        }
+
+        public void SilenceUnit(BoardUnit unit)
+        {
+            if (unit == null)
+            {
+                Debug.Log("[PhaseManager] SilenceUnit FAIL: unit is null.");
+                return;
+            }
+
+            if (unit.IsSilenced)
+            {
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is already Silenced — not stacking a second instance.");
+                return;
+            }
+
+            unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, 1));
+
+            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} was Silenced through the end of their owner's next turn.");
+        }
+
+        public bool SwapAttackAndHealth(BoardUnit unit)
+        {
+            if (unit == null)
+            {
+                Debug.Log("[PhaseManager] SwapAttackAndHealth FAIL: unit is null.");
+                return false;
+            }
+
+            if (unit.HasKeyword(Keyword.Unmoving, state))
+            {
+                Debug.Log($"[PhaseManager] SwapAttackAndHealth FAIL: {unit.SourceCard.CardName} is Unmoving.");
+                return false;
+            }
+
+            int oldCurrentAttack = unit.GetCurrentAttack(state);
+            int oldCurrentHealth = unit.CurrentHealth;
+            int oldEffectiveMaxHealth = unit.GetEffectiveMaxHealth(state);
+
+            int auraAttackBonus = AuraCalculator.GetAttackBonus(unit, state);
+            int auraMaxHealthBonus = oldEffectiveMaxHealth - unit.MaxHealth;
+
+            unit.BonusAttack = oldCurrentHealth - unit.SourceCard.Attack - auraAttackBonus;
+            unit.MaxHealth = oldCurrentAttack - auraMaxHealthBonus;
+            unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
+
+            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Attack and Health swapped: Attack {oldCurrentAttack}->{unit.GetCurrentAttack(state)}, Health {oldCurrentHealth}/{oldEffectiveMaxHealth}->{unit.CurrentHealth}/{unit.GetEffectiveMaxHealth(state)}.");
+
+            if (unit.CurrentHealth <= 0)
+            {
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s swap left it at 0 or less Health — dying.");
+                KillUnit(unit, unit.Owner);
+            }
+
+            return true;
         }
 
         private bool ConsumeStunIfPresent(BoardUnit unit)
@@ -764,6 +844,7 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
         }
+
 
         private void TickDecay(Player owner)
         {
@@ -878,6 +959,65 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
+
+            return true;
+        }
+
+        public bool HookClosestAllyLeft(BoardUnit sourceUnit)
+        {
+            if (sourceUnit == null)
+            {
+                Debug.Log("[PhaseManager] HookClosestAllyLeft FAIL: sourceUnit is null.");
+                return false;
+            }
+
+            PlayerSide side = sourceUnit.Owner;
+            int destinationSlot = sourceUnit.SlotIndex - 1;
+
+            if (destinationSlot < 0)
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook has no slot to its left — fizzling.");
+                return false;
+            }
+
+            BoardUnit closestAlly = null;
+
+            for (int slot = destinationSlot; slot >= 0; slot--)
+            {
+                BoardUnit candidate = state.Board.GetUnit(side, slot);
+                if (candidate != null)
+                {
+                    closestAlly = candidate;
+                    break;
+                }
+            }
+
+            if (closestAlly == null)
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook found no ally unit to its left — fizzling.");
+                return false;
+            }
+
+            if (closestAlly.SlotIndex == destinationSlot)
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook: closest ally {closestAlly.SourceCard.CardName} is already in the destination slot — nothing to do.");
+                return false;
+            }
+
+            if (closestAlly.HasKeyword(Keyword.Unmoving, state))
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook FAIL: {closestAlly.SourceCard.CardName} is Unmoving.");
+                return false;
+            }
+
+            int fromSlot = closestAlly.SlotIndex;
+
+            state.Board.RemoveUnit(side, fromSlot);
+            state.Board.PlaceUnit(side, destinationSlot, closestAlly);
+
+            GrantCodyMoveBonusIfApplicable(closestAlly);
+
+            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook moved {closestAlly.SourceCard.CardName} from slot {fromSlot} to slot {destinationSlot}.");
 
             return true;
         }
@@ -1121,6 +1261,12 @@ namespace DDD.TNFY.TCG.Core
                     unit.PlacedThisTurn = false;
                     unit.HasMovedThisTurn = false;
                     unit.HasUsedGrantedEnemyMoveThisTurn = false;
+
+                    if (unit.IsSilenced)
+                    {
+                        unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Silenced);
+                        Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
+                    }
                 }
             }
 

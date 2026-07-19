@@ -5440,7 +5440,8 @@ MonoBehaviour:
   testCardPool:
   - {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
   - {fileID: 11400000, guid: cd34e152819cd0143b687ba709d6e1d3, type: 2}
-  - {fileID: 11400000, guid: cef2242c466e1e74b92f9dd7594e98c7, type: 2}
+  - {fileID: 11400000, guid: 43a736fb3dfb6a54dba52e4840f753a1, type: 2}
+  - {fileID: 11400000, guid: 3339225e3ac280f43ae762e4b08f00c5, type: 2}
   copiesOfEachCard: 9
   leaderPool:
   - {fileID: 11400000, guid: dd144a564546f9c4980c32fa4f1127ee, type: 2}

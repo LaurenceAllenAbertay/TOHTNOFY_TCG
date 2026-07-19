@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: The Wordle
+  m_EditorClassIdentifier: 
+  cardId: thewordle
+  cardName: The Wordle
+  manaCost: 3
+  rarity: 0
+  cardArt: {fileID: 0}
+  abilityText: 'On Play: Silence an enemy unit for one turn.'
+  effects:
+  - trigger: 0
+    action: 31
+    targetType: 3
+    amount: 1
+    oncePerTurn: 0
+    mandatoryTarget: 1
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+  attack: 5
+  health: 2
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

@@ -19,6 +19,8 @@ namespace DDD.TNFY.TCG.Core
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
 
+        public bool IsSilenced => HasStatus(StatusEffectType.Silenced);
+
         public int GetCurrentAttack(GameState state)
         {
             return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state) + GetPendingTemporaryAttackBonus();
@@ -46,6 +48,11 @@ namespace DDD.TNFY.TCG.Core
 
         public bool HasKeyword(Keyword keyword, GameState state)
         {
+            if (IsSilenced)
+            {
+                return false;
+            }
+
             bool hasBaseKeyword = SourceCard.HasKeyword(keyword) || (GrantedKeywords & keyword) != 0;
             return hasBaseKeyword || AuraCalculator.HasAuraKeyword(this, state, keyword);
         }

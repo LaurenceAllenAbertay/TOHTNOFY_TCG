@@ -201,7 +201,9 @@ namespace DDD.TNFY.TCG.UI
 
             if (abilityText != null)
             {
-                abilityText.text = CardDisplayFormatter.GetAbilityText(card);
+                abilityText.text = liveUnit != null
+                    ? CardDisplayFormatter.GetAbilityText(liveUnit)
+                    : CardDisplayFormatter.GetAbilityText(card);
             }
 
             UnitCardData unitCard = card as UnitCardData;
@@ -225,16 +227,22 @@ namespace DDD.TNFY.TCG.UI
                 }
             }
 
-            PopulateExtraInfo(card);
+            PopulateExtraInfo(card, liveUnit);
         }
 
-        private void PopulateExtraInfo(CardData card)
+        private void PopulateExtraInfo(CardData card, BoardUnit liveUnit = null)
         {
             ClearExtraInfo();
 
             if (extraInfoContainer == null || infoPanelPrefab == null)
             {
                 Debug.Log($"[CardHoverPreview] PopulateExtraInfo skipped for {card.CardName} — extraInfoContainer or infoPanelPrefab not assigned in the Inspector.");
+                return;
+            }
+
+            if (liveUnit != null && liveUnit.IsSilenced)
+            {
+                Debug.Log($"[CardHoverPreview] PopulateExtraInfo skipped for {card.CardName} — unit is Silenced.");
                 return;
             }
 

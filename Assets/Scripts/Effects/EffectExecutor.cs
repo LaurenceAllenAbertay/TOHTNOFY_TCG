@@ -47,6 +47,14 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteBounceUnit(context, phases);
                     break;
 
+                case EffectActionType.SilenceUnit:
+                    ExecuteSilenceUnit(context, phases);
+                    break;
+
+                case EffectActionType.SwapAttackAndHealth:
+                    ExecuteSwapAttackAndHealth(context, phases);
+                    break;
+
                 case EffectActionType.GrantRush:
                     ExecuteGrantRush(context);
                     break;
@@ -121,6 +129,10 @@ namespace DDD.TNFY.TCG.Effects
 
                 case EffectActionType.TransformCard:
                     ExecuteTransformCard(effect, context, phases);
+                    break;
+
+                case EffectActionType.HookClosestAllyLeft:
+                    ExecuteHookClosestAllyLeft(context, phases);
                     break;
             }
         }
@@ -213,6 +225,26 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             phases.BounceUnit(context.ChosenTarget.Unit);
+        }
+
+        private static void ExecuteSilenceUnit(EffectContext context, PhaseManager phases)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            phases.SilenceUnit(context.ChosenTarget.Unit);
+        }
+
+        private static void ExecuteSwapAttackAndHealth(EffectContext context, PhaseManager phases)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            phases.SwapAttackAndHealth(context.ChosenTarget.Unit);
         }
 
         private static void ExecuteBounceUnitOpposite(EffectContext context, PhaseManager phases)
@@ -402,6 +434,16 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             phases.PushAlliesAwayFrom(context.SourceUnit);
+        }
+
+        private static void ExecuteHookClosestAllyLeft(EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            phases.HookClosestAllyLeft(context.SourceUnit);
         }
 
         private static void ExecuteAddCardToHand(CardEffect effect, EffectContext context)

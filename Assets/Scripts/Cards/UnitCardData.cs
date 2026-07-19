@@ -36,5 +36,15 @@ namespace DDD.TNFY.TCG.Cards
 
             return clone;
         }
+
+        public UnitCardData CreateStatOverrideClone(int newAttack, int newHealth)
+        {
+            UnitCardData clone = Instantiate(this);
+
+            clone.attack = newAttack;
+            clone.health = newHealth;
+
+            return clone;
+        }
     }
 }

@@ -31,6 +31,9 @@ namespace DDD.TNFY.TCG.Effects
         RandomizeStatsOnDraw,
         BounceUnitOpposite,
         TransformCard,
-        ChooseXCards
+        ChooseXCards,
+        HookClosestAllyLeft,
+        SilenceUnit,
+        SwapAttackAndHealth
     }
 }
