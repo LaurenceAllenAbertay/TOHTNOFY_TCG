@@ -7,6 +7,7 @@ namespace DDD.TNFY.TCG.Cards
     public enum CardRarity
     {
         Common,
+        Uncommon,
         Rare,
         Epic,
         Legendary
@@ -32,5 +33,10 @@ namespace DDD.TNFY.TCG.Cards
         public Sprite CardArt => cardArt;
         public string AbilityText => abilityText;
         public IReadOnlyList<CardEffect> Effects => effects;
+
+        protected void SetManaCost(int newManaCost)
+        {
+            manaCost = newManaCost;
+        }
     }
 }

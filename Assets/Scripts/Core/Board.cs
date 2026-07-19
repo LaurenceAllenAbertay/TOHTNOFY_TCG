@@ -30,6 +30,19 @@ namespace DDD.TNFY.TCG.Core
             return GetUnit(side.Opposite(), slotIndex);
         }
 
+        public IEnumerable<BoardUnit> GetUnits(PlayerSide side)
+        {
+            BoardUnit[] slots = GetSlots(side);
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] != null)
+                {
+                    yield return slots[i];
+                }
+            }
+        }
+
         private BoardUnit[] GetSlots(PlayerSide side)
         {
             return side == PlayerSide.PlayerA ? playerASlots : playerBSlots;

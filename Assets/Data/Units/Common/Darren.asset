@@ -10,20 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Blinko
+  m_Name: Darren
   m_EditorClassIdentifier: 
-  cardId: blinko
-  cardName: Blinko
-  manaCost: 2
+  cardId: darren
+  cardName: Darren
+  manaCost: 4
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 'On Turn End: Gain 1 mana.'
+  abilityText: 'On Play: Deal 1 damage to all enemy units.'
   effects:
-  - trigger: 1
-    action: 2
+  - trigger: 0
+    action: 17
     targetType: 0
     amount: 1
     oncePerTurn: 0
-  attack: 0
-  health: 3
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+  attack: 1
+  health: 8
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

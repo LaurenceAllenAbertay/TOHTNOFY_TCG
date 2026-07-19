@@ -10,20 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Dario
+  m_Name: CMG Captain
   m_EditorClassIdentifier: 
-  cardId: dario
-  cardName: Dario
+  cardId: cmgcaptain
+  cardName: CMG Captain
   manaCost: 3
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Deal 1 damage to leader (maybe i havent tested it)'
-  effects:
-  - trigger: 0
-    action: 4
-    targetType: 4
-    amount: -1
-    oncePerTurn: 0
-  attack: 4
+  abilityText: Adjacent allied units gain +1 attack.
+  effects: []
+  attack: 2
   health: 4
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras:
+  - scope: 2
+    activationCondition: 0
+    grant:
+      action: 4
+      amount: 1
+      keyword: 0

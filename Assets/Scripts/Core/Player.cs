@@ -8,7 +8,8 @@ namespace DDD.TNFY.TCG.Core
     {
         public const int StartingLeaderHealth = 30;
         public const int MaxMana = 10;
-        public const int MaxHandSize = 10;
+        public const int DrawStopThreshold = 10;
+        public const int AbsoluteMaxHandSize = 15;
 
         public PlayerSide Side { get; }
         public List<CardData> Deck { get; } = new List<CardData>();
@@ -22,6 +23,7 @@ namespace DDD.TNFY.TCG.Core
         public int PendingManaReduction { get; set; }
         public bool HasReachedMaxMana { get; set; }
         public bool HasUsedFirstUnitDiscountThisTurn { get; set; }
+        public bool HasNextItemDoubled { get; set; }
         public int OwnTurnCount { get; set; }
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
@@ -60,7 +62,7 @@ namespace DDD.TNFY.TCG.Core
             CardData drawn = Deck[0];
             Deck.RemoveAt(0);
 
-            if (Hand.Count < MaxHandSize)
+            if (Hand.Count < DrawStopThreshold)
             {
                 Hand.Add(drawn);
             }
@@ -82,12 +84,23 @@ namespace DDD.TNFY.TCG.Core
 
             Deck.Remove(drawn);
 
-            if (Hand.Count < MaxHandSize)
+            if (Hand.Count < DrawStopThreshold)
             {
                 Hand.Add(drawn);
             }
 
             return drawn;
+        }
+
+        public bool TryAddCardToHand(CardData card)
+        {
+            if (Hand.Count >= AbsoluteMaxHandSize)
+            {
+                return false;
+            }
+
+            Hand.Add(card);
+            return true;
         }
     }
 }

@@ -14,6 +14,7 @@ namespace DDD.TNFY.TCG.Core
         public int CurrentHealth { get; set; }
         public bool PlacedThisTurn { get; set; }
         public bool HasMovedThisTurn { get; set; }
+        public bool HasUsedGrantedEnemyMoveThisTurn { get; set; }
         public Keyword GrantedKeywords { get; set; }
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
@@ -47,6 +48,19 @@ namespace DDD.TNFY.TCG.Core
         {
             bool hasBaseKeyword = SourceCard.HasKeyword(keyword) || (GrantedKeywords & keyword) != 0;
             return hasBaseKeyword || AuraCalculator.HasAuraKeyword(this, state, keyword);
+        }
+
+        public bool HasStatus(StatusEffectType type)
+        {
+            foreach (ActiveStatusEffect status in Statuses)
+            {
+                if (status.Type == type)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void GrantKeyword(Keyword keyword)

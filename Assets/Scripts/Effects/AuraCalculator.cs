@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
 
@@ -33,6 +34,62 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             return unit.MaxHealth + bonus;
+        }
+
+        public static int GetPreviewAttackBonus(PlayerSide side, GameState state)
+        {
+            int bonus = 0;
+
+            foreach (LeaderAura aura in GetPreviewableAuras(side, state))
+            {
+                if (aura.grant.action == EffectActionType.BuffAttack)
+                {
+                    bonus += aura.grant.amount;
+                }
+            }
+
+            return bonus;
+        }
+
+        public static int GetPreviewMaxHealthBonus(PlayerSide side, GameState state)
+        {
+            int bonus = 0;
+
+            foreach (LeaderAura aura in GetPreviewableAuras(side, state))
+            {
+                if (aura.grant.action == EffectActionType.BuffMaxHealth)
+                {
+                    bonus += aura.grant.amount;
+                }
+            }
+
+            return bonus;
+        }
+
+        private static IEnumerable<LeaderAura> GetPreviewableAuras(PlayerSide side, GameState state)
+        {
+            Player owner = state.GetPlayer(side);
+            LeaderData leader = owner.Leader;
+
+            if (leader == null)
+            {
+                yield break;
+            }
+
+            foreach (LeaderAura aura in leader.Auras)
+            {
+                if (aura.scope != AuraScope.AllOwnUnits)
+                {
+                    continue;
+                }
+
+                if (!IsConditionMet(aura.activationCondition, owner))
+                {
+                    continue;
+                }
+
+                yield return aura;
+            }
         }
 
         public static bool HasAuraKeyword(BoardUnit unit, GameState state, Keyword keyword)
@@ -77,24 +134,54 @@ namespace DDD.TNFY.TCG.Effects
             Player owner = state.GetPlayer(unit.Owner);
             LeaderData leader = owner.Leader;
 
-            if (leader == null)
+            if (leader != null)
             {
-                yield break;
+                foreach (LeaderAura aura in leader.Auras)
+                {
+                    if (!IsConditionMet(aura.activationCondition, owner))
+                    {
+                        continue;
+                    }
+
+                    if (!IsInScope(aura.scope, unit, state, null))
+                    {
+                        continue;
+                    }
+
+                    yield return aura;
+                }
             }
 
-            foreach (LeaderAura aura in leader.Auras)
+            for (int i = 0; i < Board.SlotsPerSide; i++)
             {
-                if (!IsConditionMet(aura.activationCondition, owner))
+                BoardUnit sourceUnit = state.Board.GetUnit(unit.Owner, i);
+
+                if (sourceUnit == null || sourceUnit == unit)
                 {
                     continue;
                 }
 
-                if (!IsInScope(aura.scope, unit, state))
+                IReadOnlyList<LeaderAura> unitAuras = sourceUnit.SourceCard.Auras;
+
+                if (unitAuras == null)
                 {
                     continue;
                 }
 
-                yield return aura;
+                foreach (LeaderAura aura in unitAuras)
+                {
+                    if (!IsConditionMet(aura.activationCondition, owner))
+                    {
+                        continue;
+                    }
+
+                    if (!IsInScope(aura.scope, unit, state, sourceUnit))
+                    {
+                        continue;
+                    }
+
+                    yield return aura;
+                }
             }
         }
 
@@ -113,7 +200,7 @@ namespace DDD.TNFY.TCG.Effects
             }
         }
 
-        private static bool IsInScope(AuraScope scope, BoardUnit unit, GameState state)
+        private static bool IsInScope(AuraScope scope, BoardUnit unit, GameState state, BoardUnit sourceUnit)
         {
             switch (scope)
             {
@@ -123,6 +210,9 @@ namespace DDD.TNFY.TCG.Effects
                 case AuraScope.EdgeUnits:
                     return IsEdgeUnit(unit, state);
 
+                case AuraScope.AdjacentToSource:
+                    return sourceUnit != null && unit != sourceUnit && System.Math.Abs(unit.SlotIndex - sourceUnit.SlotIndex) == 1;
+
                 default:
                     return false;
             }
@@ -130,24 +220,8 @@ namespace DDD.TNFY.TCG.Effects
 
         private static bool IsEdgeUnit(BoardUnit unit, GameState state)
         {
-            Board board = state.Board;
-            int leftmostSlot = -1;
-            int rightmostSlot = -1;
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                if (board.GetUnit(unit.Owner, i) == null)
-                {
-                    continue;
-                }
-
-                if (leftmostSlot == -1)
-                {
-                    leftmostSlot = i;
-                }
-
-                rightmostSlot = i;
-            }
+            const int leftmostSlot = 0;
+            int rightmostSlot = Board.SlotsPerSide - 1;
 
             return unit.SlotIndex == leftmostSlot || unit.SlotIndex == rightmostSlot;
         }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
 
 namespace DDD.TNFY.TCG.Core
@@ -21,6 +23,15 @@ namespace DDD.TNFY.TCG.Core
 
         public CardEffect PendingTargetedEffect { get; set; }
         public BoardUnit PendingTargetedEffectSource { get; set; }
+        public EffectTriggerType? PendingTargetedEffectTrigger { get; set; }
+
+        public List<CardData> PendingCardChoiceOptions { get; set; }
+        public BoardUnit PendingCardChoiceSource { get; set; }
+
+        public bool IsResolvingTurnStartEffects { get; set; }
+        public int TurnStartScanSlot { get; set; }
+
+        public BoardUnit CurrentlyAttackingUnit { get; set; }
 
         public Player GetPlayer(PlayerSide side)
         {
@@ -35,6 +46,17 @@ namespace DDD.TNFY.TCG.Core
         public PlayerSide GetOpponent(PlayerSide side)
         {
             return side.Opposite();
+        }
+
+        public bool IsExcludedAsSelfTarget(BoardUnit candidate)
+        {
+            if (PendingTargetedEffectSource == null || candidate != PendingTargetedEffectSource)
+            {
+                return false;
+            }
+
+            bool cameFromTurnStart = PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
+            return !cameFromTurnStart;
         }
     }
 }

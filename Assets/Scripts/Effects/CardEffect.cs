@@ -1,4 +1,6 @@
 using System;
+using DDD.TNFY.TCG.Cards;
+using UnityEngine.Serialization;
 
 namespace DDD.TNFY.TCG.Effects
 {
@@ -11,5 +13,10 @@ namespace DDD.TNFY.TCG.Effects
         public int amount;
         public bool oncePerTurn;
         public bool mandatoryTarget = true;
+        [FormerlySerializedAs("grantedCard")]
+        public CardData relevantCard;
+        public Keyword keyword;
+        public bool targetsOwnHand;
+        public CardCategory cardCategory;
     }
 }

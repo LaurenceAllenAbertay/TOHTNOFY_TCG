@@ -2,7 +2,6 @@ namespace DDD.TNFY.TCG.Effects
 {
     public enum EffectActionType
     {
-        DealDamageToOpposingEnemy,
         DrawCard,
         GainMana,
         StunUnit,
@@ -20,6 +19,18 @@ namespace DDD.TNFY.TCG.Effects
         HealAdjacentUnits,
         MoveAllyUnit,
         SwapUnitSlot,
-        DealDamageToAllEnemyUnits
+        DealDamageToAllEnemyUnits,
+        PullUnitOpposite,
+        ApplyDecay,
+        HealSelfByDamageDealt,
+        GrantNextItemDoubled,
+        PushAlliesAway,
+        AddCardToHand,
+        DamageOwnLeader,
+        StealRandomCard,
+        RandomizeStatsOnDraw,
+        BounceUnitOpposite,
+        TransformCard,
+        ChooseXCards
     }
 }

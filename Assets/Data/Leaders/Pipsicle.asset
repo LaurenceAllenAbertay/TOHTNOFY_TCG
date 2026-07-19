@@ -19,10 +19,16 @@ MonoBehaviour:
   abilityText: Whenever a unit dies, heal your leader 1 health.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects:
-  - trigger: 2
-    action: 4
-    targetType: 4
+  - trigger: 4
+    action: 3
+    targetType: 5
     amount: 1
     oncePerTurn: 0
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
   auras: []

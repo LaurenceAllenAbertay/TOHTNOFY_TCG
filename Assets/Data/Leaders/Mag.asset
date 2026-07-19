@@ -19,10 +19,16 @@ MonoBehaviour:
   abilityText: The first time you kill a unit each turn, draw a card.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects:
-  - trigger: 2
-    action: 1
-    targetType: 0
+  - trigger: 5
+    action: 0
+    targetType: 1
     amount: 1
     oncePerTurn: 1
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
   auras: []

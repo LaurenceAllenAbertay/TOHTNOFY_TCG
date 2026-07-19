@@ -10,7 +10,7 @@ namespace DDD.TNFY.TCG.Core
         private void Awake()
         {
             State = new GameState();
-            Phases = new PhaseManager(State);
+            Phases = new PhaseManager(State, this);
         }
     }
 }

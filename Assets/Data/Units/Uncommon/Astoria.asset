@@ -10,20 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Dentist
+  m_Name: Astoria
   m_EditorClassIdentifier: 
-  cardId: dentist
-  cardName: Dentist
-  manaCost: 2
-  rarity: 0
+  cardId: astoria
+  cardName: Astoria
+  manaCost: 4
+  rarity: 1
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Stun an enemy unit.'
+  abilityText: 'On Attack: Heal this unit for the amount of damage it just dealt.'
   effects:
-  - trigger: 0
-    action: 3
-    targetType: 3
+  - trigger: 6
+    action: 20
+    targetType: 4
     amount: 0
     oncePerTurn: 0
-  attack: 0
-  health: 3
+    mandatoryTarget: 0
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+  attack: 3
+  health: 7
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

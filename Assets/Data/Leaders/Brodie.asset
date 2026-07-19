@@ -19,11 +19,13 @@ MonoBehaviour:
   abilityText: Your units gain +1 max health.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects: []
   auras:
   - scope: 0
     activationCondition: 0
     grant:
-      action: 6
+      action: 5
       amount: 1
       keyword: 0

@@ -159,7 +159,7 @@ namespace DDD.TNFY.TCG.Core
 
                 if (isFaceUp)
                 {
-                    view.Bind(card);
+                    view.Bind(card, side, gameManager.State);
                 }
 
                 spawnedViews.Add(view);

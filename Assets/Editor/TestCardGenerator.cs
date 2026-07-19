@@ -43,7 +43,7 @@ namespace DDD.TNFY.TCG.EditorTools
             CardEffect effect = new CardEffect
             {
                 trigger = EffectTriggerType.OnPlay,
-                action = EffectActionType.DealDamageToOpposingEnemy,
+                action = EffectActionType.DrawCard,
                 targetType = TargetType.None,
                 amount = damage
             };

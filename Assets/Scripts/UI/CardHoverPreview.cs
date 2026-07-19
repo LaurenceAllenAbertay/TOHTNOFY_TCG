@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
+using DDD.TNFY.TCG.Effects;
 
 namespace DDD.TNFY.TCG.UI
 {
@@ -18,6 +20,9 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI attackText;
         [SerializeField] private TextMeshProUGUI healthText;
         [SerializeField] private TextMeshProUGUI abilityText;
+        [SerializeField] private RectTransform extraInfoContainer;
+        [SerializeField] private TermInfoPanel infoPanelPrefab;
+        [SerializeField] private float extraInfoGapX = 20f;
         [SerializeField] private float leftSideX = 300f;
         [SerializeField] private float rightSideX = -300f;
         [SerializeField] private float hoverDelaySeconds = 1f;
@@ -25,6 +30,7 @@ namespace DDD.TNFY.TCG.UI
 
         private Coroutine pendingShowCoroutine;
         private Coroutine pendingHideCoroutine;
+        private readonly List<TermInfoPanel> spawnedInfoPanels = new List<TermInfoPanel>();
 
         private void Awake()
         {
@@ -43,7 +49,27 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            instance.BeginShow(card, screenPosition);
+            instance.BeginShow(card, null, null, null, screenPosition);
+        }
+
+        public static void Show(CardData card, PlayerSide side, GameState state, Vector3 screenPosition)
+        {
+            if (instance == null || card == null)
+            {
+                return;
+            }
+
+            instance.BeginShow(card, side, state, null, screenPosition);
+        }
+
+        public static void Show(BoardUnit unit, GameState state, Vector3 screenPosition)
+        {
+            if (instance == null || unit == null)
+            {
+                return;
+            }
+
+            instance.BeginShow(unit.SourceCard, unit.Owner, state, unit, screenPosition);
         }
 
         public static void Show(LeaderData leader, Vector3 screenPosition)
@@ -66,7 +92,7 @@ namespace DDD.TNFY.TCG.UI
             instance.BeginHide();
         }
 
-        private void BeginShow(CardData card, Vector3 screenPosition)
+        private void BeginShow(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
         {
             CancelPendingHide();
             CancelPendingShow();
@@ -75,11 +101,11 @@ namespace DDD.TNFY.TCG.UI
 
             if (alreadyVisible)
             {
-                DisplayCard(card, screenPosition);
+                DisplayCard(card, side, state, liveUnit, screenPosition);
                 return;
             }
 
-            pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, screenPosition));
+            pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, side, state, liveUnit, screenPosition));
         }
 
         private void BeginShowLeader(LeaderData leader, Vector3 screenPosition)
@@ -134,11 +160,11 @@ namespace DDD.TNFY.TCG.UI
             }
         }
 
-        private System.Collections.IEnumerator ShowAfterDelay(CardData card, Vector3 screenPosition)
+        private System.Collections.IEnumerator ShowAfterDelay(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
         {
             yield return new WaitForSeconds(hoverDelaySeconds);
             pendingShowCoroutine = null;
-            DisplayCard(card, screenPosition);
+            DisplayCard(card, side, state, liveUnit, screenPosition);
         }
 
         private System.Collections.IEnumerator ShowLeaderAfterDelay(LeaderData leader, Vector3 screenPosition)
@@ -148,7 +174,7 @@ namespace DDD.TNFY.TCG.UI
             DisplayLeader(leader, screenPosition);
         }
 
-        private void DisplayCard(CardData card, Vector3 screenPosition)
+        private void DisplayCard(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
         {
             if (root != null)
             {
@@ -186,7 +212,7 @@ namespace DDD.TNFY.TCG.UI
                 attackText.gameObject.SetActive(isUnit);
                 if (isUnit)
                 {
-                    attackText.text = CardDisplayFormatter.GetAttackText(unitCard);
+                    attackText.text = GetAttackTextFor(unitCard, side, state, liveUnit);
                 }
             }
 
@@ -195,9 +221,122 @@ namespace DDD.TNFY.TCG.UI
                 healthText.gameObject.SetActive(isUnit);
                 if (isUnit)
                 {
-                    healthText.text = CardDisplayFormatter.GetHealthText(unitCard);
+                    healthText.text = GetHealthTextFor(unitCard, side, state, liveUnit);
                 }
             }
+
+            PopulateExtraInfo(card);
+        }
+
+        private void PopulateExtraInfo(CardData card)
+        {
+            ClearExtraInfo();
+
+            if (extraInfoContainer == null || infoPanelPrefab == null)
+            {
+                Debug.Log($"[CardHoverPreview] PopulateExtraInfo skipped for {card.CardName} — extraInfoContainer or infoPanelPrefab not assigned in the Inspector.");
+                return;
+            }
+
+            int keywordCount = 0;
+
+            if (card is UnitCardData unitCard)
+            {
+                foreach (Keyword keyword in KeywordReference.GetAllValues())
+                {
+                    if (!unitCard.HasKeyword(keyword))
+                    {
+                        continue;
+                    }
+
+                    if (KeywordReference.TryGetDescription(keyword, out string description))
+                    {
+                        SpawnInfoPanel(keyword.ToString(), description);
+                        keywordCount++;
+                    }
+                }
+            }
+
+            int referencedCardCount = 0;
+
+            foreach (CardEffect effect in card.Effects)
+            {
+                if (effect.relevantCard == null)
+                {
+                    continue;
+                }
+
+                string referencedDescription = GetReferencedCardDescription(effect.relevantCard);
+                SpawnInfoPanel(effect.relevantCard.CardName, referencedDescription);
+                referencedCardCount++;
+            }
+
+            Debug.Log($"[CardHoverPreview] PopulateExtraInfo for {card.CardName}: {keywordCount} keyword panel(s), {referencedCardCount} referenced-card panel(s).");
+        }
+
+        private static string GetReferencedCardDescription(CardData referencedCard)
+        {
+            if (!string.IsNullOrEmpty(referencedCard.AbilityText))
+            {
+                return referencedCard.AbilityText;
+            }
+
+            if (referencedCard is UnitCardData referencedUnit)
+            {
+                return $"{referencedUnit.ManaCost} cost, {referencedUnit.Attack} attack, {referencedUnit.Health} health.";
+            }
+
+            return string.Empty;
+        }
+
+        private void SpawnInfoPanel(string term, string description)
+        {
+            TermInfoPanel instance = Instantiate(infoPanelPrefab, extraInfoContainer);
+            instance.Bind(term, description);
+            spawnedInfoPanels.Add(instance);
+        }
+
+        private void ClearExtraInfo()
+        {
+            foreach (TermInfoPanel existing in spawnedInfoPanels)
+            {
+                if (existing != null)
+                {
+                    Destroy(existing.gameObject);
+                }
+            }
+
+            spawnedInfoPanels.Clear();
+        }
+
+        private static string GetAttackTextFor(UnitCardData unitCard, PlayerSide? side, GameState state, BoardUnit liveUnit)
+        {
+            if (liveUnit != null && state != null)
+            {
+                return CardDisplayFormatter.GetAttackText(liveUnit, state);
+            }
+
+            if (side.HasValue && state != null)
+            {
+                return CardDisplayFormatter.GetAttackText(unitCard, side.Value, state);
+            }
+
+            return CardDisplayFormatter.GetAttackText(unitCard);
+        }
+
+        private static string GetHealthTextFor(UnitCardData unitCard, PlayerSide? side, GameState state, BoardUnit liveUnit)
+        {
+            if (liveUnit != null && state != null)
+            {
+                return CardDisplayFormatter.GetHealthText(liveUnit, state);
+            }
+
+            if (side.HasValue && state != null)
+            {
+                return CardDisplayFormatter.GetHealthText(unitCard, side.Value, state);
+            }
+
+            return CardDisplayFormatter.GetHealthText(unitCard);
         }
 
         private void DisplayLeader(LeaderData leader, Vector3 screenPosition)
@@ -239,6 +378,8 @@ namespace DDD.TNFY.TCG.UI
                 healthText.gameObject.SetActive(true);
                 healthText.text = leader.MaxHealth.ToString();
             }
+
+            ClearExtraInfo();
         }
 
         private void PositionPreview(Vector3 screenPosition)
@@ -254,6 +395,22 @@ namespace DDD.TNFY.TCG.UI
             Vector2 anchoredPosition = rootRect.anchoredPosition;
             anchoredPosition.x = targetX;
             rootRect.anchoredPosition = anchoredPosition;
+
+            MirrorExtraInfoSide(isOnLeftHalf);
+        }
+
+        private void MirrorExtraInfoSide(bool isOnLeftHalf)
+        {
+            if (extraInfoContainer == null)
+            {
+                return;
+            }
+
+            Vector2 anchoredPosition = extraInfoContainer.anchoredPosition;
+            anchoredPosition.x = isOnLeftHalf ? extraInfoGapX : -extraInfoGapX;
+            extraInfoContainer.anchoredPosition = anchoredPosition;
+
+            Debug.Log($"[CardHoverPreview] MirrorExtraInfoSide: isOnLeftHalf={isOnLeftHalf}, anchoredPosition.x={extraInfoContainer.anchoredPosition.x}.");
         }
     }
 }

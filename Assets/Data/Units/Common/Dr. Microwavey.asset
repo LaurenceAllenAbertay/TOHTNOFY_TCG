@@ -10,20 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Bimburger Employee
+  m_Name: Dr. Microwavey
   m_EditorClassIdentifier: 
-  cardId: bimburgeremployee
-  cardName: Bimburger Employee
-  manaCost: 1
+  cardId: drmicrowavey
+  cardName: Dr. Microwavey
+  manaCost: 4
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Draw a card.'
-  effects:
-  - trigger: 0
-    action: 1
-    targetType: 0
-    amount: 1
-    oncePerTurn: 0
-  attack: 0
-  health: 4
-  keywords: 0
+  abilityText: Retaliate
+  effects: []
+  attack: 2
+  health: 7
+  keywords: 256
+  grantsEnemyUnitMove: 0
+  auras: []

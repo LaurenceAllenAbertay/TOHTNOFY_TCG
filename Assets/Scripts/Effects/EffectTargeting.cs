@@ -4,6 +4,34 @@ namespace DDD.TNFY.TCG.Effects
 {
     public static class EffectTargeting
     {
+        public static EffectTarget ResolveImmediateTarget(TargetType targetType, BoardUnit sourceUnit, PlayerSide sourceOwner, GameState state)
+        {
+            switch (targetType)
+            {
+                case TargetType.Self:
+                    return EffectTarget.ForUnit(sourceUnit);
+
+                case TargetType.AllyLeader:
+                    return EffectTarget.ForLeader(sourceOwner);
+
+                case TargetType.EnemyLeader:
+                    return EffectTarget.ForLeader(sourceOwner.Opposite());
+
+                case TargetType.OpposingEnemy:
+                    if (sourceUnit == null)
+                    {
+                        return EffectTarget.None;
+                    }
+
+                    BoardUnit opposingUnit = state.Board.GetOpponentUnit(sourceOwner, sourceUnit.SlotIndex);
+
+                    return opposingUnit != null ? EffectTarget.ForUnit(opposingUnit) : EffectTarget.None;
+
+                default:
+                    return EffectTarget.None;
+            }
+        }
+
         public static bool IsValidTarget(TargetType targetType, EffectTarget target, GameState state)
         {
             switch (targetType)
@@ -21,6 +49,9 @@ namespace DDD.TNFY.TCG.Effects
                     return target.Kind == EffectTargetKind.Unit && target.Unit.Owner == state.ActivePlayer;
 
                 case TargetType.EnemyUnit:
+                    return target.Kind == EffectTargetKind.Unit && target.Unit.Owner != state.ActivePlayer;
+
+                case TargetType.OpposingEnemy:
                     return target.Kind == EffectTargetKind.Unit && target.Unit.Owner != state.ActivePlayer;
 
                 case TargetType.AllyLeader:

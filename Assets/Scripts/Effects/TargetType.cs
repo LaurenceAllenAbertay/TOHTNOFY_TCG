@@ -6,12 +6,14 @@ namespace DDD.TNFY.TCG.Effects
         AnyUnit,
         AllyUnit,
         EnemyUnit,
+        OpposingEnemy,
         AllyLeader,
         EnemyLeader,
         AnyUnitOrLeader,
         EnemyUnitOrLeader,
         EmptySlot,
         AnySlot,
-        Board
+        Board,
+        Self
     }
 }

@@ -7,14 +7,10 @@ namespace DDD.TNFY.TCG.Effects
 {
     public static class EffectExecutor
     {
-        public static void Execute(CardEffect effect, EffectContext context, PhaseManager phases)
+        public static void Execute(CardEffect effect, EffectContext context, PhaseManager phases, int? runtimeAmount = null)
         {
             switch (effect.action)
             {
-                case EffectActionType.DealDamageToOpposingEnemy:
-                    ExecuteDealDamageToOpposingEnemy(effect, context);
-                    break;
-
                 case EffectActionType.DrawCard:
                     ExecuteDrawCard(effect, context);
                     break;
@@ -55,6 +51,10 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteGrantRush(context);
                     break;
 
+                case EffectActionType.GrantKeyword:
+                    ExecuteGrantKeyword(effect, context);
+                    break;
+
                 case EffectActionType.ApplyLeaderDamageShield:
                     ExecuteApplyLeaderDamageShield(effect, context);
                     break;
@@ -82,24 +82,47 @@ namespace DDD.TNFY.TCG.Effects
                 case EffectActionType.DealDamageToAllEnemyUnits:
                     ExecuteDealDamageToAllEnemyUnits(effect, context, phases);
                     break;
+
+                case EffectActionType.PullUnitOpposite:
+                    ExecutePullUnitOpposite(context, phases);
+                    break;
+
+                case EffectActionType.ApplyDecay:
+                    ExecuteApplyDecay(context);
+                    break;
+
+                case EffectActionType.HealSelfByDamageDealt:
+                    ExecuteHealSelfByDamageDealt(context, phases, runtimeAmount);
+                    break;
+
+                case EffectActionType.GrantNextItemDoubled:
+                    ExecuteGrantNextItemDoubled(context);
+                    break;
+
+                case EffectActionType.PushAlliesAway:
+                    ExecutePushAlliesAway(context, phases);
+                    break;
+
+                case EffectActionType.AddCardToHand:
+                    ExecuteAddCardToHand(effect, context);
+                    break;
+
+                case EffectActionType.DamageOwnLeader:
+                    ExecuteDamageOwnLeader(effect, context, phases);
+                    break;
+
+                case EffectActionType.StealRandomCard:
+                    ExecuteStealRandomCard(context);
+                    break;
+
+                case EffectActionType.BounceUnitOpposite:
+                    ExecuteBounceUnitOpposite(context, phases);
+                    break;
+
+                case EffectActionType.TransformCard:
+                    ExecuteTransformCard(effect, context, phases);
+                    break;
             }
-        }
-
-        private static void ExecuteDealDamageToOpposingEnemy(CardEffect effect, EffectContext context)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            BoardUnit target = context.Board.GetOpponentUnit(context.SourceOwner, context.SourceUnit.SlotIndex);
-
-            if (target == null)
-            {
-                return;
-            }
-
-            target.CurrentHealth -= effect.amount;
         }
 
         private static void ExecuteDrawCard(CardEffect effect, EffectContext context)
@@ -192,6 +215,16 @@ namespace DDD.TNFY.TCG.Effects
             phases.BounceUnit(context.ChosenTarget.Unit);
         }
 
+        private static void ExecuteBounceUnitOpposite(EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            phases.BounceUnitOpposite(context.SourceUnit);
+        }
+
         private static void ExecuteGrantRush(EffectContext context)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
@@ -200,6 +233,16 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             context.ChosenTarget.Unit.GrantKeyword(Keyword.Rush);
+        }
+
+        private static void ExecuteGrantKeyword(CardEffect effect, EffectContext context)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            context.ChosenTarget.Unit.GrantKeyword(effect.keyword);
         }
 
         private static void ExecuteApplyLeaderDamageShield(CardEffect effect, EffectContext context)
@@ -307,6 +350,113 @@ namespace DDD.TNFY.TCG.Effects
                 {
                     phases.KillUnit(unit, context.SourceOwner);
                 }
+            }
+        }
+
+        private static void ExecutePullUnitOpposite(EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            phases.PullUnitOpposite(context.SourceUnit, context.ChosenTarget.Unit);
+        }
+
+        private static void ExecuteApplyDecay(EffectContext context)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Decaying, 1, 1, context.SourceOwner));
+        }
+
+        private static void ExecuteHealSelfByDamageDealt(EffectContext context, PhaseManager phases, int? runtimeAmount)
+        {
+            if (context.SourceUnit == null || runtimeAmount == null)
+            {
+                return;
+            }
+
+            phases.HealUnit(context.SourceUnit, runtimeAmount.Value);
+        }
+
+        private static void ExecuteGrantNextItemDoubled(EffectContext context)
+        {
+            Player owner = context.GameState.GetPlayer(context.SourceOwner);
+            owner.HasNextItemDoubled = true;
+        }
+
+        private static void ExecutePushAlliesAway(EffectContext context, PhaseManager phases)
+        {
+            if (context.SourceUnit == null)
+            {
+                return;
+            }
+
+            phases.PushAlliesAwayFrom(context.SourceUnit);
+        }
+
+        private static void ExecuteAddCardToHand(CardEffect effect, EffectContext context)
+        {
+            if (effect.relevantCard == null)
+            {
+                return;
+            }
+
+            PlayerSide recipientSide = effect.targetsOwnHand ? context.SourceOwner : context.SourceOwner.Opposite();
+            Player recipient = context.GameState.GetPlayer(recipientSide);
+
+            if (!recipient.TryAddCardToHand(effect.relevantCard))
+            {
+                Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+            }
+        }
+
+        private static void ExecuteDamageOwnLeader(CardEffect effect, EffectContext context, PhaseManager phases)
+        {
+            phases.DamageLeader(context.SourceOwner, effect.amount);
+        }
+
+        private static void ExecuteTransformCard(CardEffect effect, EffectContext context, PhaseManager phases)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            if (!(effect.relevantCard is UnitCardData transformCard))
+            {
+                return;
+            }
+
+            phases.TransformUnit(context.ChosenTarget.Unit, transformCard);
+        }
+
+        private static void ExecuteStealRandomCard(EffectContext context)
+        {
+            Player thief = context.GameState.GetPlayer(context.SourceOwner);
+            Player victim = context.GameState.GetPlayer(context.SourceOwner.Opposite());
+
+            if (victim.Hand.Count == 0)
+            {
+                return;
+            }
+
+            System.Random rng = new System.Random();
+            CardData stolen = victim.Hand[rng.Next(victim.Hand.Count)];
+            victim.Hand.Remove(stolen);
+
+            if (!thief.TryAddCardToHand(stolen))
+            {
+                Debug.Log($"[EffectExecutor] {stolen.CardName} was stolen but burned — {thief.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max.");
             }
         }
     }

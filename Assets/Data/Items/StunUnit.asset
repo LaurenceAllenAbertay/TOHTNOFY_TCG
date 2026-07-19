@@ -20,6 +20,11 @@ MonoBehaviour:
   abilityText: Stun enemy unit.
   effects:
   - trigger: 0
-    action: 3
+    action: 2
     targetType: 3
-    amount: 0
+    amount: 1
+    oncePerTurn: 0
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0

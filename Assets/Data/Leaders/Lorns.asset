@@ -16,14 +16,16 @@ MonoBehaviour:
   leaderName: Lorns
   maxHealth: 25
   portrait: {fileID: 0}
-  abilityText: Your leftmost and rightmost units gain +1 attack.
+  abilityText: Units in your leftmost and rightmost board slots gain +3 attack.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects: []
   auras:
   - scope: 1
     activationCondition: 0
     grant:
-      action: 5
-      amount: 1
+      action: 4
+      amount: 3
       keyword: 0

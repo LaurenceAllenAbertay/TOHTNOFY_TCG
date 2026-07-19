@@ -7,6 +7,7 @@ namespace DDD.TNFY.TCG.Effects
         DelayedKill,
         LeaderDamageShield,
         OpponentManaReduction,
-        TemporaryAttackNextAttack
+        TemporaryAttackNextAttack,
+        Decaying
     }
 }

@@ -10,22 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Side-Eye Cat
+  m_Name: Worms
   m_EditorClassIdentifier: 
-  cardId: sideeyecat
-  cardName: Side-Eye Cat
-  manaCost: 4
+  cardId: worms
+  cardName: Worms
+  manaCost: 1
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Move an ally unit. Does not count toward this turn''s move
-    limit.'
+  abilityText: 'On Play: Deal 1 damage to your leader.'
   effects:
   - trigger: 0
-    action: 16
-    targetType: 0
-    amount: 0
+    action: 11
+    targetType: 5
+    amount: 1
     oncePerTurn: 0
-    mandatoryTarget: 0
-  attack: 3
-  health: 6
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+  attack: 0
+  health: 1
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

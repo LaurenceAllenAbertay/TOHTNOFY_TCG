@@ -17,9 +17,14 @@ MonoBehaviour:
   manaCost: 0
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Heal your leader 3 HP
+  abilityText: Heal your leader 3 health.
   effects:
   - trigger: 0
-    action: 4
-    targetType: 4
+    action: 3
+    targetType: 5
     amount: 3
+    oncePerTurn: 0
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0

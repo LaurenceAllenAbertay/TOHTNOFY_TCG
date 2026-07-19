@@ -1,0 +1,30 @@
+using System.Collections.Generic;
+
+namespace DDD.TNFY.TCG.Cards
+{
+    public static class KeywordReference
+    {
+        private static readonly Dictionary<Keyword, string> Descriptions = new Dictionary<Keyword, string>
+        {
+            { Keyword.Taunt, "A unit must be placed opposing this one before placing elsewhere." },
+            { Keyword.Rush, "This unit can attack the turn it's played." },
+            { Keyword.BifurcatedAttack, "This unit attacks diagonally left and right." },
+            { Keyword.Agile, "This unit can move 2 slots instead of 1." },
+            { Keyword.Nimble, "This unit can move for free." },
+            { Keyword.Piercing, "This unit attacks the leader directly." },
+            { Keyword.Unmoving, "This unit can never move." },
+            { Keyword.Unstable, "When this unit dies, deal 1 damage to a random enemy unit." },
+            { Keyword.Retaliate, "If this unit survives a hit, it attacks the attacking unit." },
+        };
+
+        public static bool TryGetDescription(Keyword keyword, out string description)
+        {
+            return Descriptions.TryGetValue(keyword, out description);
+        }
+
+        public static IEnumerable<Keyword> GetAllValues()
+        {
+            return Descriptions.Keys;
+        }
+    }
+}

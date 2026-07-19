@@ -10,20 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: The High Lord of Spice
+  m_Name: Dentist
   m_EditorClassIdentifier: 
-  cardId: thehighlordofspice
-  cardName: The High Lord of Spice
-  manaCost: 6
+  cardId: dentist
+  cardName: Dentist
+  manaCost: 2
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Swap this unit''s slot with an ally unit''s slot.'
+  abilityText: 'On Play: Stun an enemy unit.'
   effects:
   - trigger: 0
-    action: 17
-    targetType: 2
+    action: 2
+    targetType: 3
     amount: 0
     oncePerTurn: 0
-  attack: 5
-  health: 8
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+  attack: 0
+  health: 3
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.Core;
 
 namespace DDD.TNFY.TCG.UI
 {
@@ -23,6 +24,8 @@ namespace DDD.TNFY.TCG.UI
         private Vector2 targetSlotPosition;
         private bool hasTargetSlotPosition;
         private bool slotLerpEnabled = true;
+        private PlayerSide ownerSide;
+        private GameState boundState;
 
         public CardData Card { get; private set; }
 
@@ -102,9 +105,11 @@ namespace DDD.TNFY.TCG.UI
             canvasGroup.blocksRaycasts = visible;
         }
 
-        public void Bind(CardData card)
+        public void Bind(CardData card, PlayerSide side, GameState state)
         {
             Card = card;
+            ownerSide = side;
+            boundState = state;
 
             if (artImage != null)
             {
@@ -130,7 +135,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             isHovered = true;
-            CardHoverPreview.Show(Card, transform.position);
+            CardHoverPreview.Show(Card, ownerSide, boundState, transform.position);
         }
 
         public void OnPointerExit(PointerEventData eventData)

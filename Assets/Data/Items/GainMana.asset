@@ -17,9 +17,14 @@ MonoBehaviour:
   manaCost: 0
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Gain 1 Mana Immediately.
+  abilityText: Gain 1 Mana immediately.
   effects:
   - trigger: 0
-    action: 2
-    targetType: 10
+    action: 1
+    targetType: 11
     amount: 1
+    oncePerTurn: 0
+    mandatoryTarget: 1
+    grantedCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
