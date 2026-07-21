@@ -15,5 +15,6 @@ namespace DDD.TNFY.TCG.Cards
         Unmoving = 1 << 6,
         Unstable = 1 << 7,
         Retaliate = 1 << 8,
+        Teleport = 1 << 9
     }
 }

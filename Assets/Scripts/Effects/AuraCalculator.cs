@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
 
@@ -16,6 +17,10 @@ namespace DDD.TNFY.TCG.Effects
                 {
                     bonus += aura.grant.amount;
                 }
+                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
+                {
+                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
+                }
             }
 
             return bonus;
@@ -31,9 +36,46 @@ namespace DDD.TNFY.TCG.Effects
                 {
                     bonus += aura.grant.amount;
                 }
+                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
+                {
+                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
+                }
             }
 
             return unit.MaxHealth + bonus;
+        }
+
+        public static int GetQualifyingEnemyAuraHealthBonus(BoardUnit unit, GameState state)
+        {
+            int bonus = 0;
+
+            foreach (LeaderAura aura in GetActiveAuras(unit, state))
+            {
+                if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
+                {
+                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
+                }
+            }
+
+            return bonus;
+        }
+
+        private static int CountQualifyingEnemies(BoardUnit unit, GameState state, int healthThreshold)
+        {
+            PlayerSide enemySide = unit.Owner.Opposite();
+            int qualifyingCount = 0;
+
+            foreach (BoardUnit enemyUnit in state.Board.GetUnits(enemySide))
+            {
+                int enemyResolvedMaxHealth = enemyUnit.MaxHealth + enemyUnit.LastSyncedAuraHealthBonus;
+
+                if (enemyResolvedMaxHealth >= healthThreshold)
+                {
+                    qualifyingCount++;
+                }
+            }
+
+            return qualifyingCount;
         }
 
         public static int GetPreviewAttackBonus(PlayerSide side, GameState state)
@@ -156,7 +198,7 @@ namespace DDD.TNFY.TCG.Effects
             {
                 BoardUnit sourceUnit = state.Board.GetUnit(unit.Owner, i);
 
-                if (sourceUnit == null || sourceUnit == unit)
+                if (sourceUnit == null)
                 {
                     continue;
                 }
@@ -170,12 +212,15 @@ namespace DDD.TNFY.TCG.Effects
 
                 foreach (LeaderAura aura in unitAuras)
                 {
-                    if (!IsConditionMet(aura.activationCondition, owner))
+                    bool conditionMet = IsConditionMet(aura.activationCondition, owner);
+                    bool inScope = conditionMet && IsInScope(aura.scope, unit, state, sourceUnit);
+
+                    if (!conditionMet)
                     {
                         continue;
                     }
 
-                    if (!IsInScope(aura.scope, unit, state, sourceUnit))
+                    if (!inScope)
                     {
                         continue;
                     }
@@ -212,6 +257,9 @@ namespace DDD.TNFY.TCG.Effects
 
                 case AuraScope.AdjacentToSource:
                     return sourceUnit != null && unit != sourceUnit && System.Math.Abs(unit.SlotIndex - sourceUnit.SlotIndex) == 1;
+
+                case AuraScope.Self:
+                    return sourceUnit != null && unit == sourceUnit;
 
                 default:
                     return false;

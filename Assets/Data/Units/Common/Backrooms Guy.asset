@@ -16,9 +16,11 @@ MonoBehaviour:
   cardName: Backrooms Guy
   manaCost: 3
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 7827199322235559590, guid: c7fc99cf613ef834cb3665f0fc9a3f6b, type: 3}
   abilityText: Agile
   effects: []
   attack: 2
   health: 6
   keywords: 8
+  grantsEnemyUnitMove: 0
+  auras: []

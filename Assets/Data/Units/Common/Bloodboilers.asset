@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: bloodboilers
   cardName: Bloodboilers
-  manaCost: 2
+  manaCost: 3
   rarity: 0
   cardArt: {fileID: 0}
   abilityText: Bifurcated Attack

@@ -34,6 +34,10 @@ namespace DDD.TNFY.TCG.Effects
         ChooseXCards,
         HookClosestAllyLeft,
         SilenceUnit,
-        SwapAttackAndHealth
+        SwapAttackAndHealth,
+        RandomizeAllyStats,
+        AttackAgainOnKill,
+        BuffAttackAndHealthPerQualifyingEnemy,
+        ChooseFixedCard
     }
 }

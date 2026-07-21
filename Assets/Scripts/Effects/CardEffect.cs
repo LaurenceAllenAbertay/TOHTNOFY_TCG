@@ -18,5 +18,8 @@ namespace DDD.TNFY.TCG.Effects
         public Keyword keyword;
         public bool targetsOwnHand;
         public CardCategory cardCategory;
+        public int randomizeMin;
+        public int randomizeMax;
+        public CardData[] fixedChoiceOptions;
     }
 }

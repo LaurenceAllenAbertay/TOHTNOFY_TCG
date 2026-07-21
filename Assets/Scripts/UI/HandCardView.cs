@@ -26,6 +26,7 @@ namespace DDD.TNFY.TCG.UI
         private bool slotLerpEnabled = true;
         private PlayerSide ownerSide;
         private GameState boundState;
+        private bool useLiveCost;
 
         public CardData Card { get; private set; }
 
@@ -105,11 +106,12 @@ namespace DDD.TNFY.TCG.UI
             canvasGroup.blocksRaycasts = visible;
         }
 
-        public void Bind(CardData card, PlayerSide side, GameState state)
+        public void Bind(CardData card, PlayerSide side, GameState state, bool useLiveCost = true)
         {
             Card = card;
             ownerSide = side;
             boundState = state;
+            this.useLiveCost = useLiveCost;
 
             if (artImage != null)
             {
@@ -118,7 +120,9 @@ namespace DDD.TNFY.TCG.UI
 
             if (costText != null)
             {
-                costText.text = CardDisplayFormatter.GetCostText(card);
+                costText.text = useLiveCost
+                    ? CardDisplayFormatter.GetCurrentCostText(card, side, state)
+                    : CardDisplayFormatter.GetCostText(card);
             }
 
             if (nameText != null)
@@ -135,7 +139,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             isHovered = true;
-            CardHoverPreview.Show(Card, ownerSide, boundState, transform.position);
+            CardHoverPreview.Show(Card, ownerSide, boundState, transform.position, useLiveCost);
         }
 
         public void OnPointerExit(PointerEventData eventData)

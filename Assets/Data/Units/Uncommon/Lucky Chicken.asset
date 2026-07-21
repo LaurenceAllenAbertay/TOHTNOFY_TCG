@@ -26,9 +26,12 @@ MonoBehaviour:
     amount: 0
     oncePerTurn: 0
     mandatoryTarget: 1
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 1
+    randomizeMax: 6
   attack: 1
   health: 1
   keywords: 0

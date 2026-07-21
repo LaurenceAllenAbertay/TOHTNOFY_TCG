@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Dentist
   manaCost: 2
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 8323027239176148239, guid: e1a136020d99fbb4ab098576bbeb1386, type: 3}
   abilityText: 'On Play: Stun an enemy unit.'
   effects:
   - trigger: 0
@@ -25,9 +25,13 @@ MonoBehaviour:
     amount: 0
     oncePerTurn: 0
     mandatoryTarget: 1
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 0
   health: 3
   keywords: 0

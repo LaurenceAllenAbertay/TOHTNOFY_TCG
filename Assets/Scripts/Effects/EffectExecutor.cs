@@ -32,7 +32,7 @@ namespace DDD.TNFY.TCG.Effects
                     break;
 
                 case EffectActionType.BuffMaxHealth:
-                    ExecuteBuffMaxHealth(effect, context);
+                    ExecuteBuffMaxHealth(effect, context, phases);
                     break;
 
                 case EffectActionType.GrantDoubleAttack:
@@ -134,6 +134,10 @@ namespace DDD.TNFY.TCG.Effects
                 case EffectActionType.HookClosestAllyLeft:
                     ExecuteHookClosestAllyLeft(context, phases);
                     break;
+
+                case EffectActionType.RandomizeAllyStats:
+                    ExecuteRandomizeAllyStats(effect, context, phases);
+                    break;
             }
         }
 
@@ -185,7 +189,7 @@ namespace DDD.TNFY.TCG.Effects
             context.ChosenTarget.Unit.BonusAttack += effect.amount;
         }
 
-        private static void ExecuteBuffMaxHealth(CardEffect effect, EffectContext context)
+        private static void ExecuteBuffMaxHealth(CardEffect effect, EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
             {
@@ -195,6 +199,8 @@ namespace DDD.TNFY.TCG.Effects
             BoardUnit unit = context.ChosenTarget.Unit;
             unit.MaxHealth += effect.amount;
             unit.CurrentHealth += effect.amount;
+
+            phases.SyncQualifyingEnemyAuraHealth();
         }
 
         private static void ExecuteGrantDoubleAttack(EffectContext context)
@@ -319,11 +325,18 @@ namespace DDD.TNFY.TCG.Effects
                 return;
             }
 
+            if (context.SourceUnit.Owner != context.SourceOwner)
+            {
+                return;
+            }
+
             int slotIndex = context.SourceUnit.SlotIndex;
             PlayerSide side = context.SourceUnit.Owner;
 
             BoardUnit leftNeighbor = slotIndex - 1 >= 0 ? context.Board.GetUnit(side, slotIndex - 1) : null;
             BoardUnit rightNeighbor = slotIndex + 1 < Board.SlotsPerSide ? context.Board.GetUnit(side, slotIndex + 1) : null;
+
+            Debug.Log($"[EffectExecutor] HealAdjacentUnits from slot {slotIndex} ({side}): left={leftNeighbor?.SourceCard?.CardName ?? "none"}, right={rightNeighbor?.SourceCard?.CardName ?? "none"}, amount={effect.amount}");
 
             if (leftNeighbor != null)
             {
@@ -446,6 +459,28 @@ namespace DDD.TNFY.TCG.Effects
             phases.HookClosestAllyLeft(context.SourceUnit);
         }
 
+        private static void ExecuteRandomizeAllyStats(CardEffect effect, EffectContext context, PhaseManager phases)
+        {
+            List<BoardUnit> targets = new List<BoardUnit>(context.Board.GetUnits(context.SourceOwner));
+
+            System.Random rng = new System.Random();
+
+            foreach (BoardUnit unit in targets)
+            {
+                int newAttack = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+                int newHealth = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+
+                unit.BonusAttack = newAttack - unit.SourceCard.Attack;
+                unit.MaxHealth = newHealth;
+                unit.CurrentHealth = newHealth;
+                unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, context.GameState);
+
+                Debug.Log($"[EffectExecutor] RandomizeAllyStats: {unit.SourceCard.CardName} (slot {unit.SlotIndex}) rolled Attack={newAttack}, Health={newHealth}.");
+            }
+
+            phases.SyncQualifyingEnemyAuraHealth();
+        }
+
         private static void ExecuteAddCardToHand(CardEffect effect, EffectContext context)
         {
             if (effect.relevantCard == null)
@@ -456,9 +491,14 @@ namespace DDD.TNFY.TCG.Effects
             PlayerSide recipientSide = effect.targetsOwnHand ? context.SourceOwner : context.SourceOwner.Opposite();
             Player recipient = context.GameState.GetPlayer(recipientSide);
 
-            if (!recipient.TryAddCardToHand(effect.relevantCard))
+            int copies = Mathf.Max(1, effect.amount);
+
+            for (int i = 0; i < copies; i++)
             {
-                Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                if (!recipient.TryAddCardToHand(effect.relevantCard))
+                {
+                    Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                }
             }
         }
 

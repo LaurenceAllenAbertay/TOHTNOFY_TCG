@@ -11,6 +11,17 @@ namespace DDD.TNFY.TCG.UI
             return card.ManaCost.ToString();
         }
 
+        public static string GetCurrentCostText(CardData card, PlayerSide side, GameState state)
+        {
+            if (card is UnitCardData unitCard)
+            {
+                Player player = state.GetPlayer(side);
+                return AuraCalculator.GetUnitCost(unitCard, player).ToString();
+            }
+
+            return card.ManaCost.ToString();
+        }
+
         public static string GetNameText(CardData card)
         {
             return card.CardName;
@@ -28,7 +39,32 @@ namespace DDD.TNFY.TCG.UI
                 return "Silenced";
             }
 
-            return unit.SourceCard.AbilityText;
+            string baseText = unit.SourceCard.AbilityText;
+            string grantedKeywordText = GetGrantedKeywordText(unit);
+
+            return baseText + grantedKeywordText;
+        }
+
+        private static string GetGrantedKeywordText(BoardUnit unit)
+        {
+            string result = "";
+
+            foreach (Keyword keyword in KeywordReference.GetAllValues())
+            {
+                if ((unit.GrantedKeywords & keyword) == 0)
+                {
+                    continue;
+                }
+
+                if (unit.SourceCard.HasKeyword(keyword))
+                {
+                    continue;
+                }
+
+                result += "\n" + keyword.ToString();
+            }
+
+            return result;
         }
 
         public static string GetAttackText(UnitCardData card)

@@ -49,17 +49,17 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            instance.BeginShow(card, null, null, null, screenPosition);
+            instance.BeginShow(card, null, null, null, screenPosition, useLiveCost: true);
         }
 
-        public static void Show(CardData card, PlayerSide side, GameState state, Vector3 screenPosition)
+        public static void Show(CardData card, PlayerSide side, GameState state, Vector3 screenPosition, bool useLiveCost = true)
         {
             if (instance == null || card == null)
             {
                 return;
             }
 
-            instance.BeginShow(card, side, state, null, screenPosition);
+            instance.BeginShow(card, side, state, null, screenPosition, useLiveCost);
         }
 
         public static void Show(BoardUnit unit, GameState state, Vector3 screenPosition)
@@ -69,7 +69,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            instance.BeginShow(unit.SourceCard, unit.Owner, state, unit, screenPosition);
+            instance.BeginShow(unit.SourceCard, unit.Owner, state, unit, screenPosition, useLiveCost: true);
         }
 
         public static void Show(LeaderData leader, Vector3 screenPosition)
@@ -92,7 +92,7 @@ namespace DDD.TNFY.TCG.UI
             instance.BeginHide();
         }
 
-        private void BeginShow(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
+        private void BeginShow(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition, bool useLiveCost)
         {
             CancelPendingHide();
             CancelPendingShow();
@@ -101,11 +101,11 @@ namespace DDD.TNFY.TCG.UI
 
             if (alreadyVisible)
             {
-                DisplayCard(card, side, state, liveUnit, screenPosition);
+                DisplayCard(card, side, state, liveUnit, screenPosition, useLiveCost);
                 return;
             }
 
-            pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, side, state, liveUnit, screenPosition));
+            pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, side, state, liveUnit, screenPosition, useLiveCost));
         }
 
         private void BeginShowLeader(LeaderData leader, Vector3 screenPosition)
@@ -160,11 +160,11 @@ namespace DDD.TNFY.TCG.UI
             }
         }
 
-        private System.Collections.IEnumerator ShowAfterDelay(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
+        private System.Collections.IEnumerator ShowAfterDelay(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition, bool useLiveCost)
         {
             yield return new WaitForSeconds(hoverDelaySeconds);
             pendingShowCoroutine = null;
-            DisplayCard(card, side, state, liveUnit, screenPosition);
+            DisplayCard(card, side, state, liveUnit, screenPosition, useLiveCost);
         }
 
         private System.Collections.IEnumerator ShowLeaderAfterDelay(LeaderData leader, Vector3 screenPosition)
@@ -174,7 +174,7 @@ namespace DDD.TNFY.TCG.UI
             DisplayLeader(leader, screenPosition);
         }
 
-        private void DisplayCard(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition)
+        private void DisplayCard(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition, bool useLiveCost)
         {
             if (root != null)
             {
@@ -196,7 +196,9 @@ namespace DDD.TNFY.TCG.UI
             if (costText != null)
             {
                 costText.gameObject.SetActive(true);
-                costText.text = CardDisplayFormatter.GetCostText(card);
+                costText.text = side.HasValue && useLiveCost
+                    ? CardDisplayFormatter.GetCurrentCostText(card, side.Value, state)
+                    : CardDisplayFormatter.GetCostText(card);
             }
 
             if (abilityText != null)
@@ -279,7 +281,74 @@ namespace DDD.TNFY.TCG.UI
                 referencedCardCount++;
             }
 
-            Debug.Log($"[CardHoverPreview] PopulateExtraInfo for {card.CardName}: {keywordCount} keyword panel(s), {referencedCardCount} referenced-card panel(s).");
+            int grantedKeywordCount = 0;
+            Keyword alreadyShownGrantedKeywords = Keyword.None;
+
+            foreach (CardEffect effect in card.Effects)
+            {
+                if (effect.action != EffectActionType.GrantKeyword && effect.action != EffectActionType.GrantRush)
+                {
+                    continue;
+                }
+
+                Keyword grantedKeyword = effect.action == EffectActionType.GrantRush ? Keyword.Rush : effect.keyword;
+
+                if (grantedKeyword == Keyword.None)
+                {
+                    continue;
+                }
+
+                if ((alreadyShownGrantedKeywords & grantedKeyword) != 0)
+                {
+                    continue;
+                }
+
+                if (card is UnitCardData grantingUnitCard && grantingUnitCard.HasKeyword(grantedKeyword))
+                {
+                    continue;
+                }
+
+                if (!KeywordReference.TryGetDescription(grantedKeyword, out string grantedDescription))
+                {
+                    continue;
+                }
+
+                SpawnInfoPanel(grantedKeyword.ToString(), grantedDescription);
+                alreadyShownGrantedKeywords |= grantedKeyword;
+                grantedKeywordCount++;
+            }
+
+            if (liveUnit != null)
+            {
+                Debug.Log($"[CardHoverPreview] Checking liveUnit.GrantedKeywords for {liveUnit.SourceCard.CardName}: {liveUnit.GrantedKeywords}");
+
+                foreach (Keyword keyword in KeywordReference.GetAllValues())
+                {
+                    if ((liveUnit.GrantedKeywords & keyword) == 0)
+                    {
+                        continue;
+                    }
+
+                    if ((alreadyShownGrantedKeywords & keyword) != 0)
+                    {
+                        continue;
+                    }
+
+                    if (liveUnit.SourceCard.HasKeyword(keyword))
+                    {
+                        continue;
+                    }
+
+                    if (!KeywordReference.TryGetDescription(keyword, out string description))
+                    {
+                        continue;
+                    }
+
+                    SpawnInfoPanel(keyword.ToString(), description);
+                    alreadyShownGrantedKeywords |= keyword;
+                    grantedKeywordCount++;
+                }
+            }
         }
 
         private static string GetReferencedCardDescription(CardData referencedCard)
@@ -417,8 +486,6 @@ namespace DDD.TNFY.TCG.UI
             Vector2 anchoredPosition = extraInfoContainer.anchoredPosition;
             anchoredPosition.x = isOnLeftHalf ? extraInfoGapX : -extraInfoGapX;
             extraInfoContainer.anchoredPosition = anchoredPosition;
-
-            Debug.Log($"[CardHoverPreview] MirrorExtraInfoSide: isOnLeftHalf={isOnLeftHalf}, anchoredPosition.x={extraInfoContainer.anchoredPosition.x}.");
         }
     }
 }

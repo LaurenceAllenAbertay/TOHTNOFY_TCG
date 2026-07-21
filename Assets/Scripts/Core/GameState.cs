@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
@@ -12,7 +13,32 @@ namespace DDD.TNFY.TCG.Core
 
         public PlayerSide ActivePlayer { get; set; } = PlayerSide.PlayerA;
         public PlayerSide FirstPlayer { get; set; } = PlayerSide.PlayerA;
-        public TurnPhase CurrentPhase { get; set; } = TurnPhase.Mulligan;
+
+        private TurnPhase currentPhase = TurnPhase.Mulligan;
+        public TurnPhase CurrentPhase
+        {
+            get => currentPhase;
+            set
+            {
+                if (currentPhase == value)
+                {
+                    return;
+                }
+
+                currentPhase = value;
+                PhaseChanged?.Invoke(currentPhase);
+            }
+        }
+
+        public event Action<TurnPhase> PhaseChanged;
+
+        public event Action BannerAnimationFinished;
+
+        public void RaiseBannerAnimationFinished()
+        {
+            BannerAnimationFinished?.Invoke();
+        }
+
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }

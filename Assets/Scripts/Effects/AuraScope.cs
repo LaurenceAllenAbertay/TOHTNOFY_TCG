@@ -5,6 +5,7 @@ namespace DDD.TNFY.TCG.Effects
         AllOwnUnits,
         EdgeUnits,
         AdjacentToSource,
-        Board
+        Board,
+        Self
     }
 }

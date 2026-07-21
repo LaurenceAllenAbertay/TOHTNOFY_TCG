@@ -69,7 +69,7 @@ namespace DDD.TNFY.TCG.Core
             foreach (CardData card in hand)
             {
                 UI.HandCardView view = Instantiate(mulliganCardPrefab, cardContainer);
-                view.Bind(card, side, gameManager.State);
+                view.Bind(card, side, gameManager.State, useLiveCost: false);
 
                 UI.MulliganCardSelectable selectable = view.GetComponent<UI.MulliganCardSelectable>();
                 if (selectable != null)

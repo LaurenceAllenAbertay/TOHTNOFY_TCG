@@ -20,6 +20,8 @@ MonoBehaviour:
     gain +1/+1
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects: []
   auras:
   - scope: 0
@@ -31,6 +33,6 @@ MonoBehaviour:
   - scope: 0
     activationCondition: 1
     grant:
-      action: 6
+      action: 4
       amount: 1
       keyword: 0

@@ -21,6 +21,7 @@ namespace DDD.TNFY.TCG.Core
         private bool? shownFaceUp;
         private int shownHandCount = -1;
         private CardData shownLastCard;
+        private bool shownHasUsedFirstUnitDiscountThisTurn;
 
         public IReadOnlyList<UI.HandCardView> SpawnedViews => spawnedViews;
 
@@ -31,13 +32,16 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            List<CardData> hand = gameManager.State.GetPlayer(side).Hand;
+            Player player = gameManager.State.GetPlayer(side);
+            List<CardData> hand = player.Hand;
             bool isFaceUp = gameManager.State.ActivePlayer == side;
             CardData lastCard = hand.Count > 0 ? hand[hand.Count - 1] : null;
+            bool hasUsedFirstUnitDiscountThisTurn = player.HasUsedFirstUnitDiscountThisTurn;
 
             bool handChanged = shownFaceUp != isFaceUp
                 || shownHandCount != hand.Count
-                || shownLastCard != lastCard;
+                || shownLastCard != lastCard
+                || shownHasUsedFirstUnitDiscountThisTurn != hasUsedFirstUnitDiscountThisTurn;
 
             if (!handChanged)
             {
@@ -49,6 +53,7 @@ namespace DDD.TNFY.TCG.Core
             shownFaceUp = isFaceUp;
             shownHandCount = hand.Count;
             shownLastCard = lastCard;
+            shownHasUsedFirstUnitDiscountThisTurn = hasUsedFirstUnitDiscountThisTurn;
         }
 
         public void CommitReorder()

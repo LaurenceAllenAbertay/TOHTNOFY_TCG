@@ -62,8 +62,6 @@ namespace DDD.TNFY.TCG.Core
                     TriggerOnDraw(side, drawn);
                 }
             }
-
-            Debug.Log($"[PhaseManager] {side} drew initial mulligan hand of {drawCount} cards.");
         }
 
         public void ResolveMulligan(PlayerSide side, List<CardData> cardsToMulligan)
@@ -136,9 +134,25 @@ namespace DDD.TNFY.TCG.Core
             for (int i = 0; i < drawCount; i++)
             {
                 CardData drawn = active.DrawCard();
+
                 if (drawn != null)
                 {
                     TriggerOnDraw(state.ActivePlayer, drawn);
+                }
+                else if (active.Deck.Count == 0)
+                {
+                    active.FatigueDamageTaken++;
+                    active.LeaderHealth -= active.FatigueDamageTaken;
+
+                    Debug.Log($"[PhaseManager] {state.ActivePlayer}'s deck is empty — fatigue dealt {active.FatigueDamageTaken} damage directly to their leader (bypassing shields/reductions). LeaderHealth is now {active.LeaderHealth}.");
+
+                    CheckWinCondition();
+
+                    if (state.IsGameOver)
+                    {
+                        Debug.Log($"[PhaseManager] {state.ActivePlayer} was defeated by fatigue.");
+                        return;
+                    }
                 }
             }
 
@@ -279,6 +293,7 @@ namespace DDD.TNFY.TCG.Core
             BoardUnit unit = new BoardUnit(card, state.ActivePlayer, slotIndex);
             state.Board.PlaceUnit(state.ActivePlayer, slotIndex, unit);
             InitializeHealthToEffectiveMax(unit);
+            SyncQualifyingEnemyAuraHealth();
 
             TriggerOnPlay(unit);
 
@@ -289,6 +304,30 @@ namespace DDD.TNFY.TCG.Core
         {
             int effectiveMax = unit.GetEffectiveMaxHealth(state);
             unit.CurrentHealth = effectiveMax;
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+        }
+
+        public void SyncQualifyingEnemyAuraHealth()
+        {
+            SyncQualifyingEnemyAuraHealthForSide(PlayerSide.PlayerA);
+            SyncQualifyingEnemyAuraHealthForSide(PlayerSide.PlayerB);
+        }
+
+        private void SyncQualifyingEnemyAuraHealthForSide(PlayerSide side)
+        {
+            foreach (BoardUnit unit in new List<BoardUnit>(state.Board.GetUnits(side)))
+            {
+                int currentAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+                int delta = currentAuraHealthBonus - unit.LastSyncedAuraHealthBonus;
+
+                if (delta > 0)
+                {
+                    unit.CurrentHealth += delta;
+                    Debug.Log($"[PhaseManager] SyncQualifyingEnemyAuraHealth: {unit.SourceCard.CardName} (slot {unit.SlotIndex}, {side}) qualifying-aura health bonus grew by {delta} ({unit.LastSyncedAuraHealthBonus}->{currentAuraHealthBonus}), CurrentHealth now {unit.CurrentHealth}.");
+                }
+
+                unit.LastSyncedAuraHealthBonus = currentAuraHealthBonus;
+            }
         }
 
         private void TopUpAllUnitsToEffectiveMaxHealth(PlayerSide side)
@@ -360,7 +399,70 @@ namespace DDD.TNFY.TCG.Core
             return openTauntSlots.Contains(slotIndex);
         }
 
+        public bool CanAnyUnitAttack()
+        {
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
+
+                if (unit == null) continue;
+                if (unit.PlacedThisTurn && !unit.HasKeyword(Keyword.Rush, state)) continue;
+                if (IsStunned(unit)) continue;
+                if (unit.GetCurrentAttack(state) <= 0) continue;
+
+                Debug.Log($"[PhaseManager] CanAnyUnitAttack: {unit.SourceCard.CardName} (Slot={i}) can attack this turn.");
+                return true;
+            }
+
+            Debug.Log("[PhaseManager] CanAnyUnitAttack: no eligible attackers found.");
+            return false;
+        }
+
+        private static bool IsStunned(BoardUnit unit)
+        {
+            for (int i = 0; i < unit.Statuses.Count; i++)
+            {
+                if (unit.Statuses[i].Type == StatusEffectType.Stunned)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private const float AttackAnimationDuration = 0.5f;
+        private const float BannerWaitTimeout = 3f;
+
+        public bool CanAnyUnitMove()
+        {
+            for (int fromSlot = 0; fromSlot < Board.SlotsPerSide; fromSlot++)
+            {
+                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, fromSlot);
+
+                if (unit == null) continue;
+
+                for (int toSlot = 0; toSlot < Board.SlotsPerSide; toSlot++)
+                {
+                    if (fromSlot == toSlot) continue;
+
+                    if (CanMoveUnit(fromSlot, toSlot))
+                    {
+                        Debug.Log($"[PhaseManager] CanAnyUnitMove: {unit.SourceCard.CardName} can move {fromSlot} -> {toSlot}.");
+                        return true;
+                    }
+                }
+            }
+
+            if (HasAvailableGrantedEnemyMove(state.ActivePlayer))
+            {
+                Debug.Log("[PhaseManager] CanAnyUnitMove: a granted enemy-move ability is available.");
+                return true;
+            }
+
+            Debug.Log("[PhaseManager] CanAnyUnitMove: no legal moves found.");
+            return false;
+        }
 
         public void EnterAttackPhase()
         {
@@ -372,8 +474,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            state.CurrentPhase = TurnPhase.Attack;
-
             if (state.HasPendingFreeMove)
             {
                 Debug.Log("[PhaseManager] Unused pending free move expired at end of Play phase.");
@@ -384,14 +484,56 @@ namespace DDD.TNFY.TCG.Core
 
             TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
 
+            if (!CanAnyUnitAttack())
+            {
+                Debug.Log("[PhaseManager] EnterAttackPhase: no eligible attackers — skipping attack phase entirely, banner will not show.");
+                FinishAttackPhase();
+                return;
+            }
+
+            state.CurrentPhase = TurnPhase.Attack;
+
             if (coroutineRunner != null)
             {
-                coroutineRunner.StartCoroutine(RunAttackPhaseSequence());
+                coroutineRunner.StartCoroutine(WaitForBannerThenRunAttackPhase());
             }
             else
             {
                 RunAttackPhaseInstant();
             }
+        }
+
+        private IEnumerator WaitForBannerThenRunAttackPhase()
+        {
+            bool bannerFinished = false;
+
+            void OnBannerFinished()
+            {
+                bannerFinished = true;
+            }
+
+            state.BannerAnimationFinished += OnBannerFinished;
+
+            float elapsed = 0f;
+
+            while (!bannerFinished && elapsed < BannerWaitTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            state.BannerAnimationFinished -= OnBannerFinished;
+
+            if (!bannerFinished)
+            {
+                Debug.LogWarning("[PhaseManager] WaitForBannerThenRunAttackPhase: timed out waiting for BannerAnimationFinished — proceeding anyway.");
+            }
+            else
+            {
+                Debug.Log($"[PhaseManager] WaitForBannerThenRunAttackPhase: banner signalled finished after {elapsed:F2}s.");
+            }
+
+            yield return RunAttackPhaseSequence();
         }
 
         private IEnumerator RunAttackPhaseSequence()
@@ -414,11 +556,21 @@ namespace DDD.TNFY.TCG.Core
                 if (effectiveAttack <= 0)
                 {
                     Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Slot={i}) has 0 effective attack — skipping attack animation, resolving combat immediately.");
-                    ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
+                    bool chainAttackNoAnim = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
 
                     if (state.IsGameOver)
                     {
                         break;
+                    }
+
+                    if (chainAttackNoAnim)
+                    {
+                        ResolveChainAttack(attacker, i, temporaryAttackBonus);
+
+                        if (state.IsGameOver)
+                        {
+                            break;
+                        }
                     }
 
                     continue;
@@ -433,13 +585,46 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
+                bool shouldChainAttack = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
 
                 state.CurrentlyAttackingUnit = null;
 
                 if (state.IsGameOver)
                 {
                     break;
+                }
+
+                if (shouldChainAttack)
+                {
+                    yield return null;
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
+                    {
+                        int chainEffectiveAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
+
+                        if (chainEffectiveAttack <= 0)
+                        {
+                            Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s chained attack has 0 effective attack — skipping animation, resolving immediately.");
+                            ResolveChainAttack(attacker, i, temporaryAttackBonus);
+                        }
+                        else
+                        {
+                            state.CurrentlyAttackingUnit = attacker;
+                            yield return new WaitForSeconds(AttackAnimationDuration);
+
+                            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
+                            {
+                                ResolveChainAttack(attacker, i, temporaryAttackBonus);
+                            }
+
+                            state.CurrentlyAttackingUnit = null;
+                        }
+                    }
+
+                    if (state.IsGameOver)
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -461,42 +646,86 @@ namespace DDD.TNFY.TCG.Core
                 if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush, state)) continue;
                 if (wasStunned) continue;
 
-                ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
+                bool shouldChainAttack = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
 
                 if (state.IsGameOver) break;
+
+                if (shouldChainAttack)
+                {
+                    ResolveChainAttack(attacker, i, temporaryAttackBonus);
+
+                    if (state.IsGameOver) break;
+                }
             }
 
             FinishAttackPhase();
         }
 
-        private void ResolveAttackerCombat(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
+        private bool ResolveAttackerCombat(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
         {
             int attackCount = hadDoubleAttack ? 2 : 1;
+            bool shouldChainAttack = false;
 
             for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
             {
+                bool killedDefender;
+
                 if (attacker.HasKeyword(Keyword.BifurcatedAttack, state))
                 {
                     int beforeSlot = slotIndex - 1;
                     int afterSlot = slotIndex + 1;
+                    killedDefender = false;
 
                     if (beforeSlot >= 0)
                     {
-                        ResolveAttack(attacker, beforeSlot, temporaryAttackBonus);
+                        killedDefender |= ResolveAttack(attacker, beforeSlot, temporaryAttackBonus);
                     }
 
                     if (afterSlot < Board.SlotsPerSide)
                     {
-                        ResolveAttack(attacker, afterSlot, temporaryAttackBonus);
+                        killedDefender |= ResolveAttack(attacker, afterSlot, temporaryAttackBonus);
                     }
                 }
                 else
                 {
-                    ResolveAttack(attacker, slotIndex, temporaryAttackBonus);
+                    killedDefender = ResolveAttack(attacker, slotIndex, temporaryAttackBonus);
                 }
 
                 if (state.IsGameOver) break;
+
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} ResolveAttackerCombat: attackIndex={attackIndex}, killedDefender={killedDefender}, HasAttackAgainOnKill={HasAttackAgainOnKill(attacker)}.");
+
+                if (killedDefender && attacker.CurrentHealth > 0 && HasAttackAgainOnKill(attacker))
+                {
+                    shouldChainAttack = true;
+                }
             }
+
+            return shouldChainAttack;
+        }
+
+        private void ResolveChainAttack(BoardUnit attacker, int slotIndex, int temporaryAttackBonus)
+        {
+            Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} killed its target — chaining a bonus attack into slot {slotIndex}.");
+            ResolveAttack(attacker, slotIndex, temporaryAttackBonus);
+        }
+
+        private static bool HasAttackAgainOnKill(BoardUnit attacker)
+        {
+            if (attacker.IsSilenced)
+            {
+                return false;
+            }
+
+            foreach (CardEffect effect in attacker.SourceCard.Effects)
+            {
+                if (effect.trigger == EffectTriggerType.OnAttack && effect.action == EffectActionType.AttackAgainOnKill)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void FinishAttackPhase()
@@ -509,7 +738,7 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void ResolveAttack(BoardUnit attacker, int targetSlot, int temporaryAttackBonus = 0)
+        private bool ResolveAttack(BoardUnit attacker, int targetSlot, int temporaryAttackBonus = 0)
         {
             int attackerCurrentAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
 
@@ -517,10 +746,11 @@ namespace DDD.TNFY.TCG.Core
             {
                 DamageLeader(state.ActivePlayer.Opposite(), attackerCurrentAttack);
                 TriggerOnAttack(attacker, null, attackerCurrentAttack);
-                return;
+                return false;
             }
 
             BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
+            bool killedDefender = false;
 
             if (defender != null)
             {
@@ -531,6 +761,7 @@ namespace DDD.TNFY.TCG.Core
                 if (defender.CurrentHealth <= 0)
                 {
                     KillUnit(defender, state.ActivePlayer);
+                    killedDefender = true;
                 }
                 else if (defender.HasKeyword(Keyword.Retaliate, state))
                 {
@@ -553,10 +784,12 @@ namespace DDD.TNFY.TCG.Core
             if (attacker.CurrentHealth <= 0)
             {
                 Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} died before its OnAttack effects could resolve — skipping TriggerOnAttack.");
-                return;
+                return killedDefender;
             }
 
             TriggerOnAttack(attacker, defender, attackerCurrentAttack);
+
+            return killedDefender;
         }
 
         private void TriggerOnAttack(BoardUnit attacker, BoardUnit defender, int damageDealt)
@@ -634,6 +867,7 @@ namespace DDD.TNFY.TCG.Core
             replacementUnit.HasUsedGrantedEnemyMoveThisTurn = originalUnit.HasUsedGrantedEnemyMoveThisTurn;
             state.Board.PlaceUnit(owner, slotIndex, replacementUnit);
             InitializeHealthToEffectiveMax(replacementUnit);
+            SyncQualifyingEnemyAuraHealth();
 
             Debug.Log($"[PhaseManager] {originalUnit.SourceCard.CardName} was transformed into {replacementCard.CardName} in slot {slotIndex} for {owner}. Replacement PlacedThisTurn={replacementUnit.PlacedThisTurn}.");
 
@@ -644,8 +878,35 @@ namespace DDD.TNFY.TCG.Core
         {
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
             TriggerOnDeath(unit);
+            TriggerOnAllyDeath(unit);
             TriggerLeaderEffects(EffectTriggerType.UnitDied, killer, unit);
             TriggerLeaderEffectsFor(state.GetPlayer(killer), EffectTriggerType.UnitKilled, killer, unit);
+        }
+
+        private void TriggerOnAllyDeath(BoardUnit deadUnit)
+        {
+            List<BoardUnit> survivingAllies = new List<BoardUnit>(state.Board.GetUnits(deadUnit.Owner));
+
+            foreach (BoardUnit ally in survivingAllies)
+            {
+                if (ally.IsSilenced)
+                {
+                    continue;
+                }
+
+                foreach (CardEffect effect in ally.SourceCard.Effects)
+                {
+                    if (effect.trigger != EffectTriggerType.OnAllyDeath)
+                    {
+                        continue;
+                    }
+
+                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, ally, ally.Owner, state);
+                    Debug.Log($"[PhaseManager] {deadUnit.SourceCard.CardName}'s death triggered {ally.SourceCard.CardName}'s OnAllyDeath effect (targetType={effect.targetType}), target.Kind={immediateTarget.Kind}.");
+                    EffectContext context = new EffectContext(state, ally.Owner, ally, immediateTarget);
+                    EffectExecutor.Execute(effect, context, this);
+                }
+            }
         }
 
         private void TriggerOnDeath(BoardUnit unit)
@@ -775,6 +1036,7 @@ namespace DDD.TNFY.TCG.Core
             unit.BonusAttack = oldCurrentHealth - unit.SourceCard.Attack - auraAttackBonus;
             unit.MaxHealth = oldCurrentAttack - auraMaxHealthBonus;
             unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
 
             Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Attack and Health swapped: Attack {oldCurrentAttack}->{unit.GetCurrentAttack(state)}, Health {oldCurrentHealth}/{oldEffectiveMaxHealth}->{unit.CurrentHealth}/{unit.GetEffectiveMaxHealth(state)}.");
 
@@ -782,7 +1044,10 @@ namespace DDD.TNFY.TCG.Core
             {
                 Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s swap left it at 0 or less Health — dying.");
                 KillUnit(unit, unit.Owner);
+                return true;
             }
+
+            SyncQualifyingEnemyAuraHealth();
 
             return true;
         }
@@ -914,6 +1179,13 @@ namespace DDD.TNFY.TCG.Core
 
         public void EnterMovePhase()
         {
+            if (!CanAnyUnitMove())
+            {
+                Debug.Log("[PhaseManager] EnterMovePhase: no legal moves available — skipping Move phase entirely, banner will not show.");
+                PassMoveToEndTurn();
+                return;
+            }
+
             state.CurrentPhase = TurnPhase.Move;
         }
 
@@ -1175,11 +1447,18 @@ namespace DDD.TNFY.TCG.Core
         private bool IsMoveRangeLegal(PlayerSide side, BoardUnit unit, int fromSlot, int toSlot)
         {
             if (state.Board.GetUnit(side, toSlot) != null) return false;
+            if (fromSlot == toSlot) return false;
+
+            if (unit.HasKeyword(Keyword.Teleport, state))
+            {
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is using Teleport — range check bypassed, moving {fromSlot} -> {toSlot}.");
+                return true;
+            }
 
             int distance = toSlot - fromSlot;
             int maxRange = unit.HasKeyword(Keyword.Agile, state) ? 2 : 1;
 
-            if (distance == 0 || System.Math.Abs(distance) > maxRange) return false;
+            if (System.Math.Abs(distance) > maxRange) return false;
 
             int step = distance > 0 ? 1 : -1;
             for (int slot = fromSlot + step; slot != toSlot; slot += step)
@@ -1372,6 +1651,12 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
+                if (effect.action == EffectActionType.ChooseFixedCard)
+                {
+                    DeferFixedCardChoice(effect, unit);
+                    continue;
+                }
+
                 if (RequiresChosenTarget(effect.targetType))
                 {
                     DeferTargetedEffect(effect, unit, EffectTriggerType.OnPlay);
@@ -1423,6 +1708,22 @@ namespace DDD.TNFY.TCG.Core
             Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName} is now awaiting a card choice from {offerCount} option(s): {string.Join(", ", offeredCards.ConvertAll(c => c.CardName))}.");
         }
 
+        private void DeferFixedCardChoice(CardEffect effect, BoardUnit sourceUnit)
+        {
+            if (effect.fixedChoiceOptions == null || effect.fixedChoiceOptions.Length == 0)
+            {
+                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s ChooseFixedCard effect has no fixedChoiceOptions configured on the asset — fizzling.");
+                return;
+            }
+
+            List<CardData> offeredCards = new List<CardData>(effect.fixedChoiceOptions);
+
+            state.PendingCardChoiceOptions = offeredCards;
+            state.PendingCardChoiceSource = sourceUnit;
+
+            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName} is now awaiting a fixed card choice from {offeredCards.Count} option(s): {string.Join(", ", offeredCards.ConvertAll(c => c.CardName))}.");
+        }
+
         private static bool MatchesCardCategory(CardData card, CardCategory category)
         {
             switch (category)
@@ -1456,19 +1757,25 @@ namespace DDD.TNFY.TCG.Core
             state.PendingCardChoiceOptions = null;
             state.PendingCardChoiceSource = null;
 
-            if (!owner.Deck.Contains(chosenCard))
+            bool cameFromDeck = owner.Deck.Contains(chosenCard);
+
+            Debug.Log($"[PhaseManager] TryResolvePendingCardChoice: {chosenCard.CardName} cameFromDeck={cameFromDeck}.");
+
+            if (cameFromDeck)
             {
-                Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {chosenCard.CardName} is no longer in the deck.");
-                return false;
+                owner.Deck.Remove(chosenCard);
             }
 
-            owner.Deck.Remove(chosenCard);
             bool added = owner.TryAddCardToHand(chosenCard);
 
             if (!added)
             {
-                owner.Deck.Add(chosenCard);
-                Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {owner.Side}'s hand is full, {chosenCard.CardName} returned to deck.");
+                if (cameFromDeck)
+                {
+                    owner.Deck.Add(chosenCard);
+                }
+
+                Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {owner.Side}'s hand is full, {chosenCard.CardName}{(cameFromDeck ? " returned to deck" : " discarded")}.");
                 return false;
             }
 

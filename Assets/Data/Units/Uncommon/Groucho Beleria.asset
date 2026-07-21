@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: Groucho Beleria
+  m_EditorClassIdentifier: 
+  cardId: grouchobeleria
+  cardName: Groucho Beleria
+  manaCost: 4
+  rarity: 1
+  cardArt: {fileID: 0}
+  abilityText: Gain +1 attack for each enemy unit with 6 or more health.
+  effects: []
+  attack: 3
+  health: 5
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras:
+  - scope: 4
+    activationCondition: 0
+    grant:
+      action: 35
+      amount: 6
+      keyword: 0

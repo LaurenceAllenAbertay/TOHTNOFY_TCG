@@ -7,9 +7,10 @@ namespace DDD.TNFY.TCG.Core
     [RequireComponent(typeof(GameManager))]
     public class MatchBootstrapper : MonoBehaviour
     {
-        [Header("Test Deck Setup")]
-        [SerializeField] private List<CardData> testCardPool = new List<CardData>();
+        [Header("Card Pool Setup")]
+        [SerializeField] private List<CardData> cardPool = new List<CardData>();
         [SerializeField] private int copiesOfEachCard = 3;
+        [SerializeField] private int deckSize = 33;
 
         [Header("Leader Setup")]
         [SerializeField] private List<LeaderData> leaderPool = new List<LeaderData>();
@@ -23,12 +24,12 @@ namespace DDD.TNFY.TCG.Core
 
         private void Start()
         {
-            BuildTestDecks();
+            BuildDecks();
             AssignRandomLeaders();
             manager.Phases.StartMatch();
         }
 
-        private void BuildTestDecks()
+        private void BuildDecks()
         {
             BuildDeckFor(manager.State.PlayerA);
             BuildDeckFor(manager.State.PlayerB);
@@ -38,15 +39,26 @@ namespace DDD.TNFY.TCG.Core
         {
             player.Deck.Clear();
 
-            foreach (CardData card in testCardPool)
+            List<CardData> availableCopies = new List<CardData>();
+
+            foreach (CardData card in cardPool)
             {
                 for (int i = 0; i < copiesOfEachCard; i++)
                 {
-                    player.Deck.Add(card);
+                    availableCopies.Add(card);
                 }
             }
 
-            ListShuffler.Shuffle(player.Deck);
+            ListShuffler.Shuffle(availableCopies);
+
+            int cardsToTake = Mathf.Min(deckSize, availableCopies.Count);
+
+            for (int i = 0; i < cardsToTake; i++)
+            {
+                player.Deck.Add(availableCopies[i]);
+            }
+
+            Debug.Log($"[MatchBootstrapper] Built {player.Side}'s deck: {player.Deck.Count} cards drawn independently from a pool of {cardPool.Count} distinct cards.");
         }
 
         private void AssignRandomLeaders()

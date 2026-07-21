@@ -25,6 +25,7 @@ namespace DDD.TNFY.TCG.Core
         public bool HasUsedFirstUnitDiscountThisTurn { get; set; }
         public bool HasNextItemDoubled { get; set; }
         public int OwnTurnCount { get; set; }
+        public int FatigueDamageTaken { get; set; }
 
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
         public HashSet<CardEffect> TriggeredOncePerTurnEffects { get; } = new HashSet<CardEffect>();

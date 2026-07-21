@@ -67,7 +67,7 @@ namespace DDD.TNFY.TCG.Core
             foreach (CardData card in options)
             {
                 UI.HandCardView view = Instantiate(choiceCardPrefab, cardContainer);
-                view.Bind(card, side, gameManager.State);
+                view.Bind(card, side, gameManager.State, useLiveCost: false);
 
                 UI.ChoiceCardSelectable selectable = view.GetComponent<UI.ChoiceCardSelectable>();
                 if (selectable != null)
