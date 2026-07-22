@@ -16,9 +16,11 @@ MonoBehaviour:
   cardName: Ban Ban
   manaCost: 1
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 8286319439882430463, guid: 5d3ca38935f92f14aa3cfd493eb60f8e, type: 3}
   abilityText: 
   effects: []
   attack: 1
   health: 3
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

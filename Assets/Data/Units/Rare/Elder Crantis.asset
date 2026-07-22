@@ -10,17 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Pickle-Me-Richard
+  m_Name: Elder Crantis
   m_EditorClassIdentifier: 
-  cardId: picklemerichard
-  cardName: Pickle-Me-Richard
-  manaCost: 8
-  rarity: 4
+  cardId: eldercrantis
+  cardName: Elder Crantis
+  manaCost: 4
+  rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Rush\nTeleport
+  abilityText: Gains +1/+1 for every 2 allied units that have died this game.
   effects: []
-  attack: 5
-  health: 8
-  keywords: 514
+  attack: 2
+  health: 3
+  keywords: 0
   grantsEnemyUnitMove: 0
-  auras: []
+  auras:
+  - scope: 4
+    activationCondition: 0
+    grant:
+      action: 38
+      amount: 2
+      keyword: 0

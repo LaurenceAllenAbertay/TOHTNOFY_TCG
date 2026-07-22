@@ -79,13 +79,13 @@ namespace DDD.TNFY.TCG.UI
 
         public static string GetAttackText(UnitCardData card, PlayerSide side, GameState state)
         {
-            int bonus = AuraCalculator.GetPreviewAttackBonus(side, state);
+            int bonus = AuraCalculator.GetPreviewAttackBonus(side, state, card);
             return (card.Attack + bonus).ToString();
         }
 
         public static string GetHealthText(UnitCardData card, PlayerSide side, GameState state)
         {
-            int bonus = AuraCalculator.GetPreviewMaxHealthBonus(side, state);
+            int bonus = AuraCalculator.GetPreviewMaxHealthBonus(side, state, card);
             return (card.Health + bonus).ToString();
         }
 

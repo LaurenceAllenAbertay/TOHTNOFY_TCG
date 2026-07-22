@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: BBG Goon
   manaCost: 2
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 9fdd7b17fbe74474da832faf5d457baa, type: 3}
   abilityText: Rush
   effects: []
   attack: 1

@@ -10,6 +10,7 @@ namespace DDD.TNFY.TCG.Effects
         UnitKilled,
         OnAttack,
         OnDraw,
-        OnAllyDeath
+        OnAllyDeath,
+        OnDamaged
     }
 }

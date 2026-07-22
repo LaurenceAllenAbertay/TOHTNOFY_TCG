@@ -223,12 +223,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             int damageDealt = System.Math.Min(healEffect.amount, target.CurrentHealth);
-            target.CurrentHealth -= healEffect.amount;
-
-            if (target.CurrentHealth <= 0)
-            {
-                KillUnit(target, source.Owner);
-            }
+            DamageUnit(target, healEffect.amount, source.Owner, DamageSourceType.Effect);
 
             EffectTarget selfTarget = EffectTarget.ForUnit(source);
             EffectContext context = new EffectContext(state, source.Owner, source, selfTarget);
@@ -290,14 +285,53 @@ namespace DDD.TNFY.TCG.Core
 
             active.Hand.Remove(card);
 
+            BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
+
+            BoardUnit unit = occupyingUnit != null
+                ? AbsorbUnit(occupyingUnit, card, slotIndex)
+                : PlaceNewUnit(card, slotIndex);
+
+            TriggerOnPlay(unit);
+
+            return true;
+        }
+
+        private BoardUnit PlaceNewUnit(UnitCardData card, int slotIndex)
+        {
             BoardUnit unit = new BoardUnit(card, state.ActivePlayer, slotIndex);
             state.Board.PlaceUnit(state.ActivePlayer, slotIndex, unit);
             InitializeHealthToEffectiveMax(unit);
             SyncQualifyingEnemyAuraHealth();
 
-            TriggerOnPlay(unit);
+            return unit;
+        }
 
-            return true;
+        private BoardUnit AbsorbUnit(BoardUnit absorbedUnit, UnitCardData card, int slotIndex)
+        {
+            int inheritedPermanentAttack = absorbedUnit.SourceCard.Attack + absorbedUnit.BonusAttack;
+            int inheritedMaxHealth = absorbedUnit.MaxHealth;
+            int inheritedCurrentHealth = absorbedUnit.CurrentHealth;
+            int inheritedTemporaryAttack = ConsumeStatusMagnitude(absorbedUnit, StatusEffectType.TemporaryAttackNextAttack);
+
+            Debug.Log($"[PhaseManager] {card.CardName} (Absorb) is replacing {absorbedUnit.SourceCard.CardName} in slot {slotIndex}. InheritedPermanentAttack={inheritedPermanentAttack}, InheritedMaxHealth={inheritedMaxHealth}, InheritedCurrentHealth={inheritedCurrentHealth}, TemporaryAttackConverted={inheritedTemporaryAttack}.");
+
+            state.Board.RemoveUnit(absorbedUnit.Owner, slotIndex);
+
+            BoardUnit unit = new BoardUnit(card, absorbedUnit.Owner, slotIndex);
+            state.Board.PlaceUnit(absorbedUnit.Owner, slotIndex, unit);
+
+            unit.BonusAttack = inheritedPermanentAttack - card.Attack + inheritedTemporaryAttack;
+            unit.MaxHealth = inheritedMaxHealth;
+
+            int effectiveMax = unit.GetEffectiveMaxHealth(state);
+            unit.CurrentHealth = System.Math.Min(inheritedCurrentHealth, effectiveMax);
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+
+            SyncQualifyingEnemyAuraHealth();
+
+            Debug.Log($"[PhaseManager] {card.CardName} (Absorb) is now {unit.GetCurrentAttack(state)} attack, {unit.CurrentHealth}/{effectiveMax} health in slot {slotIndex}.");
+
+            return unit;
         }
 
         private void InitializeHealthToEffectiveMax(BoardUnit unit)
@@ -361,8 +395,15 @@ namespace DDD.TNFY.TCG.Core
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
 
             if (active.CurrentMana < effectiveCost) return false;
-            if (state.Board.GetUnit(state.ActivePlayer, slotIndex) != null) return false;
             if (!active.Hand.Contains(card)) return false;
+
+            BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
+
+            if (occupyingUnit != null)
+            {
+                return card.HasKeyword(Keyword.Absorb);
+            }
+
             if (!IsSlotLegalForPlacement(slotIndex)) return false;
 
             return true;
@@ -754,26 +795,13 @@ namespace DDD.TNFY.TCG.Core
 
             if (defender != null)
             {
-                defender.CurrentHealth -= attackerCurrentAttack;
+                killedDefender = DamageUnit(defender, attackerCurrentAttack, state.ActivePlayer, DamageSourceType.Combat);
 
-                Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} took {attackerCurrentAttack} damage from {attacker.SourceCard.CardName}, CurrentHealth={defender.CurrentHealth}.");
-
-                if (defender.CurrentHealth <= 0)
-                {
-                    KillUnit(defender, state.ActivePlayer);
-                    killedDefender = true;
-                }
-                else if (defender.HasKeyword(Keyword.Retaliate, state))
+                if (!killedDefender && defender.HasKeyword(Keyword.Retaliate, state))
                 {
                     int retaliateDamage = defender.GetCurrentAttack(state);
-                    attacker.CurrentHealth -= retaliateDamage;
-
-                    Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} (Retaliate) survived and dealt {retaliateDamage} back to {attacker.SourceCard.CardName}, CurrentHealth={attacker.CurrentHealth}.");
-
-                    if (attacker.CurrentHealth <= 0)
-                    {
-                        KillUnit(attacker, defender.Owner);
-                    }
+                    Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} (Retaliate) survived and deals {retaliateDamage} back to {attacker.SourceCard.CardName}.");
+                    DamageUnit(attacker, retaliateDamage, defender.Owner, DamageSourceType.Combat);
                 }
             }
             else
@@ -874,13 +902,96 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
+        public bool SpawnUnit(PlayerSide side, int slotIndex, UnitCardData card)
+        {
+            if (card == null)
+            {
+                Debug.Log("[PhaseManager] SpawnUnit FAIL: card is null.");
+                return false;
+            }
+
+            if (state.Board.GetUnit(side, slotIndex) != null)
+            {
+                Debug.Log($"[PhaseManager] SpawnUnit FAIL: slot {slotIndex} for {side} is already occupied.");
+                return false;
+            }
+
+            BoardUnit spawnedUnit = new BoardUnit(card, side, slotIndex);
+            state.Board.PlaceUnit(side, slotIndex, spawnedUnit);
+            InitializeHealthToEffectiveMax(spawnedUnit);
+            SyncQualifyingEnemyAuraHealth();
+
+            Debug.Log($"[PhaseManager] {card.CardName} was spawned into slot {slotIndex} for {side}.");
+
+            return true;
+        }
+
         public void KillUnit(BoardUnit unit, PlayerSide killer)
         {
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
+
+            Player deadUnitOwner = state.GetPlayer(unit.Owner);
+            deadUnitOwner.AlliedUnitsDied++;
+
+            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} died. {unit.Owner}'s AlliedUnitsDied is now {deadUnitOwner.AlliedUnitsDied}.");
+
             TriggerOnDeath(unit);
             TriggerOnAllyDeath(unit);
             TriggerLeaderEffects(EffectTriggerType.UnitDied, killer, unit);
             TriggerLeaderEffectsFor(state.GetPlayer(killer), EffectTriggerType.UnitKilled, killer, unit);
+
+            SyncQualifyingEnemyAuraHealth();
+        }
+
+        public bool DamageUnit(BoardUnit target, int amount, PlayerSide source, DamageSourceType sourceType)
+        {
+            if (target == null || amount <= 0)
+            {
+                Debug.Log($"[PhaseManager] DamageUnit skipped: target={(target == null ? "null" : target.SourceCard.CardName)}, amount={amount}.");
+                return false;
+            }
+
+            target.CurrentHealth -= amount;
+
+            Debug.Log($"[PhaseManager] {target.SourceCard.CardName} took {amount} {sourceType} damage from {source}, CurrentHealth={target.CurrentHealth}.");
+
+            TriggerOnDamaged(target, source, sourceType);
+
+            if (target.CurrentHealth <= 0)
+            {
+                KillUnit(target, source);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void TriggerOnDamaged(BoardUnit unit, PlayerSide source, DamageSourceType sourceType)
+        {
+            if (unit.IsSilenced)
+            {
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnDamaged effects.");
+                return;
+            }
+
+            foreach (CardEffect effect in unit.SourceCard.Effects)
+            {
+                if (effect.trigger != EffectTriggerType.OnDamaged)
+                {
+                    continue;
+                }
+
+                if (RequiresChosenTarget(effect.targetType))
+                {
+                    Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect requires a chosen target, which isn't supported yet — skipping.");
+                    continue;
+                }
+
+                EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect (targetType={effect.targetType}, sourceType={sourceType}) resolved immediately, target.Kind={immediateTarget.Kind}.");
+                EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
+                EffectExecutor.Execute(effect, context, this);
+            }
         }
 
         private void TriggerOnAllyDeath(BoardUnit deadUnit)
@@ -961,12 +1072,7 @@ namespace DDD.TNFY.TCG.Core
 
             Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Unstable dealing 1 damage to {target.SourceCard.CardName} in slot {target.SlotIndex}.");
 
-            target.CurrentHealth -= 1;
-
-            if (target.CurrentHealth <= 0)
-            {
-                KillUnit(target, unit.Owner);
-            }
+            DamageUnit(target, 1, unit.Owner, DamageSourceType.Effect);
         }
 
         public void BounceUnit(BoardUnit unit)
@@ -1141,12 +1247,7 @@ namespace DDD.TNFY.TCG.Core
                     }
                 }
 
-                unit.CurrentHealth -= decayStacks;
-
-                if (unit.CurrentHealth <= 0)
-                {
-                    KillUnit(unit, killer ?? unit.Owner.Opposite());
-                }
+                DamageUnit(unit, decayStacks, killer ?? unit.Owner.Opposite(), DamageSourceType.Effect);
             }
         }
 

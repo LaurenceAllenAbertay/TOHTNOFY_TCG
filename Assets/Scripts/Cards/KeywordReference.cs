@@ -16,6 +16,7 @@ namespace DDD.TNFY.TCG.Cards
             { Keyword.Unstable, "When this unit dies, deal 1 damage to a random enemy unit." },
             { Keyword.Retaliate, "If this unit survives a hit, it attacks the attacking unit." },
             { Keyword.Teleport, "This unit can move to any open slot." },
+            { Keyword.Absorb, "Can be placed on an allied unit, replacing it and gaining its stats." },
         };
 
         public static bool TryGetDescription(Keyword keyword, out string description)

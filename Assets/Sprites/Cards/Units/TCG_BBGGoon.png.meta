@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c7fc99cf613ef834cb3665f0fc9a3f6b
+guid: 9fdd7b17fbe74474da832faf5d457baa
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7827199322235559590
-    second: TCG_Backrooms_0
+      213: 1152543440821481256
+    second: TCG_BBGGoon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_Backrooms_0
+      name: TCG_BBGGoon_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6ae5704305ccf9c60800000000000000
-      internalID: 7827199322235559590
+      spriteID: 82fee5a2728aeff00800000000000000
+      internalID: 1152543440821481256
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_Backrooms_0: 7827199322235559590
+      TCG_BBGGoon_0: 1152543440821481256
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: cmggoon
   cardName: CMG Goon
-  manaCost: 1
+  manaCost: 0
   rarity: 0
   cardArt: {fileID: 0}
   abilityText: 

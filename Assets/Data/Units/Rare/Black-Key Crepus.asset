@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: Black-Key Crepus
+  m_EditorClassIdentifier: 
+  cardId: blackkeycrepus
+  cardName: Black-Key Crepus
+  manaCost: 6
+  rarity: 0
+  cardArt: {fileID: 0}
+  abilityText: 'On Damaged: Spawn Ghost Hornets into adjacent slots.'
+  effects:
+  - trigger: 9
+    action: 37
+    targetType: 0
+    amount: 2
+    oncePerTurn: 0
+    mandatoryTarget: 0
+    relevantCard: {fileID: 11400000, guid: 3b53099ada1fda34abcc52c11a2dc48e, type: 2}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
+  attack: 4
+  health: 3
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

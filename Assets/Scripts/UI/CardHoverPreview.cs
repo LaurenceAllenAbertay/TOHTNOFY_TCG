@@ -353,17 +353,16 @@ namespace DDD.TNFY.TCG.UI
 
         private static string GetReferencedCardDescription(CardData referencedCard)
         {
-            if (!string.IsNullOrEmpty(referencedCard.AbilityText))
+            string statsLine = referencedCard is UnitCardData referencedUnit
+                ? $"{referencedUnit.ManaCost} Cost {referencedUnit.Attack}/{referencedUnit.Health}"
+                : $"{referencedCard.ManaCost} Cost";
+
+            if (string.IsNullOrEmpty(referencedCard.AbilityText))
             {
-                return referencedCard.AbilityText;
+                return statsLine;
             }
 
-            if (referencedCard is UnitCardData referencedUnit)
-            {
-                return $"{referencedUnit.ManaCost} cost, {referencedUnit.Attack} attack, {referencedUnit.Health} health.";
-            }
-
-            return string.Empty;
+            return $"{statsLine}\n{referencedCard.AbilityText}";
         }
 
         private void SpawnInfoPanel(string term, string description)

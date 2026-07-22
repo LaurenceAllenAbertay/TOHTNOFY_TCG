@@ -38,6 +38,8 @@ namespace DDD.TNFY.TCG.Effects
         RandomizeAllyStats,
         AttackAgainOnKill,
         BuffAttackAndHealthPerQualifyingEnemy,
-        ChooseFixedCard
+        ChooseFixedCard,
+        SpawnUnitsAdjacent,
+        BuffAttackAndHealthPerAlliedDeath
     }
 }

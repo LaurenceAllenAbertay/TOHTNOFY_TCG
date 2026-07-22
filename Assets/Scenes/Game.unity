@@ -1044,7 +1044,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &365904122
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1763,7 +1763,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
-  m_AnchoredPosition: {x: 0, y: -49.3}
+  m_AnchoredPosition: {x: 0, y: -49.30005}
   m_SizeDelta: {x: 1165.1, y: 325.1}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &466868583
@@ -5503,6 +5503,7 @@ GameObject:
   - component: {fileID: 1715400184}
   - component: {fileID: 1715400183}
   - component: {fileID: 1715400185}
+  - component: {fileID: 1715400186}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -5552,64 +5553,8 @@ MonoBehaviour:
   cardPool:
   - {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
   - {fileID: 11400000, guid: cd34e152819cd0143b687ba709d6e1d3, type: 2}
-  - {fileID: 11400000, guid: 54caed9a2d246dc4081de5179708af78, type: 2}
-  - {fileID: 11400000, guid: 3adba099345368e4e912aafaa0d8529a, type: 2}
-  - {fileID: 11400000, guid: aae1341c2cd4e1d45b99914688174b16, type: 2}
-  - {fileID: 11400000, guid: d42f89054400c2745aee5cd2f99ff1f2, type: 2}
-  - {fileID: 11400000, guid: f8552222db4f0ed40aefdb5a2a8f0f7a, type: 2}
-  - {fileID: 11400000, guid: 4a5fc5441f8a1354c93e421ea0296077, type: 2}
-  - {fileID: 11400000, guid: b049b8d177bd8ea429caa52f206b81d6, type: 2}
-  - {fileID: 11400000, guid: f4087717688c3a041b87207fdbf6cbaf, type: 2}
-  - {fileID: 11400000, guid: 0c6938f50a6831f44acc05d31050b92e, type: 2}
-  - {fileID: 11400000, guid: 30ad2341cdf2a9d40aaccc30e2604ad8, type: 2}
-  - {fileID: 11400000, guid: afbd7d4669bbc084a96649b51d037560, type: 2}
-  - {fileID: 11400000, guid: 2f71bc994583f5a4c9b41e17a53171d8, type: 2}
-  - {fileID: 11400000, guid: dfd82fbe45931bb47b5e7c036ad755e8, type: 2}
-  - {fileID: 11400000, guid: 725d52391e48fca4c9b7f5f2352b4133, type: 2}
-  - {fileID: 11400000, guid: 368587c05903e7446af693eeaf92aa2f, type: 2}
-  - {fileID: 11400000, guid: cef2242c466e1e74b92f9dd7594e98c7, type: 2}
-  - {fileID: 11400000, guid: 9c96328c79c8f7040ab1df0db715190f, type: 2}
-  - {fileID: 11400000, guid: a155f22d44db76d47b61046f46d3f2c3, type: 2}
-  - {fileID: 11400000, guid: dd20f5ee8be5ed9468c3fa6e64e9a2d0, type: 2}
-  - {fileID: 11400000, guid: 33a2894030a950d4b8ad1044bf0d432e, type: 2}
-  - {fileID: 11400000, guid: 0a58c9d69e85ac44ba9f4b3b02b2d820, type: 2}
-  - {fileID: 11400000, guid: 10c717c789f89b54e8cb338339843f26, type: 2}
-  - {fileID: 11400000, guid: 842df8ca92863fb4fa7ff908c39fb9f7, type: 2}
-  - {fileID: 11400000, guid: 1db8b404b2f98de429634354203b5058, type: 2}
-  - {fileID: 11400000, guid: 6f5b2a791e4111940b43c20716adfc03, type: 2}
-  - {fileID: 11400000, guid: 54660c49d7c2d3c4dba610c00d397d59, type: 2}
-  - {fileID: 11400000, guid: 9e11828a4ebf551439d1733b8f6210ad, type: 2}
-  - {fileID: 11400000, guid: d6d28c8e5a4f4954e90cc2ad1b15c2ab, type: 2}
-  - {fileID: 11400000, guid: 91970c1ad5761324ab2397224705b12e, type: 2}
-  - {fileID: 11400000, guid: 3339225e3ac280f43ae762e4b08f00c5, type: 2}
-  - {fileID: 11400000, guid: 5dc47b130aec78644bc9cbb0d01d39fa, type: 2}
-  - {fileID: 11400000, guid: b9f645e2413a87644b2d6779d9d14657, type: 2}
-  - {fileID: 11400000, guid: 9c79c7b27fe9a2c4196113bf71f4432f, type: 2}
-  - {fileID: 11400000, guid: c55c12ba80e6ca348bed50efb1dc0e01, type: 2}
-  - {fileID: 11400000, guid: c8c1701179a133f459e51cd68ea53408, type: 2}
-  - {fileID: 11400000, guid: 6ba713d83ee981f4990c10d075b6dbf4, type: 2}
-  - {fileID: 11400000, guid: a0c7dc1f9270e2443be27144e2549b03, type: 2}
-  - {fileID: 11400000, guid: 0f9ed80876ffd5b4f8e2c94e56f12bfe, type: 2}
-  - {fileID: 11400000, guid: 795640a111f65934eb5d18096a14df11, type: 2}
-  - {fileID: 11400000, guid: dcf88b27d73daed4586026269919dd7d, type: 2}
-  - {fileID: 11400000, guid: cde4f89230f2a7d49aab1316a00818ff, type: 2}
-  - {fileID: 11400000, guid: b344e2ca636298a4cbebed6aaab355df, type: 2}
-  - {fileID: 11400000, guid: a2d4f71c2617d0c4d9c8b61c1269d501, type: 2}
-  - {fileID: 11400000, guid: c9e733d50f300144596561395d42774b, type: 2}
-  - {fileID: 11400000, guid: 95bb33d8908059e4b9a66c1b6c46ae25, type: 2}
-  - {fileID: 11400000, guid: 2568a5e4199057b49b43ac14107a92d3, type: 2}
-  - {fileID: 11400000, guid: 593df69a0884e78458cd71ac2af8267f, type: 2}
-  - {fileID: 11400000, guid: 300491f3c00f5b14aa4aa8602f550314, type: 2}
-  - {fileID: 11400000, guid: 43a736fb3dfb6a54dba52e4840f753a1, type: 2}
-  - {fileID: 11400000, guid: ae7c48c9dca79c24ab0c49ccf306e5c1, type: 2}
-  - {fileID: 11400000, guid: 1c5e948aec43c6c4da9f66ce5136600e, type: 2}
-  - {fileID: 11400000, guid: 031d1e873e970e04ab2c00918e0f5897, type: 2}
-  - {fileID: 11400000, guid: bfb8d0b4e6085a043bdbb2e1d99b5fea, type: 2}
-  - {fileID: 11400000, guid: 01cf842159f5f95449ad2ea9025d5988, type: 2}
-  - {fileID: 11400000, guid: 456b3970409beb84abe78f27f3e4a92d, type: 2}
-  - {fileID: 11400000, guid: 2acb12daf7a655c47b8066ce622fc6fa, type: 2}
-  - {fileID: 11400000, guid: adfacf912943d674bbeaf74d50557160, type: 2}
-  - {fileID: 11400000, guid: 343539df19f4ca94abd68cc449979f41, type: 2}
+  - {fileID: 11400000, guid: 13be57c9278ff884c843d6671a304ded, type: 2}
+  - {fileID: 11400000, guid: d9a62cdbf2c03544394190633e872ade, type: 2}
   copiesOfEachCard: 2
   deckSize: 33
   leaderPool:
@@ -5622,6 +5567,22 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 46f96990158f91e47aeb1382036beba6, type: 2}
   - {fileID: 11400000, guid: bdbc1ae944e5a5d4f93c33ae6be6cb4e, type: 2}
   - {fileID: 11400000, guid: 04d7f180c09e849468812e0cdd420e8b, type: 2}
+--- !u!114 &1715400186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1715400182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f15e3818f7e86642b2167bdf5409239, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  isPlayerBAI: 0
+  aiSide: 1
+  actionDelaySeconds: 0.4
+  mulliganMaxCostToKeep: 4
 --- !u!1 &1750904537
 GameObject:
   m_ObjectHideFlags: 0
@@ -5977,7 +5938,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
