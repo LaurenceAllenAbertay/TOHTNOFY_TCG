@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: grouchobeleria
   cardName: Groucho Beleria
-  manaCost: 4
+  manaCost: 5
   rarity: 1
-  cardArt: {fileID: 0}
-  abilityText: Gain +1 attack for each enemy unit with 6 or more health.
+  cardArt: {fileID: 21300000, guid: a012439cf56377c4e8a047f6ea88c9a7, type: 3}
+  abilityText: Gain +1/+1 for each enemy unit with 6 or more max health.
   effects: []
   attack: 3
   health: 5

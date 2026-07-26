@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Lucky Chicken
   manaCost: 1
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 994114abd5438874db3bea84d3b16cb2, type: 3}
   abilityText: 'On Draw: Randomize this card''s cost, attack, and health, between
     1 and 6.'
   effects:
@@ -32,6 +32,7 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 1
     randomizeMax: 6
+    fixedChoiceOptions: []
   attack: 1
   health: 1
   keywords: 0

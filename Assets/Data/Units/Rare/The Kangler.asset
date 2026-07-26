@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Kangler
   manaCost: 5
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 2ed06cf57794c2945bb7203e33bfb8f7, type: 3}
   abilityText: 'On Play: Transform the target enemy unit into a Blobman.'
   effects:
   - trigger: 0
@@ -28,6 +28,10 @@ MonoBehaviour:
     relevantCard: {fileID: 11400000, guid: 1d601bc448e3988449712a2a6596da04, type: 2}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 3
   health: 5
   keywords: 0

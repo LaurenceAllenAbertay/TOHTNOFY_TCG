@@ -15,9 +15,11 @@ MonoBehaviour:
   leaderId: rayray
   leaderName: RayRay
   maxHealth: 30
-  portrait: {fileID: 0}
+  portrait: {fileID: 302086664905093045, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: The first unit you play each turn costs 1 less mana.
   firstUnitCostDiscount: 1
   itemDrawIntervalTurns: 0
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects: []
   auras: []

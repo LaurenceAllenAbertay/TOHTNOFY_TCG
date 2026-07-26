@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Wordle
   manaCost: 3
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 3541972259078190762, guid: 79d4c08b986576d48aa1599e8e71942d, type: 3}
   abilityText: 'On Play: Silence an enemy unit for one turn.'
   effects:
   - trigger: 0
@@ -29,6 +29,9 @@ MonoBehaviour:
     keyword: 0
     targetsOwnHand: 0
     cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 5
   health: 2
   keywords: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   leaderId: mag
   leaderName: Mag
   maxHealth: 25
-  portrait: {fileID: 0}
+  portrait: {fileID: 1333107768810684460, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: The first time you kill a unit each turn, draw a card.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
@@ -28,7 +28,11 @@ MonoBehaviour:
     amount: 1
     oncePerTurn: 1
     mandatoryTarget: 1
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   auras: []

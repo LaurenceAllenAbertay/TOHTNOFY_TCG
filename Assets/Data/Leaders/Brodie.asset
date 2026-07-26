@@ -15,7 +15,7 @@ MonoBehaviour:
   leaderId: brodie
   leaderName: Brodie
   maxHealth: 40
-  portrait: {fileID: 0}
+  portrait: {fileID: 4865641513301428618, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Your units gain +1 max health.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0

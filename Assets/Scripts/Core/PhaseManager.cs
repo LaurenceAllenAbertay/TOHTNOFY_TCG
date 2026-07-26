@@ -10,11 +10,15 @@ namespace DDD.TNFY.TCG.Core
     {
         private readonly GameState state;
         private readonly MonoBehaviour coroutineRunner;
+        private readonly MovementResolver movement;
+        private readonly UnitLifecycleService lifecycle;
 
         public PhaseManager(GameState state, MonoBehaviour coroutineRunner)
         {
             this.state = state;
             this.coroutineRunner = coroutineRunner;
+            this.movement = new MovementResolver(state);
+            this.lifecycle = new UnitLifecycleService(state);
         }
 
         public void StartMatch()
@@ -298,92 +302,27 @@ namespace DDD.TNFY.TCG.Core
 
         private BoardUnit PlaceNewUnit(UnitCardData card, int slotIndex)
         {
-            BoardUnit unit = new BoardUnit(card, state.ActivePlayer, slotIndex);
-            state.Board.PlaceUnit(state.ActivePlayer, slotIndex, unit);
-            InitializeHealthToEffectiveMax(unit);
-            SyncQualifyingEnemyAuraHealth();
-
-            return unit;
+            return lifecycle.PlaceNewUnit(card, slotIndex);
         }
 
         private BoardUnit AbsorbUnit(BoardUnit absorbedUnit, UnitCardData card, int slotIndex)
         {
-            int inheritedPermanentAttack = absorbedUnit.SourceCard.Attack + absorbedUnit.BonusAttack;
-            int inheritedMaxHealth = absorbedUnit.MaxHealth;
-            int inheritedCurrentHealth = absorbedUnit.CurrentHealth;
-            int inheritedTemporaryAttack = ConsumeStatusMagnitude(absorbedUnit, StatusEffectType.TemporaryAttackNextAttack);
-
-            Debug.Log($"[PhaseManager] {card.CardName} (Absorb) is replacing {absorbedUnit.SourceCard.CardName} in slot {slotIndex}. InheritedPermanentAttack={inheritedPermanentAttack}, InheritedMaxHealth={inheritedMaxHealth}, InheritedCurrentHealth={inheritedCurrentHealth}, TemporaryAttackConverted={inheritedTemporaryAttack}.");
-
-            state.Board.RemoveUnit(absorbedUnit.Owner, slotIndex);
-
-            BoardUnit unit = new BoardUnit(card, absorbedUnit.Owner, slotIndex);
-            state.Board.PlaceUnit(absorbedUnit.Owner, slotIndex, unit);
-
-            unit.BonusAttack = inheritedPermanentAttack - card.Attack + inheritedTemporaryAttack;
-            unit.MaxHealth = inheritedMaxHealth;
-
-            int effectiveMax = unit.GetEffectiveMaxHealth(state);
-            unit.CurrentHealth = System.Math.Min(inheritedCurrentHealth, effectiveMax);
-            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
-
-            SyncQualifyingEnemyAuraHealth();
-
-            Debug.Log($"[PhaseManager] {card.CardName} (Absorb) is now {unit.GetCurrentAttack(state)} attack, {unit.CurrentHealth}/{effectiveMax} health in slot {slotIndex}.");
-
-            return unit;
+            return lifecycle.AbsorbUnit(absorbedUnit, card, slotIndex);
         }
 
         private void InitializeHealthToEffectiveMax(BoardUnit unit)
         {
-            int effectiveMax = unit.GetEffectiveMaxHealth(state);
-            unit.CurrentHealth = effectiveMax;
-            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+            lifecycle.InitializeHealthToEffectiveMax(unit);
         }
 
         public void SyncQualifyingEnemyAuraHealth()
         {
-            SyncQualifyingEnemyAuraHealthForSide(PlayerSide.PlayerA);
-            SyncQualifyingEnemyAuraHealthForSide(PlayerSide.PlayerB);
-        }
-
-        private void SyncQualifyingEnemyAuraHealthForSide(PlayerSide side)
-        {
-            foreach (BoardUnit unit in new List<BoardUnit>(state.Board.GetUnits(side)))
-            {
-                int currentAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
-                int delta = currentAuraHealthBonus - unit.LastSyncedAuraHealthBonus;
-
-                if (delta > 0)
-                {
-                    unit.CurrentHealth += delta;
-                    Debug.Log($"[PhaseManager] SyncQualifyingEnemyAuraHealth: {unit.SourceCard.CardName} (slot {unit.SlotIndex}, {side}) qualifying-aura health bonus grew by {delta} ({unit.LastSyncedAuraHealthBonus}->{currentAuraHealthBonus}), CurrentHealth now {unit.CurrentHealth}.");
-                }
-
-                unit.LastSyncedAuraHealthBonus = currentAuraHealthBonus;
-            }
+            lifecycle.SyncQualifyingEnemyAuraHealth();
         }
 
         private void TopUpAllUnitsToEffectiveMaxHealth(PlayerSide side)
         {
-            for (int slot = 0; slot < Board.SlotsPerSide; slot++)
-            {
-                BoardUnit unit = state.Board.GetUnit(side, slot);
-
-                if (unit == null)
-                {
-                    continue;
-                }
-
-                int previousMax = unit.MaxHealth;
-                int newMax = unit.GetEffectiveMaxHealth(state);
-                int delta = newMax - previousMax;
-
-                if (delta > 0)
-                {
-                    unit.CurrentHealth += delta;
-                }
-            }
+            lifecycle.TopUpAllUnitsToEffectiveMaxHealth(side);
         }
 
         public bool CanPlayUnit(UnitCardData card, int slotIndex)
@@ -477,32 +416,7 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanAnyUnitMove()
         {
-            for (int fromSlot = 0; fromSlot < Board.SlotsPerSide; fromSlot++)
-            {
-                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, fromSlot);
-
-                if (unit == null) continue;
-
-                for (int toSlot = 0; toSlot < Board.SlotsPerSide; toSlot++)
-                {
-                    if (fromSlot == toSlot) continue;
-
-                    if (CanMoveUnit(fromSlot, toSlot))
-                    {
-                        Debug.Log($"[PhaseManager] CanAnyUnitMove: {unit.SourceCard.CardName} can move {fromSlot} -> {toSlot}.");
-                        return true;
-                    }
-                }
-            }
-
-            if (HasAvailableGrantedEnemyMove(state.ActivePlayer))
-            {
-                Debug.Log("[PhaseManager] CanAnyUnitMove: a granted enemy-move ability is available.");
-                return true;
-            }
-
-            Debug.Log("[PhaseManager] CanAnyUnitMove: no legal moves found.");
-            return false;
+            return movement.CanAnyUnitMove();
         }
 
         public void EnterAttackPhase()
@@ -522,6 +436,14 @@ namespace DDD.TNFY.TCG.Core
 
             state.HasPendingFreeMove = false;
             state.PendingFreeMoveExcludedUnit = null;
+
+            if (state.HasPendingEnemyMoveGrantOnPlay)
+            {
+                Debug.Log($"[PhaseManager] Unused pending On-Play enemy move for {state.PendingEnemyMoveGrantTarget?.SourceCard?.CardName} expired at end of Move phase.");
+            }
+
+            state.HasPendingEnemyMoveGrantOnPlay = false;
+            state.PendingEnemyMoveGrantTarget = null;
 
             TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
 
@@ -854,76 +776,27 @@ namespace DDD.TNFY.TCG.Core
 
         public void DamageLeader(PlayerSide side, int amount)
         {
-            Player player = state.GetPlayer(side);
-
-            if (player.HasStatus(StatusEffectType.LeaderDamageShield))
-            {
-                return;
-            }
-
-            player.LeaderHealth -= amount;
+            lifecycle.DamageLeader(side, amount);
         }
 
         public void HealUnit(BoardUnit unit, int amount)
         {
-            unit.CurrentHealth = System.Math.Min(unit.CurrentHealth + amount, unit.GetEffectiveMaxHealth(state));
+            lifecycle.HealUnit(unit, amount);
         }
 
         public void HealLeader(PlayerSide side, int amount)
         {
-            Player player = state.GetPlayer(side);
-            player.LeaderHealth = System.Math.Min(player.LeaderHealth + amount, player.MaxLeaderHealth);
+            lifecycle.HealLeader(side, amount);
         }
 
         public bool TransformUnit(BoardUnit originalUnit, UnitCardData replacementCard)
         {
-            if (originalUnit == null || replacementCard == null)
-            {
-                return false;
-            }
-
-            PlayerSide owner = originalUnit.Owner;
-            int slotIndex = originalUnit.SlotIndex;
-
-            Debug.Log($"[PhaseManager] TransformUnit: {originalUnit.SourceCard.CardName} PlacedThisTurn={originalUnit.PlacedThisTurn}, HasMovedThisTurn={originalUnit.HasMovedThisTurn} before transform.");
-
-            state.Board.RemoveUnit(owner, slotIndex);
-
-            BoardUnit replacementUnit = new BoardUnit(replacementCard, owner, slotIndex);
-            replacementUnit.PlacedThisTurn = originalUnit.PlacedThisTurn;
-            replacementUnit.HasMovedThisTurn = originalUnit.HasMovedThisTurn;
-            replacementUnit.HasUsedGrantedEnemyMoveThisTurn = originalUnit.HasUsedGrantedEnemyMoveThisTurn;
-            state.Board.PlaceUnit(owner, slotIndex, replacementUnit);
-            InitializeHealthToEffectiveMax(replacementUnit);
-            SyncQualifyingEnemyAuraHealth();
-
-            Debug.Log($"[PhaseManager] {originalUnit.SourceCard.CardName} was transformed into {replacementCard.CardName} in slot {slotIndex} for {owner}. Replacement PlacedThisTurn={replacementUnit.PlacedThisTurn}.");
-
-            return true;
+            return lifecycle.TransformUnit(originalUnit, replacementCard);
         }
 
         public bool SpawnUnit(PlayerSide side, int slotIndex, UnitCardData card)
         {
-            if (card == null)
-            {
-                Debug.Log("[PhaseManager] SpawnUnit FAIL: card is null.");
-                return false;
-            }
-
-            if (state.Board.GetUnit(side, slotIndex) != null)
-            {
-                Debug.Log($"[PhaseManager] SpawnUnit FAIL: slot {slotIndex} for {side} is already occupied.");
-                return false;
-            }
-
-            BoardUnit spawnedUnit = new BoardUnit(card, side, slotIndex);
-            state.Board.PlaceUnit(side, slotIndex, spawnedUnit);
-            InitializeHealthToEffectiveMax(spawnedUnit);
-            SyncQualifyingEnemyAuraHealth();
-
-            Debug.Log($"[PhaseManager] {card.CardName} was spawned into slot {slotIndex} for {side}.");
-
-            return true;
+            return lifecycle.SpawnUnit(side, slotIndex, card);
         }
 
         public void KillUnit(BoardUnit unit, PlayerSide killer)
@@ -1077,45 +950,12 @@ namespace DDD.TNFY.TCG.Core
 
         public void BounceUnit(BoardUnit unit)
         {
-            Player owner = state.GetPlayer(unit.Owner);
-
-            state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
-
-            int permanentAttack = unit.SourceCard.Attack + unit.BonusAttack;
-            int permanentHealth = unit.MaxHealth;
-            bool hasPermanentStatChange = unit.BonusAttack != 0 || unit.MaxHealth != unit.SourceCard.Health;
-
-            CardData cardForHand = unit.SourceCard;
-
-            if (hasPermanentStatChange)
-            {
-                cardForHand = unit.SourceCard.CreateStatOverrideClone(permanentAttack, permanentHealth);
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} bounced with permanently modified stats — cloned as {permanentAttack}/{permanentHealth}.");
-            }
-
-            if (!owner.TryAddCardToHand(cardForHand))
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} could not be bounced — {owner.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
-            }
+            lifecycle.BounceUnit(unit);
         }
 
         public void SilenceUnit(BoardUnit unit)
         {
-            if (unit == null)
-            {
-                Debug.Log("[PhaseManager] SilenceUnit FAIL: unit is null.");
-                return;
-            }
-
-            if (unit.IsSilenced)
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is already Silenced — not stacking a second instance.");
-                return;
-            }
-
-            unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, 1));
-
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} was Silenced through the end of their owner's next turn.");
+            lifecycle.SilenceUnit(unit);
         }
 
         public bool SwapAttackAndHealth(BoardUnit unit)
@@ -1160,36 +1000,17 @@ namespace DDD.TNFY.TCG.Core
 
         private bool ConsumeStunIfPresent(BoardUnit unit)
         {
-            return ConsumeStatus(unit, StatusEffectType.Stunned);
+            return UnitLifecycleService.ConsumeStunIfPresent(unit);
         }
 
         private static bool ConsumeStatus(BoardUnit unit, StatusEffectType type)
         {
-            for (int i = 0; i < unit.Statuses.Count; i++)
-            {
-                if (unit.Statuses[i].Type == type)
-                {
-                    unit.Statuses.RemoveAt(i);
-                    return true;
-                }
-            }
-
-            return false;
+            return UnitLifecycleService.ConsumeStatus(unit, type);
         }
 
         private static int ConsumeStatusMagnitude(BoardUnit unit, StatusEffectType type)
         {
-            for (int i = 0; i < unit.Statuses.Count; i++)
-            {
-                if (unit.Statuses[i].Type == type)
-                {
-                    int magnitude = unit.Statuses[i].Magnitude;
-                    unit.Statuses.RemoveAt(i);
-                    return magnitude;
-                }
-            }
-
-            return 0;
+            return UnitLifecycleService.ConsumeStatusMagnitude(unit, type);
         }
 
         private void TickDelayedKills(Player owner)
@@ -1253,17 +1074,7 @@ namespace DDD.TNFY.TCG.Core
 
         private void TickLeaderDamageShield(Player owner)
         {
-            for (int i = owner.Statuses.Count - 1; i >= 0; i--)
-            {
-                if (owner.Statuses[i].Type != StatusEffectType.LeaderDamageShield) continue;
-
-                owner.Statuses[i].RemainingTriggers--;
-
-                if (owner.Statuses[i].RemainingTriggers <= 0)
-                {
-                    owner.Statuses.RemoveAt(i);
-                }
-            }
+            lifecycle.TickLeaderDamageShield(owner);
         }
 
         private void ApplyAndConsumeManaReduction(Player active)
@@ -1292,332 +1103,72 @@ namespace DDD.TNFY.TCG.Core
 
         public bool TryMoveUnit(int fromSlot, int toSlot)
         {
-            if (!CanMoveUnit(fromSlot, toSlot)) return false;
-
-            PlayerSide side = state.ActivePlayer;
-            BoardUnit unit = state.Board.GetUnit(side, fromSlot);
-            bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
-
-            Player mover = state.GetPlayer(side);
-            LeaderData moverLeader = mover.Leader;
-
-            if (moverLeader != null && moverLeader.MoveManaCost > 0)
-            {
-                mover.CurrentMana -= moverLeader.MoveManaCost;
-            }
-
-            state.Board.RemoveUnit(side, fromSlot);
-            state.Board.PlaceUnit(side, toSlot, unit);
-
-            unit.HasMovedThisTurn = true;
-
-            if (!isNimble)
-            {
-                state.HasUsedMoveThisTurn = true;
-            }
-
-            GrantCodyMoveBonusIfApplicable(unit);
-
-            return true;
+            return movement.TryMoveUnit(fromSlot, toSlot);
         }
 
         public bool MoveUnitFree(PlayerSide side, int fromSlot, int toSlot)
         {
-            if (state.ActivePlayer != side) return false;
-            if (!CanMoveUnit(fromSlot, toSlot, ignoreMoveLimitAndCost: true)) return false;
-
-            BoardUnit unit = state.Board.GetUnit(side, fromSlot);
-
-            state.Board.RemoveUnit(side, fromSlot);
-            state.Board.PlaceUnit(side, toSlot, unit);
-
-            GrantCodyMoveBonusIfApplicable(unit);
-
-            return true;
+            return movement.MoveUnitFree(side, fromSlot, toSlot);
         }
 
         public bool HookClosestAllyLeft(BoardUnit sourceUnit)
         {
-            if (sourceUnit == null)
-            {
-                Debug.Log("[PhaseManager] HookClosestAllyLeft FAIL: sourceUnit is null.");
-                return false;
-            }
-
-            PlayerSide side = sourceUnit.Owner;
-            int destinationSlot = sourceUnit.SlotIndex - 1;
-
-            if (destinationSlot < 0)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook has no slot to its left — fizzling.");
-                return false;
-            }
-
-            BoardUnit closestAlly = null;
-
-            for (int slot = destinationSlot; slot >= 0; slot--)
-            {
-                BoardUnit candidate = state.Board.GetUnit(side, slot);
-                if (candidate != null)
-                {
-                    closestAlly = candidate;
-                    break;
-                }
-            }
-
-            if (closestAlly == null)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook found no ally unit to its left — fizzling.");
-                return false;
-            }
-
-            if (closestAlly.SlotIndex == destinationSlot)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook: closest ally {closestAlly.SourceCard.CardName} is already in the destination slot — nothing to do.");
-                return false;
-            }
-
-            if (closestAlly.HasKeyword(Keyword.Unmoving, state))
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook FAIL: {closestAlly.SourceCard.CardName} is Unmoving.");
-                return false;
-            }
-
-            int fromSlot = closestAlly.SlotIndex;
-
-            state.Board.RemoveUnit(side, fromSlot);
-            state.Board.PlaceUnit(side, destinationSlot, closestAlly);
-
-            GrantCodyMoveBonusIfApplicable(closestAlly);
-
-            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s Hook moved {closestAlly.SourceCard.CardName} from slot {fromSlot} to slot {destinationSlot}.");
-
-            return true;
+            return movement.HookClosestAllyLeft(sourceUnit);
         }
 
         public void PushAlliesAwayFrom(BoardUnit sourceUnit)
         {
-            if (sourceUnit == null) return;
-
-            PlayerSide side = sourceUnit.Owner;
-            int sourceSlot = sourceUnit.SlotIndex;
-
-            List<BoardUnit> leftGroup = new List<BoardUnit>();
-            List<BoardUnit> rightGroup = new List<BoardUnit>();
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                if (i == sourceSlot) continue;
-
-                BoardUnit unit = state.Board.GetUnit(side, i);
-                if (unit == null) continue;
-
-                if (i < sourceSlot)
-                {
-                    leftGroup.Add(unit);
-                }
-                else
-                {
-                    rightGroup.Add(unit);
-                }
-            }
-
-            foreach (BoardUnit unit in leftGroup)
-            {
-                TryPushUnitOneSlot(side, unit, -1);
-            }
-
-            for (int i = rightGroup.Count - 1; i >= 0; i--)
-            {
-                TryPushUnitOneSlot(side, rightGroup[i], 1);
-            }
-        }
-
-        private void TryPushUnitOneSlot(PlayerSide side, BoardUnit unit, int direction)
-        {
-            if (unit.HasKeyword(Keyword.Unmoving, state)) return;
-
-            int fromSlot = unit.SlotIndex;
-            int toSlot = fromSlot + direction;
-
-            if (toSlot < 0 || toSlot >= Board.SlotsPerSide) return;
-            if (state.Board.GetUnit(side, toSlot) != null) return;
-
-            state.Board.RemoveUnit(side, fromSlot);
-            state.Board.PlaceUnit(side, toSlot, unit);
-
-            GrantCodyMoveBonusIfApplicable(unit);
+            movement.PushAlliesAwayFrom(sourceUnit);
         }
 
         public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
         {
-            if (unitA == null || unitB == null || unitA == unitB) return false;
-            if (unitA.HasKeyword(Keyword.Unmoving, state) || unitB.HasKeyword(Keyword.Unmoving, state)) return false;
-
-            PlayerSide sideA = unitA.Owner;
-            PlayerSide sideB = unitB.Owner;
-            int slotA = unitA.SlotIndex;
-            int slotB = unitB.SlotIndex;
-
-            state.Board.RemoveUnit(sideA, slotA);
-            state.Board.RemoveUnit(sideB, slotB);
-
-            state.Board.PlaceUnit(sideA, slotB, unitA);
-            state.Board.PlaceUnit(sideB, slotA, unitB);
-
-            GrantCodyMoveBonusIfApplicable(unitA);
-            GrantCodyMoveBonusIfApplicable(unitB);
-
-            return true;
+            return movement.SwapUnitSlots(unitA, unitB);
         }
 
         public bool BounceUnitOpposite(BoardUnit sourceUnit)
         {
-            if (sourceUnit == null) return false;
-
-            PlayerSide enemySide = sourceUnit.Owner.Opposite();
-            BoardUnit opposingUnit = state.Board.GetUnit(enemySide, sourceUnit.SlotIndex);
-
-            if (opposingUnit == null) return false;
-
-            BounceUnit(opposingUnit);
-            return true;
+            return lifecycle.BounceUnitOpposite(sourceUnit);
         }
 
         public bool PullUnitOpposite(BoardUnit sourceUnit, BoardUnit targetUnit)
         {
-            if (sourceUnit == null || targetUnit == null) return false;
-            if (sourceUnit.Owner == targetUnit.Owner) return false;
-            if (targetUnit.HasKeyword(Keyword.Unmoving, state)) return false;
-
-            int destinationSlot = sourceUnit.SlotIndex;
-            PlayerSide targetSide = targetUnit.Owner;
-
-            if (targetUnit.SlotIndex == destinationSlot)
-            {
-                return false;
-            }
-
-            BoardUnit occupant = state.Board.GetUnit(targetSide, destinationSlot);
-            if (occupant != null)
-            {
-                return false;
-            }
-
-            state.Board.RemoveUnit(targetSide, targetUnit.SlotIndex);
-            state.Board.PlaceUnit(targetSide, destinationSlot, targetUnit);
-
-            return true;
-        }
-
-        private void GrantCodyMoveBonusIfApplicable(BoardUnit unit)
-        {
-            Player owner = state.GetPlayer(unit.Owner);
-            LeaderData ownerLeader = owner.Leader;
-
-            if (ownerLeader != null && ownerLeader.MoveTemporaryAttackBonus > 0)
-            {
-                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackNextAttack, 1, ownerLeader.MoveTemporaryAttackBonus));
-            }
+            return movement.PullUnitOpposite(sourceUnit, targetUnit);
         }
 
         public bool CanMoveUnit(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost = false)
         {
-            PlayerSide side = state.ActivePlayer;
-            BoardUnit unit = state.Board.GetUnit(side, fromSlot);
-
-            if (unit == null) return false;
-            if (unit.HasKeyword(Keyword.Unmoving, state)) return false;
-
-            bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
-
-            if (!ignoreMoveLimitAndCost)
-            {
-                if (unit.PlacedThisTurn && !isNimble) return false;
-                if (!isNimble && state.HasUsedMoveThisTurn) return false;
-                if (isNimble && unit.HasMovedThisTurn) return false;
-
-                Player mover = state.GetPlayer(side);
-                int moveManaCost = mover.Leader != null ? mover.Leader.MoveManaCost : 0;
-                if (mover.CurrentMana < moveManaCost) return false;
-            }
-
-            return IsMoveRangeLegal(side, unit, fromSlot, toSlot);
-        }
-
-        private bool IsMoveRangeLegal(PlayerSide side, BoardUnit unit, int fromSlot, int toSlot)
-        {
-            if (state.Board.GetUnit(side, toSlot) != null) return false;
-            if (fromSlot == toSlot) return false;
-
-            if (unit.HasKeyword(Keyword.Teleport, state))
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is using Teleport — range check bypassed, moving {fromSlot} -> {toSlot}.");
-                return true;
-            }
-
-            int distance = toSlot - fromSlot;
-            int maxRange = unit.HasKeyword(Keyword.Agile, state) ? 2 : 1;
-
-            if (System.Math.Abs(distance) > maxRange) return false;
-
-            int step = distance > 0 ? 1 : -1;
-            for (int slot = fromSlot + step; slot != toSlot; slot += step)
-            {
-                if (state.Board.GetUnit(side, slot) != null) return false;
-            }
-
-            return true;
+            return movement.CanMoveUnit(fromSlot, toSlot, ignoreMoveLimitAndCost);
         }
 
         public bool HasAvailableGrantedEnemyMove(PlayerSide controllingSide)
         {
-            return FindAvailableEnemyMoveGranter(controllingSide) != null;
-        }
-
-        private BoardUnit FindAvailableEnemyMoveGranter(PlayerSide controllingSide)
-        {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = state.Board.GetUnit(controllingSide, i);
-
-                if (unit == null) continue;
-                if (!(unit.SourceCard is UnitCardData unitCard)) continue;
-                if (!unitCard.GrantsEnemyUnitMove) continue;
-                if (unit.HasUsedGrantedEnemyMoveThisTurn) continue;
-
-                return unit;
-            }
-
-            return null;
+            return movement.HasAvailableGrantedEnemyMove(controllingSide);
         }
 
         public bool CanMoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
         {
-            if (FindAvailableEnemyMoveGranter(controllingSide) == null) return false;
-
-            PlayerSide enemySide = controllingSide.Opposite();
-            BoardUnit unit = state.Board.GetUnit(enemySide, fromSlot);
-
-            if (unit == null) return false;
-
-            return IsMoveRangeLegal(enemySide, unit, fromSlot, toSlot);
+            return movement.CanMoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot);
         }
 
         public bool MoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
         {
-            if (!CanMoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot)) return false;
+            return movement.MoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot);
+        }
 
-            BoardUnit granter = FindAvailableEnemyMoveGranter(controllingSide);
-            PlayerSide enemySide = controllingSide.Opposite();
-            BoardUnit unit = state.Board.GetUnit(enemySide, fromSlot);
+        public bool HasAnyLegalUnblockedSlot(PlayerSide side, int fromSlot)
+        {
+            return movement.HasAnyLegalUnblockedSlot(side, fromSlot);
+        }
 
-            state.Board.RemoveUnit(enemySide, fromSlot);
-            state.Board.PlaceUnit(enemySide, toSlot, unit);
+        public bool CanMoveGrantedEnemyUnitFree(BoardUnit unit, int toSlot)
+        {
+            return movement.CanMoveGrantedEnemyUnitFree(unit, toSlot);
+        }
 
-            granter.HasUsedGrantedEnemyMoveThisTurn = true;
-
-            return true;
+        public bool MoveGrantedEnemyUnitFree(BoardUnit unit, int toSlot)
+        {
+            return movement.MoveGrantedEnemyUnitFree(unit, toSlot);
         }
 
         public void EnterTurnEndPhase()

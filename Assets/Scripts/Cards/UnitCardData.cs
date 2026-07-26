@@ -7,10 +7,13 @@ namespace DDD.TNFY.TCG.Cards
     [CreateAssetMenu(fileName = "NewUnitCard", menuName = "TNFY TCG/Cards/Unit Card")]
     public class UnitCardData : CardData
     {
+        private const int NoPendingCurrentHealth = 0;
+
         [SerializeField] private int attack;
         [SerializeField] private int health;
         [SerializeField] private Keyword keywords;
         [SerializeField] private bool grantsEnemyUnitMove;
+        [SerializeField] private int pendingCurrentHealth = NoPendingCurrentHealth;
 
         [SerializeField]
         private List<LeaderAura> auras = new List<LeaderAura>();
@@ -20,6 +23,8 @@ namespace DDD.TNFY.TCG.Cards
         public Keyword Keywords => keywords;
         public bool GrantsEnemyUnitMove => grantsEnemyUnitMove;
         public IReadOnlyList<LeaderAura> Auras => auras;
+        public bool HasPendingCurrentHealth => pendingCurrentHealth != NoPendingCurrentHealth;
+        public int PendingCurrentHealth => pendingCurrentHealth;
 
         public bool HasKeyword(Keyword keyword)
         {
@@ -37,12 +42,13 @@ namespace DDD.TNFY.TCG.Cards
             return clone;
         }
 
-        public UnitCardData CreateStatOverrideClone(int newAttack, int newHealth)
+        public UnitCardData CreateStatOverrideClone(int newAttack, int newHealth, int newCurrentHealth)
         {
             UnitCardData clone = Instantiate(this);
 
             clone.attack = newAttack;
             clone.health = newHealth;
+            clone.pendingCurrentHealth = newCurrentHealth;
 
             return clone;
         }

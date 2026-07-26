@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: pupperpennymascot
   cardName: PupperPenny Mascot
   manaCost: 2
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
   abilityText: 'On Death: Add a Pupper Coin to your hand.'
   effects:
@@ -31,6 +31,7 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 3
   health: 1
   keywords: 0

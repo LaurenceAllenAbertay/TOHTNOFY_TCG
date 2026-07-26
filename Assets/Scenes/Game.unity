@@ -3078,6 +3078,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   side: 1
+  artImage: {fileID: 1599244388}
   highlightImage: {fileID: 2018734138}
 --- !u!1001 &864993065
 PrefabInstance:
@@ -3807,6 +3808,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   side: 0
+  artImage: {fileID: 759773410}
   highlightImage: {fileID: 103697540}
 --- !u!1 &1035224910
 GameObject:
@@ -5553,8 +5555,7 @@ MonoBehaviour:
   cardPool:
   - {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
   - {fileID: 11400000, guid: cd34e152819cd0143b687ba709d6e1d3, type: 2}
-  - {fileID: 11400000, guid: 13be57c9278ff884c843d6671a304ded, type: 2}
-  - {fileID: 11400000, guid: d9a62cdbf2c03544394190633e872ade, type: 2}
+  - {fileID: 11400000, guid: f5e1152e990479042ba794d2927622a1, type: 2}
   copiesOfEachCard: 2
   deckSize: 33
   leaderPool:

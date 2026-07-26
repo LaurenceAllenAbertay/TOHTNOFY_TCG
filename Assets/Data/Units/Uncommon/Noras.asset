@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Noras
   manaCost: 5
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: a077a26dfe6b88c429414a0e1617b135, type: 3}
   abilityText: 'On Play: Steal a random card from the opponent''s hand.'
   effects:
   - trigger: 0
@@ -25,9 +25,13 @@ MonoBehaviour:
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 3
   health: 6
   keywords: 0

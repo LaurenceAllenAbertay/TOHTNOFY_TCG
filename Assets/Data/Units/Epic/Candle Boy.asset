@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: Candle Boy
+  m_EditorClassIdentifier: 
+  cardId: candleboy
+  cardName: Candle Boy
+  manaCost: 6
+  rarity: 3
+  cardArt: {fileID: 21300000, guid: 6f3326c93a1af624b9628496415b085a, type: 3}
+  abilityText: 'On Ally Death: Deal 2 damage to all enemy units.'
+  effects:
+  - trigger: 8
+    action: 17
+    targetType: 0
+    amount: 2
+    oncePerTurn: 0
+    mandatoryTarget: 0
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
+  attack: 6
+  health: 6
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

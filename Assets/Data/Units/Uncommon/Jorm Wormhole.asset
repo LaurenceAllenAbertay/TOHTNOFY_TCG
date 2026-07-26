@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Jorm Wormhole
   manaCost: 3
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 46a9fbe32413ca347ab00cdc9be1690a, type: 3}
   abilityText: 'On Play: Add a Worms card to the opponent''s hand.'
   effects:
   - trigger: 0
@@ -25,9 +25,13 @@ MonoBehaviour:
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 1
-    grantedCard: {fileID: 11400000, guid: d2a5681576564df41ab604d8d7578f6d, type: 2}
+    relevantCard: {fileID: 11400000, guid: d2a5681576564df41ab604d8d7578f6d, type: 2}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 2
   health: 5
   keywords: 0

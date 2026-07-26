@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 868645e5f65262b44abae3055bd41b9d, type: 3}
+  m_Name: SwapStats
+  m_EditorClassIdentifier: 
+  cardId: swapstats
+  cardName: Swap Stats
+  manaCost: 2
+  rarity: 0
+  cardArt: {fileID: 0}
+  abilityText: Swap attack and health of a unit.
+  effects:
+  - trigger: 0
+    action: 32
+    targetType: 1
+    amount: 0
+    oncePerTurn: 0
+    mandatoryTarget: 0
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []

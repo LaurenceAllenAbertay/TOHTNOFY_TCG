@@ -40,6 +40,7 @@ namespace DDD.TNFY.TCG.Effects
         BuffAttackAndHealthPerQualifyingEnemy,
         ChooseFixedCard,
         SpawnUnitsAdjacent,
-        BuffAttackAndHealthPerAlliedDeath
+        BuffAttackAndHealthPerAlliedDeath,
+        MoveOpposingUnitFree
     }
 }

@@ -15,9 +15,11 @@ MonoBehaviour:
   leaderId: limb
   leaderName: Limb
   maxHealth: 30
-  portrait: {fileID: 0}
+  portrait: {fileID: 7803308068866572300, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Every 3 turns, draw a random item card from your deck.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 3
+  moveManaCost: 0
+  moveTemporaryAttackBonus: 0
   effects: []
   auras: []

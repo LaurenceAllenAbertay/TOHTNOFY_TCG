@@ -142,6 +142,10 @@ namespace DDD.TNFY.TCG.Effects
                 case EffectActionType.SpawnUnitsAdjacent:
                     ExecuteSpawnUnitsAdjacent(effect, context, phases);
                     break;
+
+                case EffectActionType.MoveOpposingUnitFree:
+                    ExecuteMoveOpposingUnitFree(context, phases);
+                    break;
             }
         }
 
@@ -389,6 +393,28 @@ namespace DDD.TNFY.TCG.Effects
             context.GameState.HasPendingFreeMove = true;
             context.GameState.PendingFreeMoveExcludedUnit = context.SourceUnit;
             Debug.Log($"[EffectExecutor] Pending free move granted, excluding {context.SourceUnit?.SourceCard?.CardName}");
+        }
+
+        private static void ExecuteMoveOpposingUnitFree(EffectContext context, PhaseManager phases)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                Debug.Log("[EffectExecutor] MoveOpposingUnitFree: no opposing unit found — fizzling.");
+                return;
+            }
+
+            BoardUnit target = context.ChosenTarget.Unit;
+
+            if (!phases.HasAnyLegalUnblockedSlot(target.Owner, target.SlotIndex))
+            {
+                Debug.Log($"[EffectExecutor] MoveOpposingUnitFree: {target.SourceCard.CardName} has no legal unblocked slot to move to — fizzling.");
+                return;
+            }
+
+            context.GameState.HasPendingEnemyMoveGrantOnPlay = true;
+            context.GameState.PendingEnemyMoveGrantTarget = target;
+
+            Debug.Log($"[EffectExecutor] MoveOpposingUnitFree: pending grant armed for {target.SourceCard.CardName} at slot {target.SlotIndex}.");
         }
 
         private static void ExecuteSwapUnitSlot(EffectContext context, PhaseManager phases)

@@ -15,8 +15,8 @@ MonoBehaviour:
   cardId: blackkeycrepus
   cardName: Black-Key Crepus
   manaCost: 6
-  rarity: 0
-  cardArt: {fileID: 0}
+  rarity: 2
+  cardArt: {fileID: 21300000, guid: 690ab2195bfb37d4e8a28c55d2c43bbe, type: 3}
   abilityText: 'On Damaged: Spawn Ghost Hornets into adjacent slots.'
   effects:
   - trigger: 9

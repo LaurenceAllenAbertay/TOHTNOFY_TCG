@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Kelon
   manaCost: 7
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 6437d31bcf5aab544a236043bdfcb32a, type: 3}
   abilityText: 'On Play: Choose one of three Spectral sea creatures to add to your
     hand.'
   effects:

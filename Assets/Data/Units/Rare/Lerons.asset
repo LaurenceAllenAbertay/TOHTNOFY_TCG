@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
+  m_Name: Lerons
+  m_EditorClassIdentifier: 
+  cardId: lerons
+  cardName: Lerons
+  manaCost: 4
+  rarity: 0
+  cardArt: {fileID: 21300000, guid: 15254b6e5475a0245a337ec88262708d, type: 3}
+  abilityText: 'On Play: Move the opposing unit to any unblocked slot.'
+  effects:
+  - trigger: 0
+    action: 39
+    targetType: 4
+    amount: 0
+    oncePerTurn: 0
+    mandatoryTarget: 0
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
+  attack: 5
+  health: 3
+  keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

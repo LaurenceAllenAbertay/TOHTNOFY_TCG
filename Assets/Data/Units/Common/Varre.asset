@@ -16,9 +16,11 @@ MonoBehaviour:
   cardName: Varre
   manaCost: 4
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 3eab33dae8b7eb9469a42d74b6e75141, type: 3}
   abilityText: 
   effects: []
   attack: 2
   health: 7
   keywords: 0
+  grantsEnemyUnitMove: 0
+  auras: []

@@ -47,6 +47,9 @@ namespace DDD.TNFY.TCG.Core
         public bool HasPendingFreeMove { get; set; }
         public BoardUnit PendingFreeMoveExcludedUnit { get; set; }
 
+        public bool HasPendingEnemyMoveGrantOnPlay { get; set; }
+        public BoardUnit PendingEnemyMoveGrantTarget { get; set; }
+
         public CardEffect PendingTargetedEffect { get; set; }
         public BoardUnit PendingTargetedEffectSource { get; set; }
         public EffectTriggerType? PendingTargetedEffectTrigger { get; set; }

@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Bloodboilers
+  m_Name: Gassy Gus
   m_EditorClassIdentifier: 
-  cardId: bloodboilers
-  cardName: Bloodboilers
-  manaCost: 3
-  rarity: 0
-  cardArt: {fileID: 0}
-  abilityText: Bifurcated Attack
+  cardId: gassygus
+  cardName: Gassy Gus
+  manaCost: 8
+  rarity: 3
+  cardArt: {fileID: 21300000, guid: 2d74e3f20882b0d4cbe2f1977007b2fc, type: 3}
+  abilityText: Absorb
   effects: []
   attack: 2
   health: 3
-  keywords: 4
+  keywords: 1024
   grantsEnemyUnitMove: 0
   auras: []

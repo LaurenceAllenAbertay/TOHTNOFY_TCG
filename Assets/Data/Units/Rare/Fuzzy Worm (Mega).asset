@@ -10,30 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: The Spinnegan
+  m_Name: Fuzzy Worm (Mega)
   m_EditorClassIdentifier: 
-  cardId: thespinnegan
-  cardName: The Spinnegan
-  manaCost: 10
-  rarity: 4
-  cardArt: {fileID: 0}
-  abilityText: 'On Play: Randomize the Attack and Health of all allied units (including
-    this one) between 1 and 8.'
+  cardId: fuzzywormmega
+  cardName: Fuzzy Worm (Mega)
+  manaCost: 6
+  rarity: 2
+  cardArt: {fileID: 21300000, guid: 63cea8e800bf94044afe0633a2a39487, type: 3}
+  abilityText: 'On Turn Start: Add a Fuzzy Worm into your hand.'
   effects:
-  - trigger: 0
-    action: 33
+  - trigger: 1
+    action: 23
     targetType: 0
-    amount: 0
+    amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
-    relevantCard: {fileID: 0}
+    relevantCard: {fileID: 11400000, guid: aab93d69c1785ec408bfc9ca95d86d92, type: 2}
     keyword: 0
-    targetsOwnHand: 0
+    targetsOwnHand: 1
     cardCategory: 0
-    randomizeMin: 1
-    randomizeMax: 8
-  attack: 1
-  health: 1
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
+  attack: 4
+  health: 6
   keywords: 0
   grantsEnemyUnitMove: 0
   auras: []

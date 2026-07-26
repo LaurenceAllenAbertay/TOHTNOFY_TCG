@@ -95,6 +95,18 @@ namespace DDD.TNFY.TCG.UI
             return gameManager.Phases.HasAvailableGrantedEnemyMove(gameManager.State.ActivePlayer);
         }
 
+        private bool IsPendingOnPlayEnemyMoveEligible()
+        {
+            GameState state = gameManager.State;
+
+            if (!state.HasPendingEnemyMoveGrantOnPlay)
+            {
+                return false;
+            }
+
+            return boardCardView.Unit == state.PendingEnemyMoveGrantTarget;
+        }
+
         private bool CanDragThisUnit()
         {
             if (boardCardView.Unit == null)
@@ -115,7 +127,7 @@ namespace DDD.TNFY.TCG.UI
                 return isMovePhase || IsPendingFreeMoveEligible();
             }
 
-            return IsEnemyMoveGrantEligible();
+            return IsEnemyMoveGrantEligible() || IsPendingOnPlayEnemyMoveEligible();
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -204,6 +216,19 @@ namespace DDD.TNFY.TCG.UI
 
             if (!isOwnUnit)
             {
+                if (IsPendingOnPlayEnemyMoveEligible())
+                {
+                    if (gameManager.Phases.MoveGrantedEnemyUnitFree(boardCardView.Unit, slot.SlotIndex))
+                    {
+                        state.HasPendingEnemyMoveGrantOnPlay = false;
+                        state.PendingEnemyMoveGrantTarget = null;
+                        droppedOnLegalSlot = true;
+                        Debug.Log($"[BoardCardDrag] Pending On-Play enemy move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
+                    }
+
+                    return;
+                }
+
                 if (gameManager.Phases.MoveEnemyUnitViaGrantedAbility(state.ActivePlayer, fromSlot, slot.SlotIndex))
                 {
                     droppedOnLegalSlot = true;
@@ -258,6 +283,12 @@ namespace DDD.TNFY.TCG.UI
                     shouldHighlight = show
                         && slot.Side == owner
                         && gameManager.Phases.CanMoveUnit(fromSlot, slot.SlotIndex, ignoreMoveLimitAndCost: useFreeMoveRules);
+                }
+                else if (IsPendingOnPlayEnemyMoveEligible())
+                {
+                    shouldHighlight = show
+                        && slot.Side == owner
+                        && gameManager.Phases.CanMoveGrantedEnemyUnitFree(boardCardView.Unit, slot.SlotIndex);
                 }
                 else
                 {

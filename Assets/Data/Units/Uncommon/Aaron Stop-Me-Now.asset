@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Aaron Stop-Me-Now
   manaCost: 3
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: a998a9c9ca2e81943b838a83cd836439, type: 3}
   abilityText: 'On Death: Add 2 Blobman cards to your hand.'
   effects:
   - trigger: 3
@@ -31,6 +31,7 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 1
   health: 5
   keywords: 0

@@ -15,8 +15,8 @@ MonoBehaviour:
   cardId: crantus
   cardName: Crantus
   manaCost: 2
-  rarity: 0
-  cardArt: {fileID: 0}
+  rarity: 1
+  cardArt: {fileID: 21300000, guid: 98d5c3a67b5d7d746af172469dc18dc6, type: 3}
   abilityText: Whenever an allied unit dies, this unit gains +1/+1.
   effects:
   - trigger: 8
@@ -31,6 +31,7 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []
   - trigger: 8
     action: 5
     targetType: 12
@@ -43,6 +44,7 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 1
   health: 2
   keywords: 0

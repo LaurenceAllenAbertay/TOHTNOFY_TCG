@@ -74,6 +74,12 @@ namespace DDD.TNFY.TCG.UI
 
         public static string GetHealthText(UnitCardData card)
         {
+            if (card.HasPendingCurrentHealth)
+            {
+                int currentHealth = System.Math.Min(card.PendingCurrentHealth, card.Health);
+                return $"{currentHealth}/{card.Health}";
+            }
+
             return card.Health.ToString();
         }
 
@@ -86,7 +92,15 @@ namespace DDD.TNFY.TCG.UI
         public static string GetHealthText(UnitCardData card, PlayerSide side, GameState state)
         {
             int bonus = AuraCalculator.GetPreviewMaxHealthBonus(side, state, card);
-            return (card.Health + bonus).ToString();
+            int maxHealth = card.Health + bonus;
+
+            if (card.HasPendingCurrentHealth)
+            {
+                int currentHealth = System.Math.Min(card.PendingCurrentHealth, maxHealth);
+                return $"{currentHealth}/{maxHealth}";
+            }
+
+            return maxHealth.ToString();
         }
 
         public static string GetAttackText(BoardUnit unit, GameState state)

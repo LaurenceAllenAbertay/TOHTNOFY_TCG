@@ -15,7 +15,7 @@ MonoBehaviour:
   leaderId: moose
   leaderName: Moose
   maxHealth: 30
-  portrait: {fileID: 0}
+  portrait: {fileID: -2152135653450920974, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Once you reach max mana for the first time, your units permanently
     gain +1/+1
   firstUnitCostDiscount: 0
