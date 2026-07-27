@@ -20,6 +20,22 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI phaseText;
         [SerializeField] private TextMeshProUGUI activePlayerText;
 
+        private Color originalPlayerALeaderHealthColor;
+        private Color originalPlayerBLeaderHealthColor;
+
+        private void Awake()
+        {
+            if (playerALeaderHealthText != null)
+            {
+                originalPlayerALeaderHealthColor = playerALeaderHealthText.color;
+            }
+
+            if (playerBLeaderHealthText != null)
+            {
+                originalPlayerBLeaderHealthColor = playerBLeaderHealthText.color;
+            }
+        }
+
         private void Update()
         {
             if (gameManager == null || gameManager.State == null)
@@ -41,12 +57,14 @@ namespace DDD.TNFY.TCG.UI
 
             if (playerALeaderHealthText != null)
             {
-                playerALeaderHealthText.text = $"Player A HP: {state.PlayerA.LeaderHealth}";
+                playerALeaderHealthText.text = state.PlayerA.LeaderHealth.ToString();
+                playerALeaderHealthText.color = CardDisplayFormatter.GetHealthColor(state.PlayerA.LeaderHealth, state.PlayerA.MaxLeaderHealth, originalPlayerALeaderHealthColor);
             }
 
             if (playerBLeaderHealthText != null)
             {
-                playerBLeaderHealthText.text = $"Player B HP: {state.PlayerB.LeaderHealth}";
+                playerBLeaderHealthText.text = state.PlayerB.LeaderHealth.ToString();
+                playerBLeaderHealthText.color = CardDisplayFormatter.GetHealthColor(state.PlayerB.LeaderHealth, state.PlayerB.MaxLeaderHealth, originalPlayerBLeaderHealthColor);
             }
 
             if (turnText != null)

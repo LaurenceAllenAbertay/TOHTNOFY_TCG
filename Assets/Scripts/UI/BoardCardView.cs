@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
+using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
 using DDD.TNFY.TCG.Effects;
 
@@ -9,10 +11,18 @@ namespace DDD.TNFY.TCG.UI
 {
     public class BoardCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
+        [System.Serializable]
+        private struct KeywordIcon
+        {
+            public Keyword keyword;
+            public GameObject icon;
+        }
+
         private static class AnimState
         {
             public const string Idle = "Idle";
             public const string Attack = "Attack";
+            public const string BifurcatedAttack = "BifurcatedAttack";
             public const string Triggered = "Triggered";
             public const string Active = "Active";
         }
@@ -25,11 +35,14 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI healthText;
         [SerializeField] private Image targetableHighlight;
         [SerializeField] private Image stunnedOverlay;
+        [SerializeField] private GameObject attackingIndicator;
         [SerializeField] private Animator animator;
+        [SerializeField] private List<KeywordIcon> keywordIcons = new List<KeywordIcon>();
 
         private CanvasGroup canvasGroup;
         private GameManager gameManager;
         private GameState boundState;
+        private Color originalHealthTextColor;
 
         private BoardUnit lastBoundUnit;
         private int lastKnownSlotIndex = -1;
@@ -52,6 +65,11 @@ namespace DDD.TNFY.TCG.UI
             }
 
             gameManager = FindFirstObjectByType<GameManager>();
+
+            if (healthText != null)
+            {
+                originalHealthTextColor = healthText.color;
+            }
         }
 
         private void Update()
@@ -60,6 +78,8 @@ namespace DDD.TNFY.TCG.UI
             RefreshStunnedOverlay();
             RefreshAttackAnimation();
             UpdateAnimationState();
+            RefreshKeywordIcons();
+            RefreshAttackingIndicator();
         }
 
         public void SetVisible(bool visible)
@@ -92,7 +112,16 @@ namespace DDD.TNFY.TCG.UI
 
             if (healthText != null)
             {
-                healthText.text = CardDisplayFormatter.GetHealthText(unit, state);
+                string newHealthText = CardDisplayFormatter.GetHealthText(unit, state);
+                Color newHealthColor = CardDisplayFormatter.GetHealthColor(unit.CurrentHealth, unit.GetEffectiveMaxHealth(state), originalHealthTextColor);
+
+                if (healthText.text != newHealthText || healthText.color != newHealthColor)
+                {
+                    Debug.Log($"[BoardCardView] {unit.SourceCard.CardName} (Slot={unit.SlotIndex}) health text changed: '{healthText.text}' -> '{newHealthText}', color -> {newHealthColor}");
+                }
+
+                healthText.text = newHealthText;
+                healthText.color = newHealthColor;
             }
 
             if (isNewUnit)
@@ -115,7 +144,23 @@ namespace DDD.TNFY.TCG.UI
 
         public void PlayAttack()
         {
-            PlayOneShot(AnimState.Attack);
+            bool isBifurcated = Unit != null
+                && boundState != null
+                && Unit.HasKeyword(Keyword.BifurcatedAttack, boundState);
+
+            PlayOneShot(isBifurcated ? AnimState.BifurcatedAttack : AnimState.Attack);
+        }
+
+        public void OnAttackHitLanded(int hitIndex)
+        {
+            if (gameManager == null || gameManager.State == null)
+            {
+                Debug.LogWarning($"[BoardCardView] OnAttackHitLanded({hitIndex}) fired but gameManager/State is null.");
+                return;
+            }
+
+            Debug.Log($"[BoardCardView] {(Unit != null ? Unit.SourceCard.CardName : "unknown")} OnAttackHitLanded: hitIndex={hitIndex}. Raising AttackHitLanded.");
+            gameManager.State.RaiseAttackHitLanded(hitIndex);
         }
 
         private bool oneShotJustRequested;
@@ -232,6 +277,41 @@ namespace DDD.TNFY.TCG.UI
             {
                 lastAnimatedAttacker = null;
             }
+        }
+
+        private void RefreshKeywordIcons()
+        {
+            if (Unit == null || boundState == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < keywordIcons.Count; i++)
+            {
+                KeywordIcon entry = keywordIcons[i];
+
+                if (entry.icon == null)
+                {
+                    continue;
+                }
+
+                bool hasKeyword = Unit.HasKeyword(entry.keyword, boundState);
+                entry.icon.SetActive(hasKeyword);
+            }
+        }
+
+        private void RefreshAttackingIndicator()
+        {
+            if (attackingIndicator == null || Unit == null || gameManager == null || gameManager.State == null)
+            {
+                return;
+            }
+
+            bool isPlayPhase = gameManager.State.CurrentPhase == TurnPhase.Play;
+            bool isOwnedByActivePlayer = Unit.Owner == gameManager.State.ActivePlayer;
+            bool willAttack = isPlayPhase && isOwnedByActivePlayer && gameManager.Phases.CanUnitAttack(Unit);
+
+            attackingIndicator.SetActive(willAttack);
         }
 
         private bool lastLoggedStunnedState;

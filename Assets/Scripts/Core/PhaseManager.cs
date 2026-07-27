@@ -386,9 +386,7 @@ namespace DDD.TNFY.TCG.Core
                 BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
 
                 if (unit == null) continue;
-                if (unit.PlacedThisTurn && !unit.HasKeyword(Keyword.Rush, state)) continue;
-                if (IsStunned(unit)) continue;
-                if (unit.GetCurrentAttack(state) <= 0) continue;
+                if (!CanUnitAttack(unit)) continue;
 
                 Debug.Log($"[PhaseManager] CanAnyUnitAttack: {unit.SourceCard.CardName} (Slot={i}) can attack this turn.");
                 return true;
@@ -396,6 +394,16 @@ namespace DDD.TNFY.TCG.Core
 
             Debug.Log("[PhaseManager] CanAnyUnitAttack: no eligible attackers found.");
             return false;
+        }
+
+        public bool CanUnitAttack(BoardUnit unit)
+        {
+            if (unit == null) return false;
+            if (unit.PlacedThisTurn && !unit.HasKeyword(Keyword.Rush, state)) return false;
+            if (IsStunned(unit)) return false;
+            if (unit.GetCurrentAttack(state) <= 0) return false;
+
+            return true;
         }
 
         private static bool IsStunned(BoardUnit unit)
@@ -411,8 +419,8 @@ namespace DDD.TNFY.TCG.Core
             return false;
         }
 
-        private const float AttackAnimationDuration = 0.5f;
         private const float BannerWaitTimeout = 3f;
+        private const float AttackHitLandedWarningTime = 3f;
 
         public bool CanAnyUnitMove()
         {
@@ -540,15 +548,9 @@ namespace DDD.TNFY.TCG.Core
                 }
 
                 state.CurrentlyAttackingUnit = attacker;
-                yield return new WaitForSeconds(AttackAnimationDuration);
 
-                if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                {
-                    state.CurrentlyAttackingUnit = null;
-                    continue;
-                }
-
-                bool shouldChainAttack = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
+                bool shouldChainAttack = false;
+                yield return ResolveAttackerCombatAnimated(attacker, i, hadDoubleAttack, temporaryAttackBonus, result => shouldChainAttack = result);
 
                 state.CurrentlyAttackingUnit = null;
 
@@ -573,7 +575,7 @@ namespace DDD.TNFY.TCG.Core
                         else
                         {
                             state.CurrentlyAttackingUnit = attacker;
-                            yield return new WaitForSeconds(AttackAnimationDuration);
+                            yield return WaitForAttackHitLanded(0);
 
                             if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
                             {
@@ -665,6 +667,106 @@ namespace DDD.TNFY.TCG.Core
             }
 
             return shouldChainAttack;
+        }
+
+        private IEnumerator WaitForAttackHitLanded(int expectedHitIndex)
+        {
+            bool hitLanded = false;
+
+            void OnHitLanded(int hitIndex)
+            {
+                if (hitIndex == expectedHitIndex)
+                {
+                    hitLanded = true;
+                }
+            }
+
+            state.AttackHitLanded += OnHitLanded;
+
+            float elapsed = 0f;
+            bool hasWarned = false;
+
+            while (!hitLanded)
+            {
+                elapsed += Time.deltaTime;
+
+                if (!hasWarned && elapsed >= AttackHitLandedWarningTime)
+                {
+                    hasWarned = true;
+                    Debug.LogWarning($"[PhaseManager] WaitForAttackHitLanded: still waiting for hitIndex={expectedHitIndex} after {elapsed:F2}s. Check the attacker's Animator has an Animation Event calling OnAttackHitLanded({expectedHitIndex}).");
+                }
+
+                yield return null;
+            }
+
+            state.AttackHitLanded -= OnHitLanded;
+        }
+
+        private IEnumerator ResolveAttackerCombatAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus, System.Action<bool> onComplete)
+        {
+            int attackCount = hadDoubleAttack ? 2 : 1;
+            bool shouldChainAttack = false;
+            bool isBifurcated = attacker.HasKeyword(Keyword.BifurcatedAttack, state);
+
+            for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
+            {
+                bool killedDefender;
+
+                if (isBifurcated)
+                {
+                    int beforeSlot = slotIndex - 1;
+                    int afterSlot = slotIndex + 1;
+                    killedDefender = false;
+
+                    yield return WaitForAttackHitLanded(0);
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
+                    {
+                        break;
+                    }
+
+                    if (beforeSlot >= 0)
+                    {
+                        killedDefender |= ResolveAttack(attacker, beforeSlot, temporaryAttackBonus);
+                    }
+
+                    if (state.IsGameOver) break;
+
+                    yield return WaitForAttackHitLanded(1);
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
+                    {
+                        break;
+                    }
+
+                    if (afterSlot < Board.SlotsPerSide)
+                    {
+                        killedDefender |= ResolveAttack(attacker, afterSlot, temporaryAttackBonus);
+                    }
+                }
+                else
+                {
+                    yield return WaitForAttackHitLanded(0);
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
+                    {
+                        break;
+                    }
+
+                    killedDefender = ResolveAttack(attacker, slotIndex, temporaryAttackBonus);
+                }
+
+                if (state.IsGameOver) break;
+
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} ResolveAttackerCombatAnimated: attackIndex={attackIndex}, killedDefender={killedDefender}, HasAttackAgainOnKill={HasAttackAgainOnKill(attacker)}.");
+
+                if (killedDefender && attacker.CurrentHealth > 0 && HasAttackAgainOnKill(attacker))
+                {
+                    shouldChainAttack = true;
+                }
+            }
+
+            onComplete(shouldChainAttack);
         }
 
         private void ResolveChainAttack(BoardUnit attacker, int slotIndex, int temporaryAttackBonus)

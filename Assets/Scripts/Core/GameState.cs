@@ -39,6 +39,13 @@ namespace DDD.TNFY.TCG.Core
             BannerAnimationFinished?.Invoke();
         }
 
+        public event Action<int> AttackHitLanded;
+
+        public void RaiseAttackHitLanded(int hitIndex)
+        {
+            AttackHitLanded?.Invoke(hitIndex);
+        }
+
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }

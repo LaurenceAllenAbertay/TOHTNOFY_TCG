@@ -17,16 +17,17 @@ MonoBehaviour:
   manaCost: 4
   rarity: 2
   cardArt: {fileID: 0}
-  abilityText: Gains +1/+1 for every 2 allied units that have died this game.
+  abilityText: Gains +1/+1 for every 3 allied units that have died this game.
   effects: []
   attack: 2
   health: 3
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras:
   - scope: 4
     activationCondition: 0
     grant:
       action: 38
-      amount: 2
+      amount: 3
       keyword: 0

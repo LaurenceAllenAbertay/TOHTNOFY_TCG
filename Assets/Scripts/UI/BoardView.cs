@@ -15,6 +15,10 @@ namespace DDD.TNFY.TCG.UI
         [Header("Player B Slot Containers (index 0-6)")]
         [SerializeField] private Transform[] playerBSlotContainers = new Transform[Board.SlotsPerSide];
 
+        [Header("Card Layers (siblings of the slot rows, rendered on top)")]
+        [SerializeField] private RectTransform playerACardLayer;
+        [SerializeField] private RectTransform playerBCardLayer;
+
         public IReadOnlyList<Transform> PlayerASlotContainers => playerASlotContainers;
         public IReadOnlyList<Transform> PlayerBSlotContainers => playerBSlotContainers;
 
@@ -31,11 +35,11 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            RefreshSide(PlayerSide.PlayerA, playerASlotContainers, shownPlayerAUnits, spawnedPlayerAViews);
-            RefreshSide(PlayerSide.PlayerB, playerBSlotContainers, shownPlayerBUnits, spawnedPlayerBViews);
+            RefreshSide(PlayerSide.PlayerA, playerASlotContainers, playerACardLayer, shownPlayerAUnits, spawnedPlayerAViews);
+            RefreshSide(PlayerSide.PlayerB, playerBSlotContainers, playerBCardLayer, shownPlayerBUnits, spawnedPlayerBViews);
         }
 
-        private void RefreshSide(PlayerSide side, Transform[] containers, BoardUnit[] shownUnits, BoardCardView[] spawnedViews)
+        private void RefreshSide(PlayerSide side, Transform[] containers, RectTransform cardLayer, BoardUnit[] shownUnits, BoardCardView[] spawnedViews)
         {
             GameState gameState = gameManager.State;
             Board board = gameState.Board;
@@ -49,6 +53,7 @@ namespace DDD.TNFY.TCG.UI
                     if (currentUnit != null && spawnedViews[i] != null)
                     {
                         spawnedViews[i].Bind(currentUnit, gameState);
+                        SyncCardPositionToSlot(spawnedViews[i], containers[i]);
                     }
 
                     continue;
@@ -60,10 +65,11 @@ namespace DDD.TNFY.TCG.UI
                     spawnedViews[i] = null;
                 }
 
-                if (currentUnit != null && boardCardViewPrefab != null && containers[i] != null)
+                if (currentUnit != null && boardCardViewPrefab != null && containers[i] != null && cardLayer != null)
                 {
-                    BoardCardView view = Instantiate(boardCardViewPrefab, containers[i]);
+                    BoardCardView view = Instantiate(boardCardViewPrefab, cardLayer);
                     view.Bind(currentUnit, gameState);
+                    SyncCardPositionToSlot(view, containers[i]);
                     spawnedViews[i] = view;
                 }
 
@@ -78,6 +84,24 @@ namespace DDD.TNFY.TCG.UI
 
                 shownUnits[i] = currentUnit;
             }
+        }
+
+        private static void SyncCardPositionToSlot(BoardCardView view, Transform slotContainer)
+        {
+            if (view == null || slotContainer == null)
+            {
+                return;
+            }
+
+            RectTransform cardRect = view.transform as RectTransform;
+            RectTransform slotRect = slotContainer as RectTransform;
+
+            if (cardRect == null || slotRect == null)
+            {
+                return;
+            }
+
+            cardRect.anchoredPosition = slotRect.anchoredPosition;
         }
     }
 }

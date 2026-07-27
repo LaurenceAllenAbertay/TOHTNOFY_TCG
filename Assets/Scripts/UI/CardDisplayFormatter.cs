@@ -110,8 +110,12 @@ namespace DDD.TNFY.TCG.UI
 
         public static string GetHealthText(BoardUnit unit, GameState state)
         {
-            int effectiveMax = unit.GetEffectiveMaxHealth(state);
-            return $"{unit.CurrentHealth}/{effectiveMax}";
+            return unit.CurrentHealth.ToString();
+        }
+
+        public static UnityEngine.Color GetHealthColor(int currentHealth, int maxHealth, UnityEngine.Color fullHealthColor)
+        {
+            return currentHealth < maxHealth ? UnityEngine.Color.red : fullHealthColor;
         }
     }
 }
