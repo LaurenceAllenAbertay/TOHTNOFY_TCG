@@ -13,10 +13,12 @@ namespace DDD.TNFY.TCG.Cards
         [SerializeField] private Sprite portrait;
         [TextArea(2, 4)]
         [SerializeField] private string abilityText;
+        [Header( "Leader Effects" )]
         [SerializeField] private int firstUnitCostDiscount;
         [SerializeField] private int itemDrawIntervalTurns;
         [SerializeField] private int moveManaCost;
         [SerializeField] private int moveTemporaryAttackBonus;
+        [SerializeField] private int healthToManaRatio;
 
         [SerializeField]
         private List<CardEffect> effects = new List<CardEffect>();
@@ -33,6 +35,7 @@ namespace DDD.TNFY.TCG.Cards
         public int ItemDrawIntervalTurns => itemDrawIntervalTurns;
         public int MoveManaCost => moveManaCost;
         public int MoveTemporaryAttackBonus => moveTemporaryAttackBonus;
+        public int HealthToManaRatio => healthToManaRatio;
         public IReadOnlyList<CardEffect> Effects => effects;
         public IReadOnlyList<LeaderAura> Auras => auras;
     }

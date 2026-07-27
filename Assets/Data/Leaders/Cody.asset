@@ -16,8 +16,8 @@ MonoBehaviour:
   leaderName: Cody
   maxHealth: 30
   portrait: {fileID: 6927482114311448525, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
-  abilityText: Moving a unit during the Move phase costs 1 mana. Every time you move
-    one of your own units, it gains +1 temporary attack.
+  abilityText: Moving your units in the Move phase costs 1 mana. Every unit move
+    grants +1 temporary attack.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
   moveManaCost: 1

@@ -16,16 +16,11 @@ MonoBehaviour:
   leaderName: Brodie
   maxHealth: 40
   portrait: {fileID: 4865641513301428618, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
-  abilityText: Your units gain +1 max health.
+  abilityText: When you can't afford a card, spend 3 health per missing mana instead.
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
+  healthToManaRatio: 3
   effects: []
-  auras:
-  - scope: 0
-    activationCondition: 0
-    grant:
-      action: 5
-      amount: 1
-      keyword: 0
+  auras: []

@@ -279,6 +279,14 @@ namespace DDD.TNFY.TCG.Core
 
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
+            int manaShort = effectiveCost - active.CurrentMana;
+
+            if (manaShort > 0 && AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out int healthCost))
+            {
+                Debug.Log($"[PhaseManager] {active.Side} converting {healthCost} health into {manaShort} mana to afford {card.CardName}.");
+                DamageLeader(active.Side, healthCost);
+                active.CurrentMana += manaShort;
+            }
 
             active.CurrentMana -= effectiveCost;
 
@@ -332,8 +340,13 @@ namespace DDD.TNFY.TCG.Core
 
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
+            int manaShort = effectiveCost - active.CurrentMana;
 
-            if (active.CurrentMana < effectiveCost) return false;
+            if (manaShort > 0 && !AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out _))
+            {
+                return false;
+            }
+
             if (!active.Hand.Contains(card)) return false;
 
             BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
@@ -1332,6 +1345,14 @@ namespace DDD.TNFY.TCG.Core
             CancelPendingTargetedEffectIfNonMandatory();
 
             Player active = state.GetActivePlayerData();
+            int manaShort = card.ManaCost - active.CurrentMana;
+
+            if (manaShort > 0 && AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out int healthCost))
+            {
+                Debug.Log($"[PhaseManager] {active.Side} converting {healthCost} health into {manaShort} mana to afford {card.CardName}.");
+                DamageLeader(active.Side, healthCost);
+                active.CurrentMana += manaShort;
+            }
 
             active.CurrentMana -= card.ManaCost;
             active.Hand.Remove(card);
@@ -1361,8 +1382,9 @@ namespace DDD.TNFY.TCG.Core
             }
 
             Player active = state.GetActivePlayerData();
+            int manaShort = card.ManaCost - active.CurrentMana;
 
-            if (!active.CanAfford(card))
+            if (manaShort > 0 && !AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out _))
             {
                 Debug.Log($"[PhaseManager] CanPlayItem FAIL: cannot afford. CurrentMana={active.CurrentMana}, ManaCost={card.ManaCost}");
                 return false;

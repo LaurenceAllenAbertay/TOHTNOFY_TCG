@@ -220,6 +220,35 @@ namespace DDD.TNFY.TCG.Effects
             return System.Math.Max(0, baseCost - player.Leader.FirstUnitCostDiscount);
         }
 
+        public static bool TryGetHealthCostForManaShortfall(Player player, int manaShort, out int healthCost)
+        {
+            healthCost = 0;
+
+            if (manaShort <= 0)
+            {
+                return false;
+            }
+
+            if (player.Leader == null || player.Leader.HealthToManaRatio <= 0)
+            {
+                return false;
+            }
+
+            if (player.HasStatus(StatusEffectType.LeaderDamageShield))
+            {
+                return false;
+            }
+
+            healthCost = manaShort * player.Leader.HealthToManaRatio;
+
+            if (player.LeaderHealth - healthCost <= 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private static System.Collections.Generic.IEnumerable<LeaderAura> GetActiveAuras(BoardUnit unit, GameState state)
         {
             Player owner = state.GetPlayer(unit.Owner);

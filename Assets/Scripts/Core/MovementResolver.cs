@@ -306,6 +306,8 @@ namespace DDD.TNFY.TCG.Core
 
         private void GrantCodyMoveBonusIfApplicable(BoardUnit unit)
         {
+            if (unit.Owner != state.ActivePlayer) return;
+
             Player owner = state.GetPlayer(unit.Owner);
             LeaderData ownerLeader = owner.Leader;
 
