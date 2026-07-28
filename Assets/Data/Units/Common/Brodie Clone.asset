@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Brodie Clone
   manaCost: 1
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: aac02f795e799b54d885bfed6bceb4ee, type: 3}
   abilityText: 'Unmoving\nOn Turn Start: Add a Brodie Clone to your hand.'
   effects:
   - trigger: 1
@@ -28,8 +28,13 @@ MonoBehaviour:
     relevantCard: {fileID: 11400000}
     keyword: 0
     targetsOwnHand: 1
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 1
   health: 1
   keywords: 64
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

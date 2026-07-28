@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Brodie's Dad
   manaCost: 2
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: d09e78fcbc2bbf642bd1d7fe876b32c2, type: 3}
   abilityText: 'Taunt\nOn Turn Start: This unit takes 1 damage.'
   effects:
   - trigger: 1
@@ -25,11 +25,16 @@ MonoBehaviour:
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 1
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 1
   health: 10
   keywords: 1
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

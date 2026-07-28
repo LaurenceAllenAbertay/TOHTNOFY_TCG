@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: R.E.P.O. Bot
   manaCost: 3
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 1038f894c4182144297321849108e669, type: 3}
   abilityText: 'On Play: Reduce the opponent''s mana by 1 next turn.'
   effects:
   - trigger: 0
@@ -29,8 +29,12 @@ MonoBehaviour:
     keyword: 0
     targetsOwnHand: 0
     cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 3
   health: 3
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

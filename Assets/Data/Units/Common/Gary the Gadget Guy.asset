@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Gary the Gadget Guy
   manaCost: 2
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 4ce1dfd5137f27e459cfe142fac00b48, type: 3}
   abilityText: 'On Play: Choose from 3 random cards from your deck to draw.'
   effects:
   - trigger: 0
@@ -29,8 +29,12 @@ MonoBehaviour:
     keyword: 0
     targetsOwnHand: 0
     cardCategory: 2
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 0
   health: 2
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

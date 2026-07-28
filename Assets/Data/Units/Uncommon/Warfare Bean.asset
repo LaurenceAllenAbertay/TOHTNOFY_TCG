@@ -16,11 +16,12 @@ MonoBehaviour:
   cardName: Warfare Bean
   manaCost: 3
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 264426cc159e41c42bfe8d35169e59f2, type: 3}
   abilityText: Piercing
   effects: []
   attack: 4
   health: 3
   keywords: 32
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

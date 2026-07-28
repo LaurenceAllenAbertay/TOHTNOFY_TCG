@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Astoria
   manaCost: 4
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: ac4d224a4d37de247921aa42bf54381a, type: 3}
   abilityText: 'On Attack: Heal this unit for the amount of damage it just dealt.'
   effects:
   - trigger: 6
@@ -25,11 +25,16 @@ MonoBehaviour:
     amount: 0
     oncePerTurn: 0
     mandatoryTarget: 0
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 3
   health: 7
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

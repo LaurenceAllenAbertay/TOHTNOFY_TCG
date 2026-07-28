@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Todd Horny
   manaCost: 3
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 2f1e277ced823804da7858e53d94067d, type: 3}
   abilityText: 'On Play: Swap the Attack and Health of a friendly unit.'
   effects:
   - trigger: 0
@@ -29,8 +29,12 @@ MonoBehaviour:
     keyword: 0
     targetsOwnHand: 0
     cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   attack: 1
   health: 5
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

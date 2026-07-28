@@ -16,11 +16,12 @@ MonoBehaviour:
   cardName: Bloodbloggers
   manaCost: 2
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 0ecd4c3e8c48c3947b478d6ab5614b05, type: 3}
   abilityText: Bifurcated Attack
   effects: []
   attack: 1
   health: 3
   keywords: 4
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Pupper Penny
   manaCost: 0
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 7f363660f44309c448afd7a511cadba1, type: 3}
   abilityText: Gain 2 mana immediately.
   effects:
   - trigger: 0
@@ -31,3 +31,4 @@ MonoBehaviour:
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []

@@ -16,11 +16,12 @@ MonoBehaviour:
   cardName: Dr. Microwavey
   manaCost: 4
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 3bdbc77596490a64da2d6bcb970f5e98, type: 3}
   abilityText: Retaliate
   effects: []
   attack: 2
   health: 7
   keywords: 256
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

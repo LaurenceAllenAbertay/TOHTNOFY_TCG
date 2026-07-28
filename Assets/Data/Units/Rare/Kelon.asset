@@ -34,10 +34,11 @@ MonoBehaviour:
     randomizeMax: 0
     fixedChoiceOptions:
     - {fileID: 11400000, guid: 6cb4636dac8e637409cf5fecd8e8786e, type: 2}
-    - {fileID: 11400000, guid: e9861e3302ee57c48af2198698f22f5f, type: 2}
     - {fileID: 11400000, guid: 112047c6ac06f9149a1032bfd83d2ccc, type: 2}
+    - {fileID: 11400000, guid: e9861e3302ee57c48af2198698f22f5f, type: 2}
   attack: 4
   health: 7
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

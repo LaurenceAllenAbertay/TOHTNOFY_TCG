@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Fuzzy Worm
   manaCost: 0
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 87d49f4f42ecd3645913190790ab9ca3, type: 3}
   abilityText: Heal your leader 1 health.
   effects:
   - trigger: 0

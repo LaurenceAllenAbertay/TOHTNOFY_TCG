@@ -16,9 +16,12 @@ MonoBehaviour:
   cardName: Montague
   manaCost: 4
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 5c683c2a905638e478ff78aedb144af3, type: 3}
   abilityText: Taunt
   effects: []
   attack: 2
   health: 8
   keywords: 1
+  grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
+  auras: []
