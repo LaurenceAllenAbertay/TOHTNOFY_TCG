@@ -14,6 +14,8 @@ namespace DDD.TNFY.TCG.Effects
         EmptySlot,
         AnySlot,
         Board,
-        Self
+        Self,
+        LowestHealthEnemy,
+        RandomUnitEitherSide
     }
 }

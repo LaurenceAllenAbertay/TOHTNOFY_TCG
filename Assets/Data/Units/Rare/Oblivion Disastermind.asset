@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86465f924bf506e4889f647b5a82590d, type: 3}
-  m_Name: Lerons
+  m_Name: Oblivion Disastermind
   m_EditorClassIdentifier: 
-  cardId: lerons
-  cardName: Lerons
-  manaCost: 4
-  rarity: 0
-  cardArt: {fileID: 21300000, guid: 15254b6e5475a0245a337ec88262708d, type: 3}
-  abilityText: 'On Play: Move the opposing unit to any unblocked slot.'
+  cardId: obliviondisastermind
+  cardName: Oblivion Disastermind
+  manaCost: 5
+  rarity: 2
+  cardArt: {fileID: 0}
+  abilityText: 'On Play: Silence all enemy units.'
   effects:
   - trigger: 0
-    action: 40
-    targetType: 4
+    action: 32
+    targetType: 11
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
@@ -32,8 +32,8 @@ MonoBehaviour:
     randomizeMin: 0
     randomizeMax: 0
     fixedChoiceOptions: []
-  attack: 5
-  health: 3
+  attack: 3
+  health: 5
   keywords: 0
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

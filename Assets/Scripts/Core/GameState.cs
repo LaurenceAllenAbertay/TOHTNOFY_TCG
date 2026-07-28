@@ -46,6 +46,13 @@ namespace DDD.TNFY.TCG.Core
             AttackHitLanded?.Invoke(hitIndex);
         }
 
+        public event Action<BoardUnit> UnitMoved;
+
+        public void RaiseUnitMoved(BoardUnit unit)
+        {
+            UnitMoved?.Invoke(unit);
+        }
+
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }

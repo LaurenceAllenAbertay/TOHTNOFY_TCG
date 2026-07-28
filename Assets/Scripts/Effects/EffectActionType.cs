@@ -34,6 +34,7 @@ namespace DDD.TNFY.TCG.Effects
         ChooseXCards,
         HookClosestAllyLeft,
         SilenceUnit,
+        SilenceAllEnemyUnits,
         SwapAttackAndHealth,
         RandomizeAllyStats,
         AttackAgainOnKill,

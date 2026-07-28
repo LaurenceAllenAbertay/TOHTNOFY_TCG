@@ -34,15 +34,17 @@ namespace DDD.TNFY.TCG.UI
 
         public static string GetAbilityText(BoardUnit unit)
         {
+            string activeStatusText = GetActiveStatusText(unit);
+
             if (unit.IsSilenced)
             {
-                return "Silenced";
+                return "Silenced" + activeStatusText;
             }
 
             string baseText = unit.SourceCard.AbilityText;
             string grantedKeywordText = GetGrantedKeywordText(unit);
 
-            return baseText + grantedKeywordText;
+            return baseText + grantedKeywordText + activeStatusText;
         }
 
         private static string GetGrantedKeywordText(BoardUnit unit)
@@ -62,6 +64,28 @@ namespace DDD.TNFY.TCG.UI
                 }
 
                 result += "\n" + keyword.ToString();
+            }
+
+            return result;
+        }
+
+        private static string GetActiveStatusText(BoardUnit unit)
+        {
+            string result = "";
+
+            foreach (StatusEffectType statusType in StatusEffectReference.GetAllValues())
+            {
+                if (statusType == StatusEffectType.Silenced)
+                {
+                    continue;
+                }
+
+                if (!unit.HasStatus(statusType))
+                {
+                    continue;
+                }
+
+                result += "\n" + statusType.ToString();
             }
 
             return result;

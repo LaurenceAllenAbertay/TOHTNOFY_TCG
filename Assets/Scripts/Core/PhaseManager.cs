@@ -19,6 +19,8 @@ namespace DDD.TNFY.TCG.Core
             this.coroutineRunner = coroutineRunner;
             this.movement = new MovementResolver(state);
             this.lifecycle = new UnitLifecycleService(state);
+
+            this.state.UnitMoved += TriggerOnMove;
         }
 
         public void StartMatch()
@@ -828,6 +830,13 @@ namespace DDD.TNFY.TCG.Core
             }
 
             BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
+
+            if (defender != null && movement.TrySlippyDodge(defender))
+            {
+                Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} dodged out of slot {targetSlot} via Slippy — attack now resolves against an empty slot.");
+                defender = null;
+            }
+
             bool killedDefender = false;
 
             if (defender != null)
@@ -977,6 +986,45 @@ namespace DDD.TNFY.TCG.Core
 
                 EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
                 Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect (targetType={effect.targetType}, sourceType={sourceType}) resolved immediately, target.Kind={immediateTarget.Kind}.");
+                EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
+                EffectExecutor.Execute(effect, context, this);
+            }
+        }
+
+        private void TriggerOnMove(BoardUnit unit)
+        {
+            if (unit == null)
+            {
+                return;
+            }
+
+            if (state.Board.GetUnit(unit.Owner, unit.SlotIndex) != unit)
+            {
+                Debug.Log($"[PhaseManager] TriggerOnMove skipped for {unit.SourceCard.CardName} — unit is no longer on the board at slot {unit.SlotIndex}.");
+                return;
+            }
+
+            if (unit.IsSilenced)
+            {
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnMove effects.");
+                return;
+            }
+
+            foreach (CardEffect effect in unit.SourceCard.Effects)
+            {
+                if (effect.trigger != EffectTriggerType.OnMove)
+                {
+                    continue;
+                }
+
+                if (RequiresChosenTarget(effect.targetType))
+                {
+                    Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnMove effect requires a chosen target, which isn't supported yet — skipping.");
+                    continue;
+                }
+
+                EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
+                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnMove effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}.");
                 EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
                 EffectExecutor.Execute(effect, context, this);
             }
@@ -1451,7 +1499,9 @@ namespace DDD.TNFY.TCG.Core
                 && targetType != TargetType.Self
                 && targetType != TargetType.AllyLeader
                 && targetType != TargetType.EnemyLeader
-                && targetType != TargetType.OpposingEnemy;
+                && targetType != TargetType.OpposingEnemy
+                && targetType != TargetType.LowestHealthEnemy
+                && targetType != TargetType.RandomUnitEitherSide;
         }
 
         private void DeferCardPoolChoice(CardEffect effect, BoardUnit sourceUnit)

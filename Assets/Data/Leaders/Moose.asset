@@ -17,11 +17,12 @@ MonoBehaviour:
   maxHealth: 30
   portrait: {fileID: -2152135653450920974, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Once you reach max mana for the first time, your units permanently
-    gain +1/+1
+    gain +2/+1
   firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
+  healthToManaRatio: 0
   effects: []
   auras:
   - scope: 0
@@ -34,5 +35,5 @@ MonoBehaviour:
     activationCondition: 1
     grant:
       action: 4
-      amount: 1
+      amount: 2
       keyword: 0

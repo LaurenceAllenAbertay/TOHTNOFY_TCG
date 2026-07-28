@@ -242,15 +242,16 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            if (liveUnit != null && liveUnit.IsSilenced)
+            bool isSilenced = liveUnit != null && liveUnit.IsSilenced;
+
+            if (isSilenced)
             {
-                Debug.Log($"[CardHoverPreview] PopulateExtraInfo skipped for {card.CardName} — unit is Silenced.");
-                return;
+                Debug.Log($"[CardHoverPreview] PopulateExtraInfo for {card.CardName} — unit is Silenced, skipping keyword/effect entries.");
             }
 
             int keywordCount = 0;
 
-            if (card is UnitCardData unitCard)
+            if (!isSilenced && card is UnitCardData unitCard)
             {
                 foreach (Keyword keyword in KeywordReference.GetAllValues())
                 {
@@ -269,56 +270,62 @@ namespace DDD.TNFY.TCG.UI
 
             int referencedCardCount = 0;
 
-            foreach (CardEffect effect in card.Effects)
+            if (!isSilenced)
             {
-                if (effect.relevantCard == null)
+                foreach (CardEffect effect in card.Effects)
                 {
-                    continue;
-                }
+                    if (effect.relevantCard == null)
+                    {
+                        continue;
+                    }
 
-                string referencedDescription = GetReferencedCardDescription(effect.relevantCard);
-                SpawnInfoPanel(effect.relevantCard.CardName, referencedDescription);
-                referencedCardCount++;
+                    string referencedDescription = GetReferencedCardDescription(effect.relevantCard);
+                    SpawnInfoPanel(effect.relevantCard.CardName, referencedDescription);
+                    referencedCardCount++;
+                }
             }
 
             int grantedKeywordCount = 0;
             Keyword alreadyShownGrantedKeywords = Keyword.None;
 
-            foreach (CardEffect effect in card.Effects)
+            if (!isSilenced)
             {
-                if (effect.action != EffectActionType.GrantKeyword && effect.action != EffectActionType.GrantRush)
+                foreach (CardEffect effect in card.Effects)
                 {
-                    continue;
+                    if (effect.action != EffectActionType.GrantKeyword && effect.action != EffectActionType.GrantRush)
+                    {
+                        continue;
+                    }
+
+                    Keyword grantedKeyword = effect.action == EffectActionType.GrantRush ? Keyword.Rush : effect.keyword;
+
+                    if (grantedKeyword == Keyword.None)
+                    {
+                        continue;
+                    }
+
+                    if ((alreadyShownGrantedKeywords & grantedKeyword) != 0)
+                    {
+                        continue;
+                    }
+
+                    if (card is UnitCardData grantingUnitCard && grantingUnitCard.HasKeyword(grantedKeyword))
+                    {
+                        continue;
+                    }
+
+                    if (!KeywordReference.TryGetDescription(grantedKeyword, out string grantedDescription))
+                    {
+                        continue;
+                    }
+
+                    SpawnInfoPanel(grantedKeyword.ToString(), grantedDescription);
+                    alreadyShownGrantedKeywords |= grantedKeyword;
+                    grantedKeywordCount++;
                 }
-
-                Keyword grantedKeyword = effect.action == EffectActionType.GrantRush ? Keyword.Rush : effect.keyword;
-
-                if (grantedKeyword == Keyword.None)
-                {
-                    continue;
-                }
-
-                if ((alreadyShownGrantedKeywords & grantedKeyword) != 0)
-                {
-                    continue;
-                }
-
-                if (card is UnitCardData grantingUnitCard && grantingUnitCard.HasKeyword(grantedKeyword))
-                {
-                    continue;
-                }
-
-                if (!KeywordReference.TryGetDescription(grantedKeyword, out string grantedDescription))
-                {
-                    continue;
-                }
-
-                SpawnInfoPanel(grantedKeyword.ToString(), grantedDescription);
-                alreadyShownGrantedKeywords |= grantedKeyword;
-                grantedKeywordCount++;
             }
 
-            if (liveUnit != null)
+            if (!isSilenced && liveUnit != null)
             {
                 foreach (Keyword keyword in KeywordReference.GetAllValues())
                 {
@@ -345,6 +352,29 @@ namespace DDD.TNFY.TCG.UI
                     SpawnInfoPanel(keyword.ToString(), description);
                     alreadyShownGrantedKeywords |= keyword;
                     grantedKeywordCount++;
+                }
+            }
+
+            int statusEffectCount = 0;
+
+            if (liveUnit != null)
+            {
+                foreach (StatusEffectType statusType in StatusEffectReference.GetAllValues())
+                {
+                    bool isActive = statusType == StatusEffectType.Silenced ? isSilenced : liveUnit.HasStatus(statusType);
+
+                    if (!isActive)
+                    {
+                        continue;
+                    }
+
+                    if (!StatusEffectReference.TryGetDescription(statusType, out string statusDescription))
+                    {
+                        continue;
+                    }
+
+                    SpawnInfoPanel(statusType.ToString(), statusDescription);
+                    statusEffectCount++;
                 }
             }
         }

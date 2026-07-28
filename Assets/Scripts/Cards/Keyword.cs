@@ -16,6 +16,8 @@ namespace DDD.TNFY.TCG.Cards
         Unstable = 1 << 7,
         Retaliate = 1 << 8,
         Teleport = 1 << 9,
-        Absorb = 1 << 10
+        Absorb = 1 << 10,
+        Slippy = 1 << 11,
+        Relentless = 1 << 12
     }
 }

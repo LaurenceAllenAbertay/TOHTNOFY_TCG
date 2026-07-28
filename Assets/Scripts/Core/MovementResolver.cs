@@ -71,6 +71,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             GrantCodyMoveBonusIfApplicable(unit);
+            OnUnitRelocated(unit);
 
             return true;
         }
@@ -86,6 +87,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
+            OnUnitRelocated(unit);
 
             return true;
         }
@@ -123,6 +125,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
+            OnUnitRelocated(unit);
 
             return true;
         }
@@ -196,6 +199,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, destinationSlot, closestAlly);
 
             GrantCodyMoveBonusIfApplicable(closestAlly);
+            OnUnitRelocated(closestAlly);
 
             Debug.Log($"[MovementResolver] {sourceUnit.SourceCard.CardName}'s Hook moved {closestAlly.SourceCard.CardName} from slot {fromSlot} to slot {destinationSlot}.");
 
@@ -254,6 +258,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
+            OnUnitRelocated(unit);
         }
 
         public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
@@ -274,6 +279,8 @@ namespace DDD.TNFY.TCG.Core
 
             GrantCodyMoveBonusIfApplicable(unitA);
             GrantCodyMoveBonusIfApplicable(unitB);
+            OnUnitRelocated(unitA);
+            OnUnitRelocated(unitB);
 
             return true;
         }
@@ -301,6 +308,8 @@ namespace DDD.TNFY.TCG.Core
             state.Board.RemoveUnit(targetSide, targetUnit.SlotIndex);
             state.Board.PlaceUnit(targetSide, destinationSlot, targetUnit);
 
+            OnUnitRelocated(targetUnit);
+
             return true;
         }
 
@@ -315,6 +324,100 @@ namespace DDD.TNFY.TCG.Core
             {
                 unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackNextAttack, 1, ownerLeader.MoveTemporaryAttackBonus));
             }
+        }
+
+        private void OnUnitRelocated(BoardUnit relocatedUnit)
+        {
+            if (relocatedUnit == null)
+            {
+                return;
+            }
+
+            state.RaiseUnitMoved(relocatedUnit);
+
+            if (relocatedUnit.IsSilenced)
+            {
+                return;
+            }
+
+            PlayerSide relentlessSide = relocatedUnit.Owner.Opposite();
+            BoardUnit relentlessUnit = state.Board.GetUnit(relentlessSide, relocatedUnit.SlotIndex);
+
+            if (relentlessUnit == null || relentlessUnit.IsSilenced || !relentlessUnit.HasKeyword(Keyword.Relentless, state))
+            {
+                return;
+            }
+
+            if (relentlessUnit.HasKeyword(Keyword.Unmoving, state))
+            {
+                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName} has Relentless but is Unmoving — cannot follow.");
+                return;
+            }
+
+            int relentlessFromSlot = relentlessUnit.SlotIndex;
+            int relentlessToSlot = relocatedUnit.SlotIndex;
+
+            if (relentlessFromSlot == relentlessToSlot)
+            {
+                return;
+            }
+
+            if (state.Board.GetUnit(relentlessSide, relentlessToSlot) != null)
+            {
+                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName}'s Relentless FAIL: slot {relentlessToSlot} is occupied.");
+                return;
+            }
+
+            state.Board.RemoveUnit(relentlessSide, relentlessFromSlot);
+            state.Board.PlaceUnit(relentlessSide, relentlessToSlot, relentlessUnit);
+
+            Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName}'s Relentless followed {relocatedUnit.SourceCard.CardName} from slot {relentlessFromSlot} to slot {relentlessToSlot}.");
+
+            OnUnitRelocated(relentlessUnit);
+        }
+
+        public bool TrySlippyDodge(BoardUnit defender)
+        {
+            if (defender == null || defender.IsSilenced || !defender.HasKeyword(Keyword.Slippy, state))
+            {
+                return false;
+            }
+
+            if (defender.HasKeyword(Keyword.Unmoving, state))
+            {
+                Debug.Log($"[MovementResolver] {defender.SourceCard.CardName} has Slippy but is Unmoving — cannot dodge.");
+                return false;
+            }
+
+            PlayerSide side = defender.Owner;
+            int fromSlot = defender.SlotIndex;
+            int leftSlot = fromSlot - 1;
+            int rightSlot = fromSlot + 1;
+
+            int destinationSlot;
+
+            if (leftSlot >= 0 && state.Board.GetUnit(side, leftSlot) == null)
+            {
+                destinationSlot = leftSlot;
+            }
+            else if (rightSlot < Board.SlotsPerSide && state.Board.GetUnit(side, rightSlot) == null)
+            {
+                destinationSlot = rightSlot;
+            }
+            else
+            {
+                Debug.Log($"[MovementResolver] {defender.SourceCard.CardName}'s Slippy FAIL: both left and right slots are blocked or off-board — staying to take the hit.");
+                return false;
+            }
+
+            state.Board.RemoveUnit(side, fromSlot);
+            state.Board.PlaceUnit(side, destinationSlot, defender);
+
+            Debug.Log($"[MovementResolver] {defender.SourceCard.CardName}'s Slippy dodged from slot {fromSlot} to slot {destinationSlot}.");
+
+            OnUnitRelocated(defender);
+
+            return true;
         }
 
         public bool CanMoveUnit(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost = false)
@@ -406,6 +509,8 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(enemySide, toSlot, unit);
 
             granter.HasUsedGrantedEnemyMoveThisTurn = true;
+
+            OnUnitRelocated(unit);
 
             return true;
         }

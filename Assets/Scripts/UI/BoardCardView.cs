@@ -18,6 +18,13 @@ namespace DDD.TNFY.TCG.UI
             public GameObject icon;
         }
 
+        [System.Serializable]
+        private struct StatusIcon
+        {
+            public StatusEffectType statusType;
+            public GameObject icon;
+        }
+
         private static class AnimState
         {
             public const string Idle = "Idle";
@@ -27,7 +34,7 @@ namespace DDD.TNFY.TCG.UI
             public const string Active = "Active";
         }
 
-        private const float StunnedOverlayAlpha = 0.9f;
+        private const float StunnedOverlayAlpha = 0.8f;
         private const float StunnedOverlayHiddenAlpha = 0f;
 
         [SerializeField] private Image artImage;
@@ -38,6 +45,7 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private GameObject attackingIndicator;
         [SerializeField] private Animator animator;
         [SerializeField] private List<KeywordIcon> keywordIcons = new List<KeywordIcon>();
+        [SerializeField] private List<StatusIcon> statusIcons = new List<StatusIcon>();
 
         private CanvasGroup canvasGroup;
         private GameManager gameManager;
@@ -79,6 +87,7 @@ namespace DDD.TNFY.TCG.UI
             RefreshAttackAnimation();
             UpdateAnimationState();
             RefreshKeywordIcons();
+            RefreshStatusIcons();
             RefreshAttackingIndicator();
         }
 
@@ -309,6 +318,27 @@ namespace DDD.TNFY.TCG.UI
 
                 bool hasKeyword = Unit.HasKeyword(entry.keyword, boundState);
                 entry.icon.SetActive(hasKeyword);
+            }
+        }
+
+        private void RefreshStatusIcons()
+        {
+            if (Unit == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < statusIcons.Count; i++)
+            {
+                StatusIcon entry = statusIcons[i];
+
+                if (entry.icon == null)
+                {
+                    continue;
+                }
+
+                bool hasStatus = Unit.HasStatus(entry.statusType);
+                entry.icon.SetActive(hasStatus);
             }
         }
 

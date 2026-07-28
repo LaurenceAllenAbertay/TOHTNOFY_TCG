@@ -11,6 +11,7 @@ namespace DDD.TNFY.TCG.Effects
         OnAttack,
         OnDraw,
         OnAllyDeath,
-        OnDamaged
+        OnDamaged,
+        OnMove
     }
 }

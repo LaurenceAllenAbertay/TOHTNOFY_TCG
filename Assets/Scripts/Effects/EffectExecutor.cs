@@ -51,6 +51,10 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteSilenceUnit(context, phases);
                     break;
 
+                case EffectActionType.SilenceAllEnemyUnits:
+                    ExecuteSilenceAllEnemyUnits(context, phases);
+                    break;
+
                 case EffectActionType.SwapAttackAndHealth:
                     ExecuteSwapAttackAndHealth(context, phases);
                     break;
@@ -249,6 +253,28 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             phases.SilenceUnit(context.ChosenTarget.Unit);
+        }
+
+        private static void ExecuteSilenceAllEnemyUnits(EffectContext context, PhaseManager phases)
+        {
+            PlayerSide enemySide = context.SourceOwner.Opposite();
+
+            List<BoardUnit> targets = new List<BoardUnit>();
+
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit unit = context.Board.GetUnit(enemySide, i);
+
+                if (unit != null)
+                {
+                    targets.Add(unit);
+                }
+            }
+
+            foreach (BoardUnit unit in targets)
+            {
+                phases.SilenceUnit(unit);
+            }
         }
 
         private static void ExecuteSwapAttackAndHealth(EffectContext context, PhaseManager phases)
