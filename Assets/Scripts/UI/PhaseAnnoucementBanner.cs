@@ -15,15 +15,8 @@ namespace DDD.TNFY.TCG.UI
         private bool hasGameStarted;
         private bool hasShownFirstPlayBanner;
 
-        private void Awake()
-        {
-            Debug.Log($"[PhaseAnnouncementBanner] Awake called on instance {GetInstanceID()}. hasGameStarted={hasGameStarted}, hasShownFirstPlayBanner={hasShownFirstPlayBanner}");
-        }
-
         private void OnEnable()
         {
-            Debug.Log($"[PhaseAnnouncementBanner] OnEnable called on instance {GetInstanceID()}. hasGameStarted={hasGameStarted}, hasShownFirstPlayBanner={hasShownFirstPlayBanner}");
-
             if (gameManager == null)
             {
                 Debug.LogWarning("[PhaseAnnouncementBanner] gameManager reference not set.");
@@ -46,8 +39,6 @@ namespace DDD.TNFY.TCG.UI
         private void HandlePhaseChanged(TurnPhase newPhase)
         {
             string text = GetAnnouncementText(newPhase);
-
-            Debug.Log($"[PhaseAnnouncementBanner] HandlePhaseChanged: newPhase={newPhase}, hasGameStarted={hasGameStarted}, text=\"{text}\"");
 
             if (text == null)
             {
@@ -73,7 +64,6 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            Debug.Log("[PhaseAnnouncementBanner] OnBannerAnimationComplete: raising BannerAnimationFinished.");
             gameManager.State.RaiseBannerAnimationFinished();
         }
 
@@ -90,7 +80,6 @@ namespace DDD.TNFY.TCG.UI
                     return null;
 
                 case TurnPhase.Play:
-                    Debug.Log($"[PhaseAnnouncementBanner] GetAnnouncementText(Play): instance={GetInstanceID()}, hasShownFirstPlayBanner={hasShownFirstPlayBanner}, ActivePlayer={gameManager.State.ActivePlayer}");
                     if (!hasShownFirstPlayBanner)
                     {
                         hasShownFirstPlayBanner = true;

@@ -53,8 +53,6 @@ namespace DDD.TNFY.TCG.Core
             state = gameManager.State;
             phases = gameManager.Phases;
             state.PhaseChanged += HandlePhaseChanged;
-
-            Debug.Log("[AIController] Subscribed to PhaseChanged.");
         }
 
         private void HandlePhaseChanged(TurnPhase newPhase)

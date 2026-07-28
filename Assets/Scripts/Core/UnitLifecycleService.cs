@@ -24,7 +24,6 @@ namespace DDD.TNFY.TCG.Core
             {
                 int effectiveMax = unit.GetEffectiveMaxHealth(state);
                 unit.CurrentHealth = System.Math.Min(card.PendingCurrentHealth, effectiveMax);
-                Debug.Log($"[UnitLifecycleService] {card.CardName} placed with carried-over CurrentHealth={unit.CurrentHealth} (effectiveMax={effectiveMax}) instead of full health.");
             }
 
             SyncQualifyingEnemyAuraHealth();
@@ -40,8 +39,6 @@ namespace DDD.TNFY.TCG.Core
             int inheritedCurrentHealth = absorbedUnit.CurrentHealth;
             int inheritedTemporaryAttack = ConsumeStatusMagnitude(absorbedUnit, StatusEffectType.TemporaryAttackNextAttack);
 
-            Debug.Log($"[UnitLifecycleService] {card.CardName} (Absorb) is replacing {absorbedUnit.SourceCard.CardName} in slot {slotIndex}. InheritedPermanentAttack={inheritedPermanentAttack} (of which aura bonus={inheritedAuraAttack}), InheritedMaxHealth={inheritedMaxHealth}, InheritedCurrentHealth={inheritedCurrentHealth}, TemporaryAttackConverted={inheritedTemporaryAttack}.");
-
             state.Board.RemoveUnit(absorbedUnit.Owner, slotIndex);
 
             BoardUnit unit = new BoardUnit(card, absorbedUnit.Owner, slotIndex);
@@ -50,18 +47,12 @@ namespace DDD.TNFY.TCG.Core
             unit.BonusAttack = inheritedPermanentAttack + inheritedTemporaryAttack;
             unit.MaxHealth = card.Health + inheritedMaxHealth;
 
-            Debug.Log($"[UnitLifecycleService][ABSORB DEBUG] unit.MaxHealth (raw) set to {unit.MaxHealth}. About to call GetEffectiveMaxHealth.");
-
             int effectiveMax = unit.GetEffectiveMaxHealth(state);
-
-            Debug.Log($"[UnitLifecycleService][ABSORB DEBUG] GetEffectiveMaxHealth returned {effectiveMax} (raw {unit.MaxHealth} + aura bonus {effectiveMax - unit.MaxHealth}).");
 
             unit.CurrentHealth = System.Math.Min(inheritedCurrentHealth + card.Health, effectiveMax);
             unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
 
             SyncQualifyingEnemyAuraHealth();
-
-            Debug.Log($"[UnitLifecycleService] {card.CardName} (Absorb) is now {unit.GetCurrentAttack(state)} attack, {unit.CurrentHealth}/{effectiveMax} health in slot {slotIndex}.");
 
             return unit;
         }
@@ -89,7 +80,6 @@ namespace DDD.TNFY.TCG.Core
                 if (delta > 0)
                 {
                     unit.CurrentHealth += delta;
-                    Debug.Log($"[UnitLifecycleService] SyncQualifyingEnemyAuraHealth: {unit.SourceCard.CardName} (slot {unit.SlotIndex}, {side}) qualifying-aura health bonus grew by {delta} ({unit.LastSyncedAuraHealthBonus}->{currentAuraHealthBonus}), CurrentHealth now {unit.CurrentHealth}.");
                 }
 
                 unit.LastSyncedAuraHealthBonus = currentAuraHealthBonus;
@@ -151,8 +141,6 @@ namespace DDD.TNFY.TCG.Core
             PlayerSide owner = originalUnit.Owner;
             int slotIndex = originalUnit.SlotIndex;
 
-            Debug.Log($"[UnitLifecycleService] TransformUnit: {originalUnit.SourceCard.CardName} PlacedThisTurn={originalUnit.PlacedThisTurn}, HasMovedThisTurn={originalUnit.HasMovedThisTurn} before transform.");
-
             state.Board.RemoveUnit(owner, slotIndex);
 
             BoardUnit replacementUnit = new BoardUnit(replacementCard, owner, slotIndex);
@@ -163,8 +151,6 @@ namespace DDD.TNFY.TCG.Core
             InitializeHealthToEffectiveMax(replacementUnit);
             SyncQualifyingEnemyAuraHealth();
 
-            Debug.Log($"[UnitLifecycleService] {originalUnit.SourceCard.CardName} was transformed into {replacementCard.CardName} in slot {slotIndex} for {owner}. Replacement PlacedThisTurn={replacementUnit.PlacedThisTurn}.");
-
             return true;
         }
 
@@ -172,13 +158,11 @@ namespace DDD.TNFY.TCG.Core
         {
             if (card == null)
             {
-                Debug.Log("[UnitLifecycleService] SpawnUnit FAIL: card is null.");
                 return false;
             }
 
             if (state.Board.GetUnit(side, slotIndex) != null)
             {
-                Debug.Log($"[UnitLifecycleService] SpawnUnit FAIL: slot {slotIndex} for {side} is already occupied.");
                 return false;
             }
 
@@ -186,8 +170,6 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, slotIndex, spawnedUnit);
             InitializeHealthToEffectiveMax(spawnedUnit);
             SyncQualifyingEnemyAuraHealth();
-
-            Debug.Log($"[UnitLifecycleService] {card.CardName} was spawned into slot {slotIndex} for {side}.");
 
             return true;
         }
@@ -212,8 +194,8 @@ namespace DDD.TNFY.TCG.Core
             if (hasPermanentStatChange || isDamaged)
             {
                 int currentHealthForHand = System.Math.Max(1, unit.CurrentHealth);
-                cardForHand = unit.SourceCard.CreateStatOverrideClone(permanentAttack, permanentHealth, currentHealthForHand);
-                Debug.Log($"[UnitLifecycleService] {unit.SourceCard.CardName} bounced — cloned as {permanentAttack}/{permanentHealth} max (of which aura attack bonus={auraAttackBonus}, aura health bonus={auraHealthBonus}), carrying CurrentHealth={unit.CurrentHealth} into hand.");
+                cardForHand =
+                    unit.SourceCard.CreateStatOverrideClone(permanentAttack, permanentHealth, currentHealthForHand);
             }
 
             if (!owner.TryAddCardToHand(cardForHand))
@@ -239,19 +221,15 @@ namespace DDD.TNFY.TCG.Core
         {
             if (unit == null)
             {
-                Debug.Log("[UnitLifecycleService] SilenceUnit FAIL: unit is null.");
                 return;
             }
 
             if (unit.IsSilenced)
             {
-                Debug.Log($"[UnitLifecycleService] {unit.SourceCard.CardName} is already Silenced — not stacking a second instance.");
                 return;
             }
 
             unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, 1));
-
-            Debug.Log($"[UnitLifecycleService] {unit.SourceCard.CardName} was Silenced through the end of their owner's next turn.");
         }
 
         public void TickLeaderDamageShield(Player owner)

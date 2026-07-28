@@ -320,8 +320,6 @@ namespace DDD.TNFY.TCG.UI
 
             if (liveUnit != null)
             {
-                Debug.Log($"[CardHoverPreview] Checking liveUnit.GrantedKeywords for {liveUnit.SourceCard.CardName}: {liveUnit.GrantedKeywords}");
-
                 foreach (Keyword keyword in KeywordReference.GetAllValues())
                 {
                     if ((liveUnit.GrantedKeywords & keyword) == 0)

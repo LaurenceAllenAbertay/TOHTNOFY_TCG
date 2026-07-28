@@ -13,6 +13,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
+
             if (handDrag != null && handDrag.IsDraggingItemCard)
             {
                 handDrag.HandleDroppedOnBoardArea();

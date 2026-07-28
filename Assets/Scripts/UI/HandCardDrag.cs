@@ -354,6 +354,31 @@ namespace DDD.TNFY.TCG.UI
             }
         }
 
+        public void HandleDroppedOnUnit(BoardUnit unit)
+        {
+            Debug.Log($"[HandCardDrag] HandleDroppedOnUnit called. isInsideBoardArea={isInsideBoardArea}, unit={(unit != null ? unit.SourceCard.CardName : "null")}");
+
+            if (!isInsideBoardArea)
+            {
+                return;
+            }
+
+            if (!(handCardView.Card is ItemCardData itemCard))
+            {
+                return;
+            }
+
+            EffectTarget target = IsBoardTargeted(itemCard) ? EffectTarget.None : EffectTarget.ForUnit(unit);
+
+            bool played = gameManager.Phases.TryPlayItem(itemCard, target);
+            Debug.Log($"[HandCardDrag] TryPlayItem({itemCard.CardName}, target.Kind={target.Kind}) returned {played}");
+
+            if (played)
+            {
+                droppedOnLegalTarget = true;
+            }
+        }
+
         public void HandleDroppedOnBoardArea()
         {
             if (!isInsideBoardArea)

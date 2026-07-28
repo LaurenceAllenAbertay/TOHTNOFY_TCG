@@ -1377,7 +1377,6 @@ namespace DDD.TNFY.TCG.Core
         {
             if (HasBlockingPendingTargetedEffect())
             {
-                Debug.Log("[PhaseManager] CanPlayItem FAIL: a mandatory On-Play effect is still awaiting a target.");
                 return false;
             }
 
@@ -1386,29 +1385,25 @@ namespace DDD.TNFY.TCG.Core
 
             if (manaShort > 0 && !AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out _))
             {
-                Debug.Log($"[PhaseManager] CanPlayItem FAIL: cannot afford. CurrentMana={active.CurrentMana}, ManaCost={card.ManaCost}");
                 return false;
             }
             if (!active.Hand.Contains(card))
             {
-                Debug.Log("[PhaseManager] CanPlayItem FAIL: card not in active player's hand.");
                 return false;
             }
             if (state.CurrentPhase != TurnPhase.Play)
             {
-                Debug.Log($"[PhaseManager] CanPlayItem FAIL: wrong phase, current phase={state.CurrentPhase}");
                 return false;
             }
 
             CardEffect effect = card.PrimaryEffect;
             if (effect == null)
             {
-                Debug.Log("[PhaseManager] CanPlayItem FAIL: card.PrimaryEffect is null (no Effects configured on the asset).");
                 return false;
             }
 
             bool valid = EffectTargeting.IsValidTarget(effect.targetType, target, state);
-            Debug.Log($"[PhaseManager] CanPlayItem: targetType={effect.targetType}, target.Kind={target.Kind}, IsValidTarget={valid}");
+            
             return valid;
         }
 

@@ -10,24 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 868645e5f65262b44abae3055bd41b9d, type: 3}
-  m_Name: GainMana
+  m_Name: Blobona Virus
   m_EditorClassIdentifier: 
-  cardId: gainmana
-  cardName: Gain Mana
-  manaCost: 0
+  cardId: blobonavirus
+  cardName: Blobona Virus
+  manaCost: 5
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Gain 1 Mana immediately.
+  abilityText: Transform a unit into a Blobman.
   effects:
   - trigger: 0
-    action: 1
-    targetType: 11
+    action: 28
+    targetType: 1
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
-    relevantCard: {fileID: 0}
+    relevantCard: {fileID: 11400000, guid: 1d601bc448e3988449712a2a6596da04, type: 2}
     keyword: 0
     targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
+    fixedChoiceOptions: []

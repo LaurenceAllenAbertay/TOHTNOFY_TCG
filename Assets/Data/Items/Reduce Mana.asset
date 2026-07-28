@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: reducemana
   cardName: Reduce Mana
-  manaCost: 2
+  manaCost: 3
   rarity: 0
   cardArt: {fileID: 0}
   abilityText: Reduce your opponents mana by 2 this turn.
   effects:
   - trigger: 0
-    action: 19
-    targetType: 3
-    amount: 1
+    action: 12
+    targetType: 11
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}

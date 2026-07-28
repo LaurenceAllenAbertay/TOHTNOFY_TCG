@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 868645e5f65262b44abae3055bd41b9d, type: 3}
-  m_Name: HealLeader
+  m_Name: Heal Leader
   m_EditorClassIdentifier: 
   cardId: healleader
   cardName: Heal Leader
-  manaCost: 0
+  manaCost: 3
   rarity: 0
   cardArt: {fileID: 0}
   abilityText: Heal your leader 3 health.
@@ -25,6 +25,10 @@ MonoBehaviour:
     amount: 3
     oncePerTurn: 0
     mandatoryTarget: 1
-    grantedCard: {fileID: 0}
+    relevantCard: {fileID: 0}
     keyword: 0
     targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []

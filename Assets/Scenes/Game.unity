@@ -6855,8 +6855,9 @@ MonoBehaviour:
   cardPool:
   - {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
   - {fileID: 11400000, guid: cd34e152819cd0143b687ba709d6e1d3, type: 2}
-  - {fileID: 11400000, guid: f5e1152e990479042ba794d2927622a1, type: 2}
-  - {fileID: 11400000, guid: 4a5fc5441f8a1354c93e421ea0296077, type: 2}
+  - {fileID: 11400000, guid: 85f6f160835ca6a42854c2663e6f6789, type: 2}
+  - {fileID: 11400000, guid: 4b1de5ed02051244cb4151c7e112b83a, type: 2}
+  - {fileID: 11400000, guid: 28a396eb19790854382659b0cb422b39, type: 2}
   copiesOfEachCard: 2
   deckSize: 33
   leaderPool:

@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 868645e5f65262b44abae3055bd41b9d, type: 3}
-  m_Name: Silence
+  m_Name: Swap Stats
   m_EditorClassIdentifier: 
-  cardId: silence
-  cardName: Silence
+  cardId: swapstats
+  cardName: Swap Stats
   manaCost: 2
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Silence an enemy unit.
+  abilityText: Swap attack and health of a unit.
   effects:
   - trigger: 0
-    action: 31
-    targetType: 3
-    amount: 1
+    action: 32
+    targetType: 1
+    amount: 0
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}

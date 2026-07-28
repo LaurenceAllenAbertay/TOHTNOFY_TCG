@@ -57,8 +57,6 @@ namespace DDD.TNFY.TCG.Core
             {
                 player.Deck.Add(availableCopies[i]);
             }
-
-            Debug.Log($"[MatchBootstrapper] Built {player.Side}'s deck: {player.Deck.Count} cards drawn independently from a pool of {cardPool.Count} distinct cards.");
         }
 
         private void AssignRandomLeaders()

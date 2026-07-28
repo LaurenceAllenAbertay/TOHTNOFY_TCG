@@ -9,7 +9,7 @@ using DDD.TNFY.TCG.Effects;
 
 namespace DDD.TNFY.TCG.UI
 {
-    public class BoardCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+    public class BoardCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler, IDropHandler
     {
         [System.Serializable]
         private struct KeywordIcon
@@ -114,11 +114,6 @@ namespace DDD.TNFY.TCG.UI
             {
                 string newHealthText = CardDisplayFormatter.GetHealthText(unit, state);
                 Color newHealthColor = CardDisplayFormatter.GetHealthColor(unit.CurrentHealth, unit.GetEffectiveMaxHealth(state), originalHealthTextColor);
-
-                if (healthText.text != newHealthText || healthText.color != newHealthColor)
-                {
-                    Debug.Log($"[BoardCardView] {unit.SourceCard.CardName} (Slot={unit.SlotIndex}) health text changed: '{healthText.text}' -> '{newHealthText}', color -> {newHealthColor}");
-                }
 
                 healthText.text = newHealthText;
                 healthText.color = newHealthColor;
@@ -257,6 +252,23 @@ namespace DDD.TNFY.TCG.UI
 
             bool resolved = gameManager.Phases.TryResolvePendingTargetedEffect(EffectTarget.ForUnit(Unit));
             Debug.Log($"[BoardCardView] TryResolvePendingTargetedEffect on {Unit.SourceCard.CardName} returned {resolved}");
+        }
+
+        public void OnDrop(PointerEventData eventData)
+        {
+            Debug.Log($"[BoardCardView] OnDrop fired on {(Unit != null ? Unit.SourceCard.CardName : "null Unit")}. pointerDrag={(eventData.pointerDrag != null ? eventData.pointerDrag.name : "null")}");
+
+            if (eventData.pointerDrag == null || Unit == null)
+            {
+                return;
+            }
+
+            HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
+
+            if (handDrag != null && handDrag.IsDraggingItemCard)
+            {
+                handDrag.HandleDroppedOnUnit(Unit);
+            }
         }
 
         private void RefreshAttackAnimation()
