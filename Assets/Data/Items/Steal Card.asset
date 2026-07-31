@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: stealcard
   cardName: Steal Card
-  manaCost: 6
+  manaCost: 5
   rarity: 0
   cardArt: {fileID: 0}
   abilityText: Steal a random card from your opponent.

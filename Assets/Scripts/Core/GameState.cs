@@ -71,6 +71,9 @@ namespace DDD.TNFY.TCG.Core
         public List<CardData> PendingCardChoiceOptions { get; set; }
         public BoardUnit PendingCardChoiceSource { get; set; }
 
+        public List<CardData> PendingDraftOptions { get; set; }
+        public DraftStage? CurrentDraftStage { get; set; }
+
         public bool IsResolvingTurnStartEffects { get; set; }
         public int TurnStartScanSlot { get; set; }
 

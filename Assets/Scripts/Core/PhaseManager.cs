@@ -13,6 +13,10 @@ namespace DDD.TNFY.TCG.Core
         private readonly MovementResolver movement;
         private readonly UnitLifecycleService lifecycle;
 
+        private List<CardData> draftPool;
+        private DraftSettings draftSettings;
+        private int draftPickIndexInStage;
+
         public PhaseManager(GameState state, MonoBehaviour coroutineRunner)
         {
             this.state = state;
@@ -21,6 +25,205 @@ namespace DDD.TNFY.TCG.Core
             this.lifecycle = new UnitLifecycleService(state);
 
             this.state.UnitMoved += TriggerOnMove;
+        }
+
+        public void StartDraft(List<CardData> pool, DraftSettings settings)
+        {
+            draftPool = new List<CardData>(pool);
+            draftSettings = settings;
+            draftPickIndexInStage = 0;
+
+            state.ActivePlayer = state.FirstPlayer;
+            state.CurrentDraftStage = DraftStage.Common;
+            state.CurrentPhase = TurnPhase.Draft;
+
+            Debug.Log($"[PhaseManager] Draft started. {state.ActivePlayer} is drafting first.");
+
+            OfferNextDraftPick();
+        }
+
+        private void OfferNextDraftPick()
+        {
+            DraftStage stage = state.CurrentDraftStage.Value;
+            List<CardData> eligible = GetEligibleDraftCards(stage);
+
+            if (eligible.Count == 0)
+            {
+                Debug.LogWarning($"[PhaseManager] No eligible {stage} cards left for {state.ActivePlayer} — skipping this pick.");
+                state.PendingDraftOptions = null;
+                draftPickIndexInStage++;
+                AdvanceDraft();
+                return;
+            }
+
+            ListShuffler.Shuffle(eligible);
+            int optionCount = Mathf.Min(draftSettings.optionsPerChoice, eligible.Count);
+            state.PendingDraftOptions = eligible.GetRange(0, optionCount);
+
+            Debug.Log($"[PhaseManager] Offering {state.ActivePlayer} {optionCount} {stage} option(s): {string.Join(", ", state.PendingDraftOptions.ConvertAll(c => c.CardName))}");
+        }
+
+        private List<CardData> GetEligibleDraftCards(DraftStage stage)
+        {
+            Player drafter = state.GetPlayer(state.ActivePlayer);
+            List<CardData> eligible = new List<CardData>();
+
+            foreach (CardData card in draftPool)
+            {
+                if (!MatchesDraftStage(card.Rarity, stage))
+                {
+                    continue;
+                }
+
+                if (drafter.Deck.Contains(card))
+                {
+                    continue;
+                }
+
+                eligible.Add(card);
+            }
+
+            return eligible;
+        }
+
+        private static bool MatchesDraftStage(CardRarity rarity, DraftStage stage)
+        {
+            switch (stage)
+            {
+                case DraftStage.Common:
+                    return rarity == CardRarity.Common;
+                case DraftStage.Uncommon:
+                    return rarity == CardRarity.Uncommon;
+                case DraftStage.Rare:
+                    return rarity == CardRarity.Rare;
+                case DraftStage.EpicOrLegendary:
+                    return rarity == CardRarity.Epic || rarity == CardRarity.Legendary;
+                default:
+                    return false;
+            }
+        }
+
+        public bool TryResolvePendingDraftChoice(CardData chosenCard)
+        {
+            if (state.PendingDraftOptions == null || state.CurrentDraftStage == null)
+            {
+                Debug.Log("[PhaseManager] TryResolvePendingDraftChoice FAIL: no pending draft choice.");
+                return false;
+            }
+
+            if (!state.PendingDraftOptions.Contains(chosenCard))
+            {
+                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: {chosenCard?.CardName} was not one of the offered options.");
+                return false;
+            }
+
+            DraftStage stage = state.CurrentDraftStage.Value;
+            Player drafter = state.GetPlayer(state.ActivePlayer);
+            int copies = GetCopiesForStage(stage);
+
+            for (int i = 0; i < copies; i++)
+            {
+                drafter.Deck.Add(chosenCard);
+            }
+
+            Debug.Log($"[PhaseManager] {state.ActivePlayer} drafted {chosenCard.CardName} x{copies} ({stage}).");
+
+            state.PendingDraftOptions = null;
+            draftPickIndexInStage++;
+
+            AdvanceDraft();
+
+            return true;
+        }
+
+        private int GetPickCountForStage(DraftStage stage)
+        {
+            switch (stage)
+            {
+                case DraftStage.Common:
+                    return draftSettings.commonPicks;
+                case DraftStage.Uncommon:
+                    return draftSettings.uncommonPicks;
+                case DraftStage.Rare:
+                    return draftSettings.rarePicks;
+                case DraftStage.EpicOrLegendary:
+                    return draftSettings.epicOrLegendaryPicks;
+                default:
+                    return 0;
+            }
+        }
+
+        private int GetCopiesForStage(DraftStage stage)
+        {
+            switch (stage)
+            {
+                case DraftStage.Common:
+                    return draftSettings.copiesPerCommonPick;
+                case DraftStage.Uncommon:
+                    return draftSettings.copiesPerUncommonPick;
+                case DraftStage.Rare:
+                    return draftSettings.copiesPerRarePick;
+                case DraftStage.EpicOrLegendary:
+                    return draftSettings.copiesPerEpicOrLegendaryPick;
+                default:
+                    return 1;
+            }
+        }
+
+        private static DraftStage? GetNextDraftStage(DraftStage stage)
+        {
+            switch (stage)
+            {
+                case DraftStage.Common:
+                    return DraftStage.Uncommon;
+                case DraftStage.Uncommon:
+                    return DraftStage.Rare;
+                case DraftStage.Rare:
+                    return DraftStage.EpicOrLegendary;
+                default:
+                    return null;
+            }
+        }
+
+        private void AdvanceDraft()
+        {
+            DraftStage stage = state.CurrentDraftStage.Value;
+            int picksForStage = GetPickCountForStage(stage);
+
+            if (draftPickIndexInStage < picksForStage)
+            {
+                OfferNextDraftPick();
+                return;
+            }
+
+            draftPickIndexInStage = 0;
+            DraftStage? nextStage = GetNextDraftStage(stage);
+
+            if (nextStage != null)
+            {
+                state.CurrentDraftStage = nextStage;
+                OfferNextDraftPick();
+                return;
+            }
+
+            if (state.ActivePlayer == state.FirstPlayer)
+            {
+                state.ActivePlayer = state.FirstPlayer.Opposite();
+                state.CurrentDraftStage = DraftStage.Common;
+                Debug.Log($"[PhaseManager] {state.FirstPlayer}'s draft complete. {state.ActivePlayer} is drafting next.");
+                OfferNextDraftPick();
+                return;
+            }
+
+            Debug.Log("[PhaseManager] Draft complete for both players.");
+
+            ListShuffler.Shuffle(state.PlayerA.Deck);
+            ListShuffler.Shuffle(state.PlayerB.Deck);
+
+            state.CurrentDraftStage = null;
+            state.ActivePlayer = state.FirstPlayer;
+
+            StartMatch();
         }
 
         public void StartMatch()

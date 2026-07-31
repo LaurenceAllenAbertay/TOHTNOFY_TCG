@@ -55,6 +55,40 @@ namespace DDD.TNFY.TCG.Core
             state.PhaseChanged += HandlePhaseChanged;
         }
 
+        private void Update()
+        {
+            if (!isPlayerBAI || state == null)
+            {
+                return;
+            }
+
+            if (state.CurrentPhase != TurnPhase.Draft || state.ActivePlayer != aiSide)
+            {
+                return;
+            }
+
+            if (runningTurnRoutine != null)
+            {
+                return;
+            }
+
+            runningTurnRoutine = StartCoroutine(RunDraftPick());
+        }
+
+        private IEnumerator RunDraftPick()
+        {
+            yield return new WaitForSeconds(actionDelaySeconds);
+
+            if (state.CurrentPhase == TurnPhase.Draft && state.ActivePlayer == aiSide && state.PendingDraftOptions != null)
+            {
+                CardData chosen = ChooseBestCardChoiceOption(state.PendingDraftOptions);
+                bool resolved = phases.TryResolvePendingDraftChoice(chosen);
+                Debug.Log($"[AIController] Draft pick resolved={resolved} for {chosen?.CardName} (stage={state.CurrentDraftStage}).");
+            }
+
+            runningTurnRoutine = null;
+        }
+
         private void HandlePhaseChanged(TurnPhase newPhase)
         {
             if (!isPlayerBAI)

@@ -34,7 +34,7 @@ MonoBehaviour:
     randomizeMin: 0
     randomizeMax: 0
     fixedChoiceOptions: []
-  attack: 2
+  attack: 3
   health: 9
   keywords: 1
   grantsEnemyUnitMove: 0

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: gilliardthebigpig
   cardName: Gilliard The Big Pig
-  manaCost: 5
+  manaCost: 7
   rarity: 3
   cardArt: {fileID: 0}
   abilityText: Whenever this unit takes damage and survives, it permanently gains
@@ -34,7 +34,7 @@ MonoBehaviour:
     randomizeMax: 0
     fixedChoiceOptions: []
   attack: 4
-  health: 9
+  health: 7
   keywords: 0
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

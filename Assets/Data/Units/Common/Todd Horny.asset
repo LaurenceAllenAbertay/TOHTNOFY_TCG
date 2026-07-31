@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: 'On Play: Swap the Attack and Health of a friendly unit.'
   effects:
   - trigger: 0
-    action: 32
+    action: 33
     targetType: 2
     amount: 1
     oncePerTurn: 0

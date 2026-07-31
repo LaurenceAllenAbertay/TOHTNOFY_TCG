@@ -14,13 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: picklemerichard
   cardName: Pickle-Me-Richard
-  manaCost: 6
+  manaCost: 4
   rarity: 4
   cardArt: {fileID: 21300000, guid: 30405791a98616140b7c8d5193c76c47, type: 3}
   abilityText: Rush\nTeleport
   effects: []
-  attack: 5
+  attack: 3
   health: 5
   keywords: 514
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

@@ -14,16 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: thespliffyhunter
   cardName: The Spliffy Hunter
-  manaCost: 3
+  manaCost: 4
   rarity: 2
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Deal 3 damage to the enemy unit with the lowest current
+  abilityText: 'On Play: Deal 2 damage to the enemy unit with the lowest current
     health.'
   effects:
   - trigger: 0
     action: 11
     targetType: 13
-    amount: 3
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}

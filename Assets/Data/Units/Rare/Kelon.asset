@@ -21,7 +21,7 @@ MonoBehaviour:
     hand.'
   effects:
   - trigger: 0
-    action: 36
+    action: 37
     targetType: 12
     amount: 3
     oncePerTurn: 0

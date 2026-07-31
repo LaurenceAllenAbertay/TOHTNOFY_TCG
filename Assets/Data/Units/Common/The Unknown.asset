@@ -19,7 +19,7 @@ MonoBehaviour:
   cardArt: {fileID: 21300000, guid: 6c67c0afa25b19c48af971590f1d8921, type: 3}
   abilityText: Nimble
   effects: []
-  attack: 5
+  attack: 4
   health: 2
   keywords: 16
   grantsEnemyUnitMove: 0

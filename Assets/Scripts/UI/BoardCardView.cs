@@ -34,7 +34,7 @@ namespace DDD.TNFY.TCG.UI
             public const string Active = "Active";
         }
 
-        private const float StunnedOverlayAlpha = 0.8f;
+        private const float StunnedOverlayAlpha = 0.9f;
         private const float StunnedOverlayHiddenAlpha = 0f;
 
         [SerializeField] private Image artImage;

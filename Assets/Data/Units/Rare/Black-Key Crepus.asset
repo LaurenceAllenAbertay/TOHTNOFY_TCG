@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: 'On Damaged: Spawn Ghost Hornets into adjacent slots.'
   effects:
   - trigger: 9
-    action: 37
+    action: 38
     targetType: 0
     amount: 2
     oncePerTurn: 0
@@ -36,4 +36,5 @@ MonoBehaviour:
   health: 3
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

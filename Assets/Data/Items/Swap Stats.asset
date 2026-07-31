@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: Swap attack and health of a unit.
   effects:
   - trigger: 0
-    action: 32
+    action: 33
     targetType: 1
     amount: 0
     oncePerTurn: 0

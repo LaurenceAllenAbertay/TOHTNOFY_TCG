@@ -9,8 +9,7 @@ namespace DDD.TNFY.TCG.Core
     {
         [Header("Card Pool Setup")]
         [SerializeField] private List<CardData> cardPool = new List<CardData>();
-        [SerializeField] private int copiesOfEachCard = 3;
-        [SerializeField] private int deckSize = 33;
+        [SerializeField] private DraftSettings draftSettings = new DraftSettings();
 
         [Header("Leader Setup")]
         [SerializeField] private List<LeaderData> leaderPool = new List<LeaderData>();
@@ -24,39 +23,8 @@ namespace DDD.TNFY.TCG.Core
 
         private void Start()
         {
-            BuildDecks();
             AssignRandomLeaders();
-            manager.Phases.StartMatch();
-        }
-
-        private void BuildDecks()
-        {
-            BuildDeckFor(manager.State.PlayerA);
-            BuildDeckFor(manager.State.PlayerB);
-        }
-
-        private void BuildDeckFor(Player player)
-        {
-            player.Deck.Clear();
-
-            List<CardData> availableCopies = new List<CardData>();
-
-            foreach (CardData card in cardPool)
-            {
-                for (int i = 0; i < copiesOfEachCard; i++)
-                {
-                    availableCopies.Add(card);
-                }
-            }
-
-            ListShuffler.Shuffle(availableCopies);
-
-            int cardsToTake = Mathf.Min(deckSize, availableCopies.Count);
-
-            for (int i = 0; i < cardsToTake; i++)
-            {
-                player.Deck.Add(availableCopies[i]);
-            }
+            manager.Phases.StartDraft(cardPool, draftSettings);
         }
 
         private void AssignRandomLeaders()

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using DDD.TNFY.TCG.Cards;
@@ -12,10 +13,12 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private Transform cardContainer;
         [SerializeField] private UI.HandCardView choiceCardPrefab;
         [SerializeField] private Button confirmButton;
+        [SerializeField] private TextMeshProUGUI stageLabel;
 
         private readonly List<UI.ChoiceCardSelectable> spawnedCards = new List<UI.ChoiceCardSelectable>();
         private List<CardData> shownOptions;
         private UI.ChoiceCardSelectable selectedCard;
+        private bool isDraftChoice;
 
         private void Awake()
         {
@@ -32,20 +35,24 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            List<CardData> currentOptions = gameManager.State.PendingCardChoiceOptions;
+            bool draftPending = gameManager.State.PendingDraftOptions != null;
+            List<CardData> currentOptions = draftPending
+                ? gameManager.State.PendingDraftOptions
+                : gameManager.State.PendingCardChoiceOptions;
 
             if (currentOptions == shownOptions)
             {
                 return;
             }
 
-            Refresh(currentOptions);
+            Refresh(currentOptions, draftPending);
             shownOptions = currentOptions;
         }
 
-        private void Refresh(List<CardData> options)
+        private void Refresh(List<CardData> options, bool draftPending)
         {
             bool isChoicePending = options != null;
+            isDraftChoice = draftPending;
 
             if (panelRoot != null)
             {
@@ -55,14 +62,23 @@ namespace DDD.TNFY.TCG.Core
             ClearSpawnedCards();
             UpdateConfirmInteractable();
 
+            if (stageLabel != null)
+            {
+                stageLabel.text = draftPending
+                    ? $"{gameManager.State.ActivePlayer}: Choose a {gameManager.State.CurrentDraftStage} Card"
+                    : string.Empty;
+            }
+
             if (!isChoicePending || cardContainer == null || choiceCardPrefab == null)
             {
                 return;
             }
 
-            PlayerSide side = gameManager.State.PendingCardChoiceSource != null
-                ? gameManager.State.PendingCardChoiceSource.Owner
-                : gameManager.State.ActivePlayer;
+            PlayerSide side = draftPending
+                ? gameManager.State.ActivePlayer
+                : (gameManager.State.PendingCardChoiceSource != null
+                    ? gameManager.State.PendingCardChoiceSource.Owner
+                    : gameManager.State.ActivePlayer);
 
             foreach (CardData card in options)
             {
@@ -77,7 +93,7 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
-            Debug.Log($"[CardPoolChoicePanel] Refreshed with {options.Count} offered card(s).");
+            Debug.Log($"[CardPoolChoicePanel] Refreshed with {options.Count} offered card(s), isDraftChoice={isDraftChoice}.");
         }
 
         private void HandleCardClicked(UI.ChoiceCardSelectable clicked)
@@ -131,9 +147,11 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            bool resolved = gameManager.Phases.TryResolvePendingCardChoice(selectedCard.Card);
+            bool resolved = isDraftChoice
+                ? gameManager.Phases.TryResolvePendingDraftChoice(selectedCard.Card)
+                : gameManager.Phases.TryResolvePendingCardChoice(selectedCard.Card);
 
-            Debug.Log($"[CardPoolChoicePanel] HandleConfirm resolved={resolved} for {selectedCard.Card.CardName}.");
+            Debug.Log($"[CardPoolChoicePanel] HandleConfirm resolved={resolved} for {selectedCard.Card.CardName}, isDraftChoice={isDraftChoice}.");
         }
     }
 }

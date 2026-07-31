@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: 'On Attack: If this kills its target, attack again once'
   effects:
   - trigger: 6
-    action: 34
+    action: 35
     targetType: 0
     amount: 0
     oncePerTurn: 0

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: dario
   cardName: Dario
-  manaCost: 2
+  manaCost: 3
   rarity: 0
   cardArt: {fileID: 21300000, guid: 18975cb297ac39e4ca3bb079d4d7deb3, type: 3}
   abilityText: 'On Play: Deal 2 damage to your leader.'

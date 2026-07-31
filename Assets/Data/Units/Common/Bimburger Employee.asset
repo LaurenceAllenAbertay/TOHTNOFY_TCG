@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: bimburgeremployee
   cardName: Bimburger Employee
-  manaCost: 1
+  manaCost: 2
   rarity: 0
   cardArt: {fileID: 21300000, guid: e64024b8d77155e43a6501e3df94dddb, type: 3}
   abilityText: 'On Play: Draw a card.'
