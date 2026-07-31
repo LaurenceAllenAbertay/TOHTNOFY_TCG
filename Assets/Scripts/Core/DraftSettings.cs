@@ -20,5 +20,8 @@ namespace DDD.TNFY.TCG.Core
 
         [Header("Options Offered Per Choice")]
         public int optionsPerChoice = 3;
+
+        [Header("Deck Building Rules")]
+        public int maxCopiesPerCard = 2;
     }
 }

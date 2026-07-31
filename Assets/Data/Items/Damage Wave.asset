@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: damagewave
   cardName: Damage Wave
   manaCost: 4
-  rarity: 0
+  rarity: 2
   cardArt: {fileID: 0}
   abilityText: Deal 2 damage to all enemy units.
   effects:

@@ -355,6 +355,39 @@ namespace DDD.TNFY.TCG.UI
                 }
             }
 
+            int appliedStatusEffectCount = 0;
+            HashSet<StatusEffectType> alreadyShownAppliedStatusEffects = new HashSet<StatusEffectType>();
+
+            if (!isSilenced)
+            {
+                foreach (CardEffect effect in card.Effects)
+                {
+                    if (!TryGetGrantedStatusEffect(effect.action, out StatusEffectType grantedStatus))
+                    {
+                        continue;
+                    }
+
+                    if (!alreadyShownAppliedStatusEffects.Add(grantedStatus))
+                    {
+                        continue;
+                    }
+
+                    if (liveUnit != null && liveUnit.HasStatus(grantedStatus))
+                    {
+                        continue;
+                    }
+
+                    if (!StatusEffectReference.TryGetDescription(grantedStatus, out string appliedStatusDescription))
+                    {
+                        Debug.Log($"[CardHoverPreview] {card.CardName} applies {grantedStatus} but StatusEffectReference has no description for it.");
+                        continue;
+                    }
+
+                    SpawnInfoPanel(grantedStatus.ToString(), appliedStatusDescription);
+                    appliedStatusEffectCount++;
+                }
+            }
+
             int statusEffectCount = 0;
 
             if (liveUnit != null)
@@ -391,6 +424,45 @@ namespace DDD.TNFY.TCG.UI
             }
 
             return $"{statsLine}\n{referencedCard.AbilityText}";
+        }
+
+        private static bool TryGetGrantedStatusEffect(EffectActionType action, out StatusEffectType statusType)
+        {
+            switch (action)
+            {
+                case EffectActionType.StunUnit:
+                    statusType = StatusEffectType.Stunned;
+                    return true;
+
+                case EffectActionType.GrantDoubleAttack:
+                    statusType = StatusEffectType.DoubleAttackNextAttack;
+                    return true;
+
+                case EffectActionType.ApplyDelayedKill:
+                    statusType = StatusEffectType.DelayedKill;
+                    return true;
+
+                case EffectActionType.ApplyLeaderDamageShield:
+                    statusType = StatusEffectType.LeaderDamageShield;
+                    return true;
+
+                case EffectActionType.ReduceOpponentMana:
+                    statusType = StatusEffectType.OpponentManaReduction;
+                    return true;
+
+                case EffectActionType.ApplyDecay:
+                    statusType = StatusEffectType.Decaying;
+                    return true;
+
+                case EffectActionType.SilenceUnit:
+                case EffectActionType.SilenceAllEnemyUnits:
+                    statusType = StatusEffectType.Silenced;
+                    return true;
+
+                default:
+                    statusType = default;
+                    return false;
+            }
         }
 
         private void SpawnInfoPanel(string term, string description)

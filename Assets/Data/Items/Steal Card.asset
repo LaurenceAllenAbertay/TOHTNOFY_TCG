@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: stealcard
   cardName: Steal Card
   manaCost: 5
-  rarity: 0
+  rarity: 3
   cardArt: {fileID: 0}
   abilityText: Steal a random card from your opponent.
   effects:

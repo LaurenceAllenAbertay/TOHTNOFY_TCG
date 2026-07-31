@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: applydecay
   cardName: Apply Decay
   manaCost: 2
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
   abilityText: Apply Decay to an enemy unit.
   effects:

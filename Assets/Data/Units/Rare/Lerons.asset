@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: lerons
   cardName: Lerons
   manaCost: 4
-  rarity: 0
+  rarity: 2
   cardArt: {fileID: 21300000, guid: 15254b6e5475a0245a337ec88262708d, type: 3}
   abilityText: 'On Play: Move the opposing unit to any unblocked slot.'
   effects:

@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: silence
   cardName: Silence
   manaCost: 2
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
   abilityText: Silence an enemy unit.
   effects:

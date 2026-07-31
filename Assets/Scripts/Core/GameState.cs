@@ -46,6 +46,13 @@ namespace DDD.TNFY.TCG.Core
             AttackHitLanded?.Invoke(hitIndex);
         }
 
+        public event Action<BoardUnit> AttackAnimationFinished;
+
+        public void RaiseAttackAnimationFinished(BoardUnit unit)
+        {
+            AttackAnimationFinished?.Invoke(unit);
+        }
+
         public event Action<BoardUnit> UnitMoved;
 
         public void RaiseUnitMoved(BoardUnit unit)

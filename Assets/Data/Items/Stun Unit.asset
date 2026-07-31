@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: stun
   cardName: Stun Unit
   manaCost: 2
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
   abilityText: Stun enemy unit.
   effects:

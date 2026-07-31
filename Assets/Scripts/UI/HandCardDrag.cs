@@ -363,6 +363,21 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
+            if (handCardView.Card is UnitCardData unitCard)
+            {
+                if (unit == null || unit.Owner != gameManager.State.ActivePlayer)
+                {
+                    return;
+                }
+
+                if (gameManager.Phases.TryPlayUnit(unitCard, unit.SlotIndex))
+                {
+                    droppedOnLegalTarget = true;
+                }
+
+                return;
+            }
+
             if (!(handCardView.Card is ItemCardData itemCard))
             {
                 return;

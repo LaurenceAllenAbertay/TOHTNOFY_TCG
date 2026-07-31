@@ -9,8 +9,10 @@ namespace DDD.TNFY.TCG.Effects
             { StatusEffectType.Stunned, "This unit cannot attack or move this turn." },
             { StatusEffectType.Silenced, "This unit's keywords and abilities are disabled." },
             { StatusEffectType.Decaying, "This unit takes 1 damage per stack at the start of its owner's turn." },
-            { StatusEffectType.DelayedKill, "This unit will be destroyed when its remaining triggers reach 0." },
-            { StatusEffectType.TemporaryAttackNextAttack, "This unit deals bonus damage on its next attack." },
+            { StatusEffectType.DelayedKill, "This unit will be destroyed next round." },
+            { StatusEffectType.DoubleAttackNextAttack, "This unit attacks twice on its next attack." },
+            { StatusEffectType.LeaderDamageShield, "Blocks all damage to this player's leader until it expires." },
+            { StatusEffectType.OpponentManaReduction, "Reduces this player's mana by a set amount at the start of their next turn." }
         };
 
         public static bool TryGetDescription(StatusEffectType type, out string description)

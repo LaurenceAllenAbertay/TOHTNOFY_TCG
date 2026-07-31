@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: spectralmarlin
   cardName: Spectral Marlin
   manaCost: 3
-  rarity: 0
+  rarity: 3
   cardArt: {fileID: 21300000, guid: 584badb0802549b4f9ec5f9a32a3ff5e, type: 3}
   abilityText: Piercing
   effects: []

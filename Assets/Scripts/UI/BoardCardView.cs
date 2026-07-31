@@ -208,8 +208,16 @@ namespace DDD.TNFY.TCG.UI
                     return;
                 }
 
+                bool wasAttackAnimation = currentOneShot == AnimState.Attack || currentOneShot == AnimState.BifurcatedAttack;
+
                 currentOneShot = null;
                 justFinishedOneShot = true;
+
+                if (wasAttackAnimation && gameManager != null && gameManager.State != null)
+                {
+                    Debug.Log($"[BoardCardView] {(Unit != null ? Unit.SourceCard.CardName : "unknown")} attack animation finished playing. Raising AttackAnimationFinished.");
+                    gameManager.State.RaiseAttackAnimationFinished(Unit);
+                }
             }
 
             bool shouldBeActive = gameManager != null
@@ -274,7 +282,7 @@ namespace DDD.TNFY.TCG.UI
 
             HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
 
-            if (handDrag != null && handDrag.IsDraggingItemCard)
+            if (handDrag != null && (handDrag.IsDraggingItemCard || handDrag.IsDraggingUnitCard))
             {
                 handDrag.HandleDroppedOnUnit(Unit);
             }

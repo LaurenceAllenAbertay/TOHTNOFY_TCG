@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: doubleattack
   cardName: Double Attack
   manaCost: 3
-  rarity: 0
+  rarity: 2
   cardArt: {fileID: 0}
   abilityText: Grants Double Attack.
   effects:

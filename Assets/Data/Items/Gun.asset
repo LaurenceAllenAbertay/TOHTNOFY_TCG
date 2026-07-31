@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: gun
   cardName: Gun
   manaCost: 2
-  rarity: 0
+  rarity: 1
   cardArt: {fileID: 0}
   abilityText: Deal 2 damage to a unit.
   effects:

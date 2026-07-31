@@ -281,6 +281,12 @@ namespace DDD.TNFY.TCG.Effects
                     continue;
                 }
 
+                if (sourceUnit.IsSilenced)
+                {
+                    Debug.Log($"[AuraCalculator] {sourceUnit.SourceCard.CardName} is Silenced — skipping as an aura source.");
+                    continue;
+                }
+
                 IReadOnlyList<LeaderAura> unitAuras = sourceUnit.SourceCard.Auras;
 
                 if (unitAuras == null)

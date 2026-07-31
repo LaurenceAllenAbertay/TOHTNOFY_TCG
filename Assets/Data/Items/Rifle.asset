@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: rifle
   cardName: Rifle
   manaCost: 4
-  rarity: 0
+  rarity: 2
   cardArt: {fileID: 0}
   abilityText: Deal 4 damage to a unit.
   effects:

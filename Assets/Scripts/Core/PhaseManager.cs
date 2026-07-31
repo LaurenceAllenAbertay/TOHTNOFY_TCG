@@ -75,8 +75,11 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (drafter.Deck.Contains(card))
+                int copiesInDeck = CountCopiesInDeck(drafter.Deck, card);
+
+                if (copiesInDeck >= draftSettings.maxCopiesPerCard)
                 {
+                    Debug.Log($"[PhaseManager] GetEligibleDraftCards: {card.CardName} already has {copiesInDeck}/{draftSettings.maxCopiesPerCard} copies in {state.ActivePlayer}'s deck — excluding from {stage} offers.");
                     continue;
                 }
 
@@ -84,6 +87,21 @@ namespace DDD.TNFY.TCG.Core
             }
 
             return eligible;
+        }
+
+        private static int CountCopiesInDeck(List<CardData> deck, CardData card)
+        {
+            int count = 0;
+
+            foreach (CardData deckCard in deck)
+            {
+                if (deckCard == card)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static bool MatchesDraftStage(CardRarity rarity, DraftStage stage)
@@ -639,6 +657,8 @@ namespace DDD.TNFY.TCG.Core
 
         private const float BannerWaitTimeout = 3f;
         private const float AttackHitLandedWarningTime = 3f;
+        private const float AttackHitLandedTimeout = 6f;
+        private const float AttackAnimationFinishedTimeout = 3f;
 
         public bool CanAnyUnitMove()
         {
@@ -904,7 +924,7 @@ namespace DDD.TNFY.TCG.Core
             float elapsed = 0f;
             bool hasWarned = false;
 
-            while (!hitLanded)
+            while (!hitLanded && elapsed < AttackHitLandedTimeout)
             {
                 elapsed += Time.deltaTime;
 
@@ -918,6 +938,41 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.AttackHitLanded -= OnHitLanded;
+
+            if (!hitLanded)
+            {
+                Debug.LogWarning($"[PhaseManager] WaitForAttackHitLanded: timed out after {elapsed:F2}s waiting for hitIndex={expectedHitIndex} — proceeding anyway so the attack phase doesn't soft lock.");
+            }
+        }
+
+        private IEnumerator WaitForAttackAnimationFinished(BoardUnit attacker)
+        {
+            bool animationFinished = false;
+
+            void OnAnimationFinished(BoardUnit unit)
+            {
+                if (unit == attacker)
+                {
+                    animationFinished = true;
+                }
+            }
+
+            state.AttackAnimationFinished += OnAnimationFinished;
+
+            float elapsed = 0f;
+
+            while (!animationFinished && elapsed < AttackAnimationFinishedTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            state.AttackAnimationFinished -= OnAnimationFinished;
+
+            if (!animationFinished)
+            {
+                Debug.LogWarning($"[PhaseManager] WaitForAttackAnimationFinished: timed out after {elapsed:F2}s waiting for {attacker.SourceCard.CardName}'s attack animation to finish — proceeding anyway.");
+            }
         }
 
         private IEnumerator ResolveAttackerCombatAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus, System.Action<bool> onComplete)
@@ -929,6 +984,30 @@ namespace DDD.TNFY.TCG.Core
             for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
             {
                 bool killedDefender;
+
+                if (attackIndex > 0)
+                {
+                    Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} waiting for attack {attackIndex - 1}'s animation to finish before repeat attack {attackIndex}.");
+
+                    yield return WaitForAttackAnimationFinished(attacker);
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
+                    {
+                        break;
+                    }
+
+                    Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} starting repeat attack {attackIndex} (DoubleAttack) — retriggering attack animation.");
+
+                    state.CurrentlyAttackingUnit = null;
+                    yield return null;
+
+                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
+                    {
+                        break;
+                    }
+
+                    state.CurrentlyAttackingUnit = attacker;
+                }
 
                 if (isBifurcated)
                 {
@@ -1343,10 +1422,12 @@ namespace DDD.TNFY.TCG.Core
             int oldEffectiveMaxHealth = unit.GetEffectiveMaxHealth(state);
 
             int auraAttackBonus = AuraCalculator.GetAttackBonus(unit, state);
-            int auraMaxHealthBonus = oldEffectiveMaxHealth - unit.MaxHealth;
+            int oldBaseAttack = oldCurrentAttack - auraAttackBonus;
 
-            unit.BonusAttack = oldCurrentHealth - unit.SourceCard.Attack - auraAttackBonus;
-            unit.MaxHealth = oldCurrentAttack - auraMaxHealthBonus;
+            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} SwapAttackAndHealth: oldCurrentAttack={oldCurrentAttack}, auraAttackBonus={auraAttackBonus}, oldBaseAttack={oldBaseAttack}, oldCurrentHealth={oldCurrentHealth}.");
+
+            unit.BonusAttack = oldCurrentHealth - unit.SourceCard.Attack;
+            unit.MaxHealth = oldBaseAttack;
             unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
             unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
 

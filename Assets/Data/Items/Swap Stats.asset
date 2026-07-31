@@ -15,7 +15,7 @@ MonoBehaviour:
   cardId: swapstats
   cardName: Swap Stats
   manaCost: 2
-  rarity: 0
+  rarity: 3
   cardArt: {fileID: 0}
   abilityText: Swap attack and health of a unit.
   effects:
