@@ -33,7 +33,8 @@ MonoBehaviour:
     randomizeMax: 0
     fixedChoiceOptions: []
   attack: 2
-  health: 9
+  health: 8
   keywords: 1
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

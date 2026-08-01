@@ -17,10 +17,11 @@ MonoBehaviour:
   manaCost: 1
   rarity: 0
   cardArt: {fileID: 21300000, guid: fcb68f09e80c5c946af7f8fa2d35337f, type: 3}
-  abilityText: 
+  abilityText: Piercing
   effects: []
-  attack: 1
+  attack: 2
   health: 2
-  keywords: 0
+  keywords: 32
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

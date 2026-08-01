@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: 
   effects: []
   attack: 4
-  health: 7
+  health: 8
   keywords: 0
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

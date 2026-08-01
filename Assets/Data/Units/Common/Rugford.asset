@@ -17,8 +17,11 @@ MonoBehaviour:
   manaCost: 1
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: 
+  abilityText: Relentless
   effects: []
-  attack: 3
-  health: 1
-  keywords: 0
+  attack: 1
+  health: 3
+  keywords: 4096
+  grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
+  auras: []

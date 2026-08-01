@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: Nimble
   effects: []
   attack: 4
-  health: 2
+  health: 3
   keywords: 16
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

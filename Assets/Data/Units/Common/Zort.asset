@@ -19,7 +19,7 @@ MonoBehaviour:
   cardArt: {fileID: 21300000, guid: 9f286fdc079a3df45915bded6ea915bf, type: 3}
   abilityText: Unstable
   effects: []
-  attack: 4
+  attack: 3
   health: 2
   keywords: 128
   grantsEnemyUnitMove: 0

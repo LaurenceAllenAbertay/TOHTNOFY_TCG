@@ -36,4 +36,5 @@ MonoBehaviour:
   health: 6
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

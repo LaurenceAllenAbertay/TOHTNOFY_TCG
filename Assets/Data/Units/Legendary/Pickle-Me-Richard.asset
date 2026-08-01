@@ -20,7 +20,7 @@ MonoBehaviour:
   abilityText: Rush\nTeleport
   effects: []
   attack: 3
-  health: 5
+  health: 6
   keywords: 514
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

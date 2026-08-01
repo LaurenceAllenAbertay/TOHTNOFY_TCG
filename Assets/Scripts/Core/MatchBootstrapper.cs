@@ -7,6 +7,9 @@ namespace DDD.TNFY.TCG.Core
     [RequireComponent(typeof(GameManager))]
     public class MatchBootstrapper : MonoBehaviour
     {
+        [Header("Match Setup")]
+        [SerializeField] private GameMode gameMode = GameMode.Draft;
+
         [Header("Card Pool Setup")]
         [SerializeField] private List<CardData> cardPool = new List<CardData>();
         [SerializeField] private DraftSettings draftSettings = new DraftSettings();
@@ -24,7 +27,17 @@ namespace DDD.TNFY.TCG.Core
         private void Start()
         {
             AssignRandomLeaders();
-            manager.Phases.StartDraft(cardPool, draftSettings);
+
+            switch (gameMode)
+            {
+                case GameMode.RandomDeck:
+                    manager.Phases.StartRandomDeck(cardPool, draftSettings);
+                    break;
+                case GameMode.Draft:
+                default:
+                    manager.Phases.StartDraft(cardPool, draftSettings);
+                    break;
+            }
         }
 
         private void AssignRandomLeaders()

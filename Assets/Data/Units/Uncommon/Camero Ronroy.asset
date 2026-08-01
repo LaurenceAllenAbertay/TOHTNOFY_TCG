@@ -17,7 +17,7 @@ MonoBehaviour:
   manaCost: 3
   rarity: 1
   cardArt: {fileID: 21300000, guid: bd52cc6a60b4682499aa301d83cfddc0, type: 3}
-  abilityText: 'On Attack: If this kills its target, attack again once'
+  abilityText: 'On Attack: If this kills its target, attack again.'
   effects:
   - trigger: 6
     action: 35

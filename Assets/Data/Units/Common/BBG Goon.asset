@@ -20,7 +20,8 @@ MonoBehaviour:
   abilityText: Rush
   effects: []
   attack: 1
-  health: 5
+  health: 4
   keywords: 2
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

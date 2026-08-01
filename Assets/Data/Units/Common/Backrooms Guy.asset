@@ -20,7 +20,8 @@ MonoBehaviour:
   abilityText: Agile
   effects: []
   attack: 2
-  health: 6
+  health: 5
   keywords: 8
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

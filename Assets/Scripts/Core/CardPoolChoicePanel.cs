@@ -14,17 +14,28 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private UI.HandCardView choiceCardPrefab;
         [SerializeField] private Button confirmButton;
         [SerializeField] private TextMeshProUGUI stageLabel;
+        [SerializeField] private Button toggleVisibilityButton;
+        [SerializeField] private GameObject toggleVisibilityButtonRoot;
+        [SerializeField] private Image toggleVisibilityIcon;
+        [SerializeField] private Sprite showPanelSprite;
+        [SerializeField] private Sprite hidePanelSprite;
 
         private readonly List<UI.ChoiceCardSelectable> spawnedCards = new List<UI.ChoiceCardSelectable>();
         private List<CardData> shownOptions;
         private UI.ChoiceCardSelectable selectedCard;
         private bool isDraftChoice;
+        private bool isManuallyHidden;
 
         private void Awake()
         {
             if (confirmButton != null)
             {
                 confirmButton.onClick.AddListener(HandleConfirm);
+            }
+
+            if (toggleVisibilityButton != null)
+            {
+                toggleVisibilityButton.onClick.AddListener(HandleToggleVisibility);
             }
         }
 
@@ -54,10 +65,22 @@ namespace DDD.TNFY.TCG.Core
             bool isChoicePending = options != null;
             isDraftChoice = draftPending;
 
+            if (!isChoicePending)
+            {
+                isManuallyHidden = false;
+            }
+
             if (panelRoot != null)
             {
-                panelRoot.SetActive(isChoicePending);
+                panelRoot.SetActive(isChoicePending && !isManuallyHidden);
             }
+
+            if (toggleVisibilityButtonRoot != null)
+            {
+                toggleVisibilityButtonRoot.SetActive(isChoicePending);
+            }
+
+            UpdateToggleIcon();
 
             ClearSpawnedCards();
             UpdateConfirmInteractable();
@@ -122,6 +145,31 @@ namespace DDD.TNFY.TCG.Core
             {
                 confirmButton.interactable = selectedCard != null;
             }
+        }
+
+        private void HandleToggleVisibility()
+        {
+            isManuallyHidden = !isManuallyHidden;
+
+            if (panelRoot != null)
+            {
+                bool isChoicePending = shownOptions != null;
+                panelRoot.SetActive(isChoicePending && !isManuallyHidden);
+            }
+
+            UpdateToggleIcon();
+
+            Debug.Log($"[CardPoolChoicePanel] Toggle pressed, isManuallyHidden={isManuallyHidden}.");
+        }
+
+        private void UpdateToggleIcon()
+        {
+            if (toggleVisibilityIcon == null)
+            {
+                return;
+            }
+
+            toggleVisibilityIcon.sprite = isManuallyHidden ? showPanelSprite : hidePanelSprite;
         }
 
         private void ClearSpawnedCards()

@@ -42,6 +42,55 @@ namespace DDD.TNFY.TCG.Core
             OfferNextDraftPick();
         }
 
+        public void StartRandomDeck(List<CardData> pool, DraftSettings settings)
+        {
+            draftSettings = settings;
+
+            BuildRandomDeckFor(state.PlayerA, pool, settings);
+            BuildRandomDeckFor(state.PlayerB, pool, settings);
+
+            state.CurrentDraftStage = null;
+            state.ActivePlayer = state.FirstPlayer;
+
+            Debug.Log("[PhaseManager] Random decks built for both players.");
+
+            StartMatch();
+        }
+
+        private void BuildRandomDeckFor(Player player, List<CardData> pool, DraftSettings settings)
+        {
+            player.Deck.Clear();
+
+            foreach (DraftStage stage in new[] { DraftStage.Common, DraftStage.Uncommon, DraftStage.Rare, DraftStage.EpicOrLegendary })
+            {
+                List<CardData> eligible = pool.FindAll(card => MatchesDraftStage(card.Rarity, stage));
+                int picksForStage = GetPickCountForStage(stage);
+                int copiesForStage = GetCopiesForStage(stage);
+
+                for (int i = 0; i < picksForStage; i++)
+                {
+                    List<CardData> available = eligible.FindAll(card => CountCopiesInDeck(player.Deck, card) < settings.maxCopiesPerCard);
+
+                    if (available.Count == 0)
+                    {
+                        Debug.LogWarning($"[PhaseManager] BuildRandomDeckFor: no eligible {stage} cards left for {player.Side} — skipping this pick.");
+                        continue;
+                    }
+
+                    CardData chosen = available[UnityEngine.Random.Range(0, available.Count)];
+
+                    for (int c = 0; c < copiesForStage; c++)
+                    {
+                        player.Deck.Add(chosen);
+                    }
+                }
+            }
+
+            ListShuffler.Shuffle(player.Deck);
+
+            Debug.Log($"[PhaseManager] {player.Side} random deck built with {player.Deck.Count} cards.");
+        }
+
         private void OfferNextDraftPick()
         {
             DraftStage stage = state.CurrentDraftStage.Value;
