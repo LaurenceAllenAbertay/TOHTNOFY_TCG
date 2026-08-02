@@ -11,6 +11,7 @@ namespace DDD.TNFY.TCG.Core
     {
         [SerializeField] private float timerDurationSeconds = 60f;
         [SerializeField] private int maxPendingSelectionIterations = 20;
+        [SerializeField] private int maxDraftAutoFillIterations = 40;
 
         private GameManager gameManager;
 
@@ -137,16 +138,26 @@ namespace DDD.TNFY.TCG.Core
         private void ResolveDraftTimeout(PlayerSide side)
         {
             Player player = gameManager.State.GetPlayer(side);
-            List<CardData> options = player.PendingDraftOptions;
+            int iterations = 0;
 
-            if (options == null || options.Count == 0)
+            Debug.Log($"[TurnTimerController] {side}'s draft pick timed out - auto-filling the rest of their deck with random picks.");
+
+            while (player.PendingDraftOptions != null && player.PendingDraftOptions.Count > 0 && iterations < maxDraftAutoFillIterations)
             {
-                return;
+                iterations++;
+
+                List<CardData> options = player.PendingDraftOptions;
+                CardData randomCard = options[Random.Range(0, options.Count)];
+
+                Debug.Log($"[TurnTimerController] Draft auto-fill: {side} picks {randomCard.CardName} ({player.CurrentDraftStage}).");
+
+                gameManager.Phases.TryResolvePendingDraftChoice(side, randomCard);
             }
 
-            CardData randomCard = options[Random.Range(0, options.Count)];
-            Debug.Log($"[TurnTimerController] {side}'s draft pick timed out - auto-selecting {randomCard.CardName}.");
-            gameManager.Phases.TryResolvePendingDraftChoice(side, randomCard);
+            if (iterations >= maxDraftAutoFillIterations)
+            {
+                Debug.LogWarning($"[TurnTimerController] Draft auto-fill for {side} hit max iterations ({maxDraftAutoFillIterations}) - stopping regardless of remaining picks.");
+            }
         }
 
         private void ResolveTurnTimeout()

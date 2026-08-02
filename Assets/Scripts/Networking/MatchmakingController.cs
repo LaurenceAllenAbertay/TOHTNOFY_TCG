@@ -13,14 +13,23 @@ namespace DDD.TNFY.TCG.Networking
 
         [SerializeField] private TMP_InputField nameInputField;
         [SerializeField] private Button findMatchButton;
+        [SerializeField] private Button cancelMatchmakingButton;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private string gameSceneName = "Game";
+
+        private bool cancelRequested;
 
         private void Awake()
         {
             PhotonNetwork.AutomaticallySyncScene = true;
             findMatchButton.interactable = false;
             findMatchButton.onClick.AddListener(HandleFindMatchClicked);
+
+            if (cancelMatchmakingButton != null)
+            {
+                cancelMatchmakingButton.gameObject.SetActive(false);
+                cancelMatchmakingButton.onClick.AddListener(HandleCancelMatchmakingClicked);
+            }
 
             if (PlayerPrefs.HasKey(NicknamePrefsKey))
             {
@@ -67,16 +76,52 @@ namespace DDD.TNFY.TCG.Networking
             PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
             PhotonNetwork.NickName = chosenName;
 
+            cancelRequested = false;
             findMatchButton.interactable = false;
             nameInputField.interactable = false;
             SetStatus("Searching for an opponent...");
+
+            if (cancelMatchmakingButton != null)
+            {
+                cancelMatchmakingButton.gameObject.SetActive(true);
+                cancelMatchmakingButton.interactable = true;
+            }
 
             Debug.Log($"[MatchmakingController] Attempting JoinRandomOrCreateRoom as '{chosenName}'.");
             PhotonNetwork.JoinRandomOrCreateRoom();
         }
 
+        private void HandleCancelMatchmakingClicked()
+        {
+            Debug.Log($"[MatchmakingController] Cancel requested. InRoom={PhotonNetwork.InRoom}.");
+
+            cancelRequested = true;
+
+            if (cancelMatchmakingButton != null)
+            {
+                cancelMatchmakingButton.interactable = false;
+            }
+
+            if (PhotonNetwork.InRoom)
+            {
+                SetStatus("Cancelling...");
+                PhotonNetwork.LeaveRoom();
+            }
+            else
+            {
+                SetStatus("Cancelling...");
+            }
+        }
+
         public override void OnJoinRandomFailed(short returnCode, string message)
         {
+            if (cancelRequested)
+            {
+                Debug.Log("[MatchmakingController] OnJoinRandomFailed - cancel was requested, not creating a room.");
+                ResetToReadyState();
+                return;
+            }
+
             Debug.Log($"[MatchmakingController] OnJoinRandomFailed (no open room found) - creating one. message={message}");
 
             RoomOptions roomOptions = new RoomOptions { MaxPlayers = MaxPlayersPerRoom };
@@ -86,6 +131,13 @@ namespace DDD.TNFY.TCG.Networking
         public override void OnJoinedRoom()
         {
             Debug.Log($"[MatchmakingController] OnJoinedRoom - '{PhotonNetwork.CurrentRoom.Name}', PlayerCount={PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers}.");
+
+            if (cancelRequested)
+            {
+                Debug.Log("[MatchmakingController] OnJoinedRoom - cancel was requested, leaving immediately.");
+                PhotonNetwork.LeaveRoom();
+                return;
+            }
 
             if (PhotonNetwork.CurrentRoom.PlayerCount >= MaxPlayersPerRoom)
             {
@@ -107,9 +159,24 @@ namespace DDD.TNFY.TCG.Networking
             }
         }
 
+        public override void OnLeftRoom()
+        {
+            Debug.Log("[MatchmakingController] OnLeftRoom.");
+
+            if (cancelRequested)
+            {
+                ResetToReadyState();
+            }
+        }
+
         private void TryStartMatch()
         {
             SetStatus("Opponent found! Loading match...");
+
+            if (cancelMatchmakingButton != null)
+            {
+                cancelMatchmakingButton.interactable = false;
+            }
 
             if (!PhotonNetwork.IsMasterClient)
             {
@@ -118,6 +185,20 @@ namespace DDD.TNFY.TCG.Networking
 
             Debug.Log($"[MatchmakingController] MasterClient loading '{gameSceneName}' for the room.");
             PhotonNetwork.LoadLevel(gameSceneName);
+        }
+
+        private void ResetToReadyState()
+        {
+            cancelRequested = false;
+            nameInputField.interactable = true;
+            findMatchButton.interactable = true;
+
+            if (cancelMatchmakingButton != null)
+            {
+                cancelMatchmakingButton.gameObject.SetActive(false);
+            }
+
+            SetStatus("Ready.");
         }
 
         private void SetStatus(string message)
