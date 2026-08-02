@@ -13,12 +13,20 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private Image highlightImage;
 
         private GameManager gameManager;
+        private NetworkedMatchSync networkSync;
 
-        public PlayerSide Side => side;
+        public PlayerSide Side => side.ToActualSide(LocalSide);
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
             gameManager = FindFirstObjectByType<GameManager>();
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
         }
 
         private void Update()
@@ -28,7 +36,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            LeaderData leader = gameManager.State.GetPlayer(side).Leader;
+            LeaderData leader = gameManager.State.GetPlayer(Side).Leader;
 
             if (leader == null)
             {
@@ -67,7 +75,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            LeaderData leader = gameManager.State.GetPlayer(side).Leader;
+            LeaderData leader = gameManager.State.GetPlayer(Side).Leader;
 
             if (leader == null)
             {

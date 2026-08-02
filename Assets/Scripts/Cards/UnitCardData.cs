@@ -52,5 +52,16 @@ namespace DDD.TNFY.TCG.Cards
 
             return clone;
         }
+
+        public UnitCardData CreateSyncedClone(int newManaCost, int newAttack, int newHealth)
+        {
+            UnitCardData clone = Instantiate(this);
+
+            clone.SetManaCost(newManaCost);
+            clone.attack = newAttack;
+            clone.health = newHealth;
+
+            return clone;
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Photon.Pun;
 using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
@@ -57,12 +58,12 @@ namespace DDD.TNFY.TCG.Core
 
         private void Update()
         {
-            if (!isPlayerBAI || state == null)
+            if (!isPlayerBAI || state == null || PhotonNetwork.InRoom)
             {
                 return;
             }
 
-            if (state.CurrentPhase != TurnPhase.Draft || state.ActivePlayer != aiSide)
+            if (state.CurrentPhase != TurnPhase.Draft || state.GetPlayer(aiSide).PendingDraftOptions == null)
             {
                 return;
             }
@@ -79,11 +80,13 @@ namespace DDD.TNFY.TCG.Core
         {
             yield return new WaitForSeconds(actionDelaySeconds);
 
-            if (state.CurrentPhase == TurnPhase.Draft && state.ActivePlayer == aiSide && state.PendingDraftOptions != null)
+            Player aiPlayer = state.GetPlayer(aiSide);
+
+            if (state.CurrentPhase == TurnPhase.Draft && aiPlayer.PendingDraftOptions != null)
             {
-                CardData chosen = ChooseBestCardChoiceOption(state.PendingDraftOptions);
-                bool resolved = phases.TryResolvePendingDraftChoice(chosen);
-                Debug.Log($"[AIController] Draft pick resolved={resolved} for {chosen?.CardName} (stage={state.CurrentDraftStage}).");
+                CardData chosen = ChooseBestCardChoiceOption(aiPlayer.PendingDraftOptions);
+                bool resolved = phases.TryResolvePendingDraftChoice(aiSide, chosen);
+                Debug.Log($"[AIController] Draft pick resolved={resolved} for {chosen?.CardName} (stage={aiPlayer.CurrentDraftStage}).");
             }
 
             runningTurnRoutine = null;
@@ -91,7 +94,7 @@ namespace DDD.TNFY.TCG.Core
 
         private void HandlePhaseChanged(TurnPhase newPhase)
         {
-            if (!isPlayerBAI)
+            if (!isPlayerBAI || PhotonNetwork.InRoom)
             {
                 return;
             }
@@ -121,12 +124,8 @@ namespace DDD.TNFY.TCG.Core
                     RunMulligan();
                     break;
 
-                case TurnPhase.Play:
-                    yield return RunPlayPhase();
-                    break;
-
-                case TurnPhase.Move:
-                    yield return RunMovePhase();
+                case TurnPhase.Action:
+                    yield return RunActionPhase();
                     break;
             }
 
@@ -151,9 +150,47 @@ namespace DDD.TNFY.TCG.Core
             phases.ResolveMulliganAndAdvance(aiSide, toMulligan);
         }
 
+        private IEnumerator RunActionPhase()
+        {
+            yield return RunPlayPhase();
+
+            if (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide)
+            {
+                yield return RunAttackPhaseNaive();
+            }
+
+            if (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide)
+            {
+                yield return RunMovePhase();
+            }
+        }
+
+        private IEnumerator RunAttackPhaseNaive()
+        {
+            for (int slot = 0; slot < Board.SlotsPerSide; slot++)
+            {
+                if (state.CurrentPhase != TurnPhase.Action || state.ActivePlayer != aiSide)
+                {
+                    yield break;
+                }
+
+                if (!phases.CanAttackWithUnit(slot))
+                {
+                    continue;
+                }
+
+                BoardUnit attacker = state.Board.GetUnit(aiSide, slot);
+                Debug.Log($"[AIController] Attacking with {attacker?.SourceCard.CardName} from slot {slot} (naive: attacks with everything eligible, no target/order strategy yet).");
+
+                phases.TryAttackWithUnit(slot);
+
+                yield return new WaitForSeconds(actionDelaySeconds);
+            }
+        }
+
         private IEnumerator RunPlayPhase()
         {
-            while (state.CurrentPhase == TurnPhase.Play && state.ActivePlayer == aiSide)
+            while (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide)
             {
                 if (phases.HasBlockingPendingTargetedEffect())
                 {
@@ -168,12 +205,6 @@ namespace DDD.TNFY.TCG.Core
                 }
 
                 yield return new WaitForSeconds(actionDelaySeconds);
-            }
-
-            if (state.CurrentPhase == TurnPhase.Play && state.ActivePlayer == aiSide)
-            {
-                Debug.Log("[AIController] No more affordable/legal plays — entering Attack phase.");
-                phases.EnterAttackPhase();
             }
         }
 
@@ -483,7 +514,7 @@ namespace DDD.TNFY.TCG.Core
 
         private IEnumerator RunMovePhase()
         {
-            while (state.CurrentPhase == TurnPhase.Move && state.ActivePlayer == aiSide)
+            while (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide)
             {
                 MoveOption bestMove = FindBestMove();
 
@@ -504,7 +535,7 @@ namespace DDD.TNFY.TCG.Core
                 yield return new WaitForSeconds(actionDelaySeconds);
             }
 
-            phases.PassMoveToEndTurn();
+            phases.EndActionPhase();
         }
 
         private struct MoveOption

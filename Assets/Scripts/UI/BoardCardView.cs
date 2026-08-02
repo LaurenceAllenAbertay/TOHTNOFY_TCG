@@ -51,6 +51,7 @@ namespace DDD.TNFY.TCG.UI
         private GameManager gameManager;
         private GameState boundState;
         private Color originalHealthTextColor;
+        private NetworkedMatchSync networkSync;
 
         private BoardUnit lastBoundUnit;
         private int lastKnownSlotIndex = -1;
@@ -73,6 +74,11 @@ namespace DDD.TNFY.TCG.UI
             }
 
             gameManager = FindFirstObjectByType<GameManager>();
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
 
             if (healthText != null)
             {
@@ -262,13 +268,59 @@ namespace DDD.TNFY.TCG.UI
 
             Debug.Log($"[BoardCardView] Click on {Unit.SourceCard.CardName} (Owner={Unit.Owner}). PendingTargetedEffect={gameManager.State.PendingTargetedEffect?.action}");
 
-            if (gameManager.State.PendingTargetedEffect == null)
+            PlayerSide localSide = networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+
+            if (gameManager.State.PendingTargetedEffect != null)
+            {
+                HandleTargetedEffectClick(localSide);
+                return;
+            }
+
+            HandleAttackClick(localSide);
+        }
+
+        private void HandleTargetedEffectClick(PlayerSide localSide)
+        {
+            BoardUnit effectSource = gameManager.State.PendingTargetedEffectSource;
+
+            if (effectSource == null || effectSource.Owner != localSide)
             {
                 return;
             }
 
-            bool resolved = gameManager.Phases.TryResolvePendingTargetedEffect(EffectTarget.ForUnit(Unit));
-            Debug.Log($"[BoardCardView] TryResolvePendingTargetedEffect on {Unit.SourceCard.CardName} returned {resolved}");
+            if (networkSync != null)
+            {
+                networkSync.RequestResolveTargetedEffect(EffectTarget.ForUnit(Unit));
+            }
+            else
+            {
+                bool resolved = gameManager.Phases.TryResolvePendingTargetedEffect(EffectTarget.ForUnit(Unit));
+                Debug.Log($"[BoardCardView] TryResolvePendingTargetedEffect on {Unit.SourceCard.CardName} returned {resolved}");
+            }
+        }
+
+        private void HandleAttackClick(PlayerSide localSide)
+        {
+            if (Unit.Owner != localSide)
+            {
+                return;
+            }
+
+            if (gameManager.State.ActivePlayer != localSide)
+            {
+                return;
+            }
+
+            if (!gameManager.Phases.CanAttackWithUnit(Unit.SlotIndex))
+            {
+                return;
+            }
+
+            bool attacked = networkSync != null
+                ? networkSync.RequestAttackWithUnit(Unit.SlotIndex)
+                : gameManager.Phases.TryAttackWithUnit(Unit.SlotIndex);
+
+            Debug.Log($"[BoardCardView] Attack click on {Unit.SourceCard.CardName} (Slot={Unit.SlotIndex}) -> attacked={attacked}");
         }
 
         public void OnDrop(PointerEventData eventData)
@@ -357,9 +409,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            bool isPlayPhase = gameManager.State.CurrentPhase == TurnPhase.Play;
-            bool isOwnedByActivePlayer = Unit.Owner == gameManager.State.ActivePlayer;
-            bool willAttack = isPlayPhase && isOwnedByActivePlayer && gameManager.Phases.CanUnitAttack(Unit);
+            bool willAttack = Unit.Owner == gameManager.State.ActivePlayer && gameManager.Phases.CanAttackWithUnit(Unit.SlotIndex);
 
             attackingIndicator.SetActive(willAttack);
         }

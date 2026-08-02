@@ -16,6 +16,9 @@ namespace DDD.TNFY.TCG.Core
         public List<CardData> Hand { get; } = new List<CardData>();
         public LeaderData Leader { get; set; }
 
+        public List<CardData> PendingDraftOptions { get; set; }
+        public DraftStage? CurrentDraftStage { get; set; }
+
         public int CurrentMana { get; set; }
         public int MaxManaThisGame { get; set; }
         public int MaxLeaderHealth { get; set; } = StartingLeaderHealth;

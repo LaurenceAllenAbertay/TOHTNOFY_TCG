@@ -12,8 +12,22 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private Image highlightImage;
         [SerializeField] private Image emptySlotImage;
 
-        public PlayerSide Side => side;
+        private NetworkedMatchSync networkSync;
+
+        public PlayerSide Side => side.ToActualSide(LocalSide);
         public int SlotIndex => slotIndex;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+
+        private void Awake()
+        {
+            GameManager gameManager = FindFirstObjectByType<GameManager>();
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
+        }
 
         public void SetHighlighted(bool highlighted)
         {
@@ -33,7 +47,7 @@ namespace DDD.TNFY.TCG.UI
 
         public void OnDrop(PointerEventData eventData)
         {
-            Debug.Log($"[BoardSlotDropTarget] OnDrop fired on Side={side}, SlotIndex={slotIndex}. pointerDrag={(eventData.pointerDrag != null ? eventData.pointerDrag.name : "null")}");
+            Debug.Log($"[BoardSlotDropTarget] OnDrop fired on seat={side}, actualSide={Side}, SlotIndex={slotIndex}. pointerDrag={(eventData.pointerDrag != null ? eventData.pointerDrag.name : "null")}");
 
             if (eventData.pointerDrag == null)
             {

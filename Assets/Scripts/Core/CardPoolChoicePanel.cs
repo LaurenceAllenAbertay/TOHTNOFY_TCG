@@ -14,17 +14,12 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private UI.HandCardView choiceCardPrefab;
         [SerializeField] private Button confirmButton;
         [SerializeField] private TextMeshProUGUI stageLabel;
-        [SerializeField] private Button toggleVisibilityButton;
-        [SerializeField] private GameObject toggleVisibilityButtonRoot;
-        [SerializeField] private Image toggleVisibilityIcon;
-        [SerializeField] private Sprite showPanelSprite;
-        [SerializeField] private Sprite hidePanelSprite;
 
         private readonly List<UI.ChoiceCardSelectable> spawnedCards = new List<UI.ChoiceCardSelectable>();
         private List<CardData> shownOptions;
         private UI.ChoiceCardSelectable selectedCard;
         private bool isDraftChoice;
-        private bool isManuallyHidden;
+        private NetworkedMatchSync networkSync;
 
         private void Awake()
         {
@@ -33,11 +28,13 @@ namespace DDD.TNFY.TCG.Core
                 confirmButton.onClick.AddListener(HandleConfirm);
             }
 
-            if (toggleVisibilityButton != null)
+            if (gameManager != null)
             {
-                toggleVisibilityButton.onClick.AddListener(HandleToggleVisibility);
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
             }
         }
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Update()
         {
@@ -46,12 +43,25 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            bool draftPending = gameManager.State.PendingDraftOptions != null;
-            List<CardData> currentOptions = draftPending
-                ? gameManager.State.PendingDraftOptions
-                : gameManager.State.PendingCardChoiceOptions;
+            Player localPlayer = gameManager.State.GetPlayer(LocalSide);
+            bool draftPending = localPlayer.PendingDraftOptions != null;
 
-            if (currentOptions == shownOptions)
+            List<CardData> currentOptions;
+
+            if (draftPending)
+            {
+                currentOptions = localPlayer.PendingDraftOptions;
+            }
+            else
+            {
+                bool cardChoiceIsMine = gameManager.State.PendingCardChoiceOptions != null
+                    && gameManager.State.PendingCardChoiceSource != null
+                    && gameManager.State.PendingCardChoiceSource.Owner == LocalSide;
+
+                currentOptions = cardChoiceIsMine ? gameManager.State.PendingCardChoiceOptions : null;
+            }
+
+            if (OptionsMatch(currentOptions, shownOptions))
             {
                 return;
             }
@@ -60,27 +70,38 @@ namespace DDD.TNFY.TCG.Core
             shownOptions = currentOptions;
         }
 
+        private static bool OptionsMatch(List<CardData> a, List<CardData> b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+
+            if (a == null || b == null || a.Count != b.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i] != b[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private void Refresh(List<CardData> options, bool draftPending)
         {
             bool isChoicePending = options != null;
             isDraftChoice = draftPending;
 
-            if (!isChoicePending)
-            {
-                isManuallyHidden = false;
-            }
-
             if (panelRoot != null)
             {
-                panelRoot.SetActive(isChoicePending && !isManuallyHidden);
+                panelRoot.SetActive(isChoicePending);
             }
-
-            if (toggleVisibilityButtonRoot != null)
-            {
-                toggleVisibilityButtonRoot.SetActive(isChoicePending);
-            }
-
-            UpdateToggleIcon();
 
             ClearSpawnedCards();
             UpdateConfirmInteractable();
@@ -88,7 +109,7 @@ namespace DDD.TNFY.TCG.Core
             if (stageLabel != null)
             {
                 stageLabel.text = draftPending
-                    ? $"{gameManager.State.ActivePlayer}: Choose a {gameManager.State.CurrentDraftStage} Card"
+                    ? $"Choose a {gameManager.State.GetPlayer(LocalSide).CurrentDraftStage} Card"
                     : string.Empty;
             }
 
@@ -97,11 +118,7 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            PlayerSide side = draftPending
-                ? gameManager.State.ActivePlayer
-                : (gameManager.State.PendingCardChoiceSource != null
-                    ? gameManager.State.PendingCardChoiceSource.Owner
-                    : gameManager.State.ActivePlayer);
+            PlayerSide side = LocalSide;
 
             foreach (CardData card in options)
             {
@@ -147,31 +164,6 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void HandleToggleVisibility()
-        {
-            isManuallyHidden = !isManuallyHidden;
-
-            if (panelRoot != null)
-            {
-                bool isChoicePending = shownOptions != null;
-                panelRoot.SetActive(isChoicePending && !isManuallyHidden);
-            }
-
-            UpdateToggleIcon();
-
-            Debug.Log($"[CardPoolChoicePanel] Toggle pressed, isManuallyHidden={isManuallyHidden}.");
-        }
-
-        private void UpdateToggleIcon()
-        {
-            if (toggleVisibilityIcon == null)
-            {
-                return;
-            }
-
-            toggleVisibilityIcon.sprite = isManuallyHidden ? showPanelSprite : hidePanelSprite;
-        }
-
         private void ClearSpawnedCards()
         {
             foreach (UI.ChoiceCardSelectable existing in spawnedCards)
@@ -195,10 +187,32 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            bool resolved = isDraftChoice
-                ? gameManager.Phases.TryResolvePendingDraftChoice(selectedCard.Card)
-                : gameManager.Phases.TryResolvePendingCardChoice(selectedCard.Card);
+            if (isDraftChoice)
+            {
+                if (networkSync != null)
+                {
+                    networkSync.RequestDraftChoice(LocalSide, selectedCard.Card);
+                }
+                else
+                {
+                    gameManager.Phases.TryResolvePendingDraftChoice(LocalSide, selectedCard.Card);
+                }
 
+                Debug.Log($"[CardPoolChoicePanel] Draft choice requested for {selectedCard.Card.CardName} ({LocalSide}).");
+                return;
+            }
+
+            bool resolved;
+
+            if (networkSync != null)
+            {
+                int optionIndex = spawnedCards.IndexOf(selectedCard);
+                networkSync.RequestResolveCardChoice(optionIndex);
+                Debug.Log($"[CardPoolChoicePanel] Card choice requested for {selectedCard.Card.CardName} (index={optionIndex}).");
+                return;
+            }
+
+            resolved = gameManager.Phases.TryResolvePendingCardChoice(selectedCard.Card);
             Debug.Log($"[CardPoolChoicePanel] HandleConfirm resolved={resolved} for {selectedCard.Card.CardName}, isDraftChoice={isDraftChoice}.");
         }
     }

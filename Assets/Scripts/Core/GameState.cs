@@ -11,7 +11,19 @@ namespace DDD.TNFY.TCG.Core
         public Player PlayerA { get; } = new Player(PlayerSide.PlayerA);
         public Player PlayerB { get; } = new Player(PlayerSide.PlayerB);
 
-        public PlayerSide ActivePlayer { get; set; } = PlayerSide.PlayerA;
+        private PlayerSide activePlayer = PlayerSide.PlayerA;
+        public PlayerSide ActivePlayer
+        {
+            get => activePlayer;
+            set
+            {
+                activePlayer = value;
+                ActivePlayerChanged?.Invoke(activePlayer);
+            }
+        }
+
+        public event Action<PlayerSide> ActivePlayerChanged;
+
         public PlayerSide FirstPlayer { get; set; } = PlayerSide.PlayerA;
 
         private TurnPhase currentPhase = TurnPhase.Mulligan;
@@ -60,6 +72,20 @@ namespace DDD.TNFY.TCG.Core
             UnitMoved?.Invoke(unit);
         }
 
+        public event Action DraftOptionsChanged;
+
+        public void RaiseDraftOptionsChanged()
+        {
+            DraftOptionsChanged?.Invoke();
+        }
+
+        public event Action GameOver;
+
+        public void RaiseGameOver()
+        {
+            GameOver?.Invoke();
+        }
+
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }
@@ -77,9 +103,6 @@ namespace DDD.TNFY.TCG.Core
 
         public List<CardData> PendingCardChoiceOptions { get; set; }
         public BoardUnit PendingCardChoiceSource { get; set; }
-
-        public List<CardData> PendingDraftOptions { get; set; }
-        public DraftStage? CurrentDraftStage { get; set; }
 
         public bool IsResolvingTurnStartEffects { get; set; }
         public int TurnStartScanSlot { get; set; }

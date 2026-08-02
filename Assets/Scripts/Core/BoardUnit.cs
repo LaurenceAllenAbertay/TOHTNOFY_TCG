@@ -15,6 +15,7 @@ namespace DDD.TNFY.TCG.Core
         public int LastSyncedAuraHealthBonus { get; set; }
         public bool PlacedThisTurn { get; set; }
         public bool HasMovedThisTurn { get; set; }
+        public bool HasAttackedThisTurn { get; set; }
         public bool HasUsedGrantedEnemyMoveThisTurn { get; set; }
         public Keyword GrantedKeywords { get; set; }
 

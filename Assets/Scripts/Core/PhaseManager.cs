@@ -15,7 +15,7 @@ namespace DDD.TNFY.TCG.Core
 
         private List<CardData> draftPool;
         private DraftSettings draftSettings;
-        private int draftPickIndexInStage;
+        private readonly Dictionary<PlayerSide, int> draftPickIndexInStage = new Dictionary<PlayerSide, int>();
 
         public PhaseManager(GameState state, MonoBehaviour coroutineRunner)
         {
@@ -31,90 +31,51 @@ namespace DDD.TNFY.TCG.Core
         {
             draftPool = new List<CardData>(pool);
             draftSettings = settings;
-            draftPickIndexInStage = 0;
 
-            state.ActivePlayer = state.FirstPlayer;
-            state.CurrentDraftStage = DraftStage.Common;
             state.CurrentPhase = TurnPhase.Draft;
 
-            Debug.Log($"[PhaseManager] Draft started. {state.ActivePlayer} is drafting first.");
+            Debug.Log("[PhaseManager] Draft started. Both players are drafting simultaneously.");
 
-            OfferNextDraftPick();
+            StartDraftForSide(PlayerSide.PlayerA);
+            StartDraftForSide(PlayerSide.PlayerB);
         }
 
-        public void StartRandomDeck(List<CardData> pool, DraftSettings settings)
+        private void StartDraftForSide(PlayerSide side)
         {
-            draftSettings = settings;
+            Player player = state.GetPlayer(side);
+            player.CurrentDraftStage = DraftStage.Common;
+            draftPickIndexInStage[side] = 0;
 
-            BuildRandomDeckFor(state.PlayerA, pool, settings);
-            BuildRandomDeckFor(state.PlayerB, pool, settings);
-
-            state.CurrentDraftStage = null;
-            state.ActivePlayer = state.FirstPlayer;
-
-            Debug.Log("[PhaseManager] Random decks built for both players.");
-
-            StartMatch();
+            OfferNextDraftPick(side);
         }
 
-        private void BuildRandomDeckFor(Player player, List<CardData> pool, DraftSettings settings)
+        private void OfferNextDraftPick(PlayerSide side)
         {
-            player.Deck.Clear();
-
-            foreach (DraftStage stage in new[] { DraftStage.Common, DraftStage.Uncommon, DraftStage.Rare, DraftStage.EpicOrLegendary })
-            {
-                List<CardData> eligible = pool.FindAll(card => MatchesDraftStage(card.Rarity, stage));
-                int picksForStage = GetPickCountForStage(stage);
-                int copiesForStage = GetCopiesForStage(stage);
-
-                for (int i = 0; i < picksForStage; i++)
-                {
-                    List<CardData> available = eligible.FindAll(card => CountCopiesInDeck(player.Deck, card) < settings.maxCopiesPerCard);
-
-                    if (available.Count == 0)
-                    {
-                        Debug.LogWarning($"[PhaseManager] BuildRandomDeckFor: no eligible {stage} cards left for {player.Side} — skipping this pick.");
-                        continue;
-                    }
-
-                    CardData chosen = available[UnityEngine.Random.Range(0, available.Count)];
-
-                    for (int c = 0; c < copiesForStage; c++)
-                    {
-                        player.Deck.Add(chosen);
-                    }
-                }
-            }
-
-            ListShuffler.Shuffle(player.Deck);
-
-            Debug.Log($"[PhaseManager] {player.Side} random deck built with {player.Deck.Count} cards.");
-        }
-
-        private void OfferNextDraftPick()
-        {
-            DraftStage stage = state.CurrentDraftStage.Value;
-            List<CardData> eligible = GetEligibleDraftCards(stage);
+            Player player = state.GetPlayer(side);
+            DraftStage stage = player.CurrentDraftStage.Value;
+            List<CardData> eligible = GetEligibleDraftCards(stage, side);
 
             if (eligible.Count == 0)
             {
-                Debug.LogWarning($"[PhaseManager] No eligible {stage} cards left for {state.ActivePlayer} — skipping this pick.");
-                state.PendingDraftOptions = null;
-                draftPickIndexInStage++;
-                AdvanceDraft();
+                Debug.LogWarning($"[PhaseManager] No eligible {stage} cards left for {side} — skipping this pick.");
+                player.PendingDraftOptions = null;
+                draftPickIndexInStage[side]++;
+                AdvanceDraft(side);
                 return;
             }
 
             ListShuffler.Shuffle(eligible);
             int optionCount = Mathf.Min(draftSettings.optionsPerChoice, eligible.Count);
-            state.PendingDraftOptions = eligible.GetRange(0, optionCount);
+            player.PendingDraftOptions = eligible.GetRange(0, optionCount);
 
-            Debug.Log($"[PhaseManager] Offering {state.ActivePlayer} {optionCount} {stage} option(s): {string.Join(", ", state.PendingDraftOptions.ConvertAll(c => c.CardName))}");
+            Debug.Log($"[PhaseManager] Offering {side} {optionCount} {stage} option(s): {string.Join(", ", player.PendingDraftOptions.ConvertAll(c => c.CardName))}");
+
+            state.RaiseDraftOptionsChanged();
         }
 
-        private List<CardData> GetEligibleDraftCards(DraftStage stage)
+        private List<CardData> GetEligibleDraftCards(DraftStage stage, PlayerSide side)
         {
-            Player drafter = state.GetPlayer(state.ActivePlayer);
+            Player drafter = state.GetPlayer(side);
             List<CardData> eligible = new List<CardData>();
 
             foreach (CardData card in draftPool)
@@ -128,7 +89,7 @@ namespace DDD.TNFY.TCG.Core
 
                 if (copiesInDeck >= draftSettings.maxCopiesPerCard)
                 {
-                    Debug.Log($"[PhaseManager] GetEligibleDraftCards: {card.CardName} already has {copiesInDeck}/{draftSettings.maxCopiesPerCard} copies in {state.ActivePlayer}'s deck — excluding from {stage} offers.");
+                    Debug.Log($"[PhaseManager] GetEligibleDraftCards: {card.CardName} already has {copiesInDeck}/{draftSettings.maxCopiesPerCard} copies in {side}'s deck — excluding from {stage} offers.");
                     continue;
                 }
 
@@ -170,22 +131,23 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public bool TryResolvePendingDraftChoice(CardData chosenCard)
+        public bool TryResolvePendingDraftChoice(PlayerSide side, CardData chosenCard)
         {
-            if (state.PendingDraftOptions == null || state.CurrentDraftStage == null)
+            Player drafter = state.GetPlayer(side);
+
+            if (drafter.PendingDraftOptions == null || drafter.CurrentDraftStage == null)
             {
-                Debug.Log("[PhaseManager] TryResolvePendingDraftChoice FAIL: no pending draft choice.");
+                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: no pending draft choice for {side}.");
                 return false;
             }
 
-            if (!state.PendingDraftOptions.Contains(chosenCard))
+            if (!drafter.PendingDraftOptions.Contains(chosenCard))
             {
-                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: {chosenCard?.CardName} was not one of the offered options.");
+                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: {chosenCard?.CardName} was not one of {side}'s offered options.");
                 return false;
             }
 
-            DraftStage stage = state.CurrentDraftStage.Value;
-            Player drafter = state.GetPlayer(state.ActivePlayer);
+            DraftStage stage = drafter.CurrentDraftStage.Value;
             int copies = GetCopiesForStage(stage);
 
             for (int i = 0; i < copies; i++)
@@ -193,12 +155,12 @@ namespace DDD.TNFY.TCG.Core
                 drafter.Deck.Add(chosenCard);
             }
 
-            Debug.Log($"[PhaseManager] {state.ActivePlayer} drafted {chosenCard.CardName} x{copies} ({stage}).");
+            Debug.Log($"[PhaseManager] {side} drafted {chosenCard.CardName} x{copies} ({stage}).");
 
-            state.PendingDraftOptions = null;
-            draftPickIndexInStage++;
+            drafter.PendingDraftOptions = null;
+            draftPickIndexInStage[side]++;
 
-            AdvanceDraft();
+            AdvanceDraft(side);
 
             return true;
         }
@@ -252,33 +214,35 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void AdvanceDraft()
+        private void AdvanceDraft(PlayerSide side)
         {
-            DraftStage stage = state.CurrentDraftStage.Value;
+            Player player = state.GetPlayer(side);
+            DraftStage stage = player.CurrentDraftStage.Value;
             int picksForStage = GetPickCountForStage(stage);
 
-            if (draftPickIndexInStage < picksForStage)
+            if (draftPickIndexInStage[side] < picksForStage)
             {
-                OfferNextDraftPick();
+                OfferNextDraftPick(side);
                 return;
             }
 
-            draftPickIndexInStage = 0;
+            draftPickIndexInStage[side] = 0;
             DraftStage? nextStage = GetNextDraftStage(stage);
 
             if (nextStage != null)
             {
-                state.CurrentDraftStage = nextStage;
-                OfferNextDraftPick();
+                player.CurrentDraftStage = nextStage;
+                OfferNextDraftPick(side);
                 return;
             }
 
-            if (state.ActivePlayer == state.FirstPlayer)
+            player.CurrentDraftStage = null;
+            Debug.Log($"[PhaseManager] {side}'s draft is complete.");
+            state.RaiseDraftOptionsChanged();
+
+            if (state.PlayerA.CurrentDraftStage != null || state.PlayerB.CurrentDraftStage != null)
             {
-                state.ActivePlayer = state.FirstPlayer.Opposite();
-                state.CurrentDraftStage = DraftStage.Common;
-                Debug.Log($"[PhaseManager] {state.FirstPlayer}'s draft complete. {state.ActivePlayer} is drafting next.");
-                OfferNextDraftPick();
+                Debug.Log("[PhaseManager] Waiting on the other player to finish drafting.");
                 return;
             }
 
@@ -287,7 +251,6 @@ namespace DDD.TNFY.TCG.Core
             ListShuffler.Shuffle(state.PlayerA.Deck);
             ListShuffler.Shuffle(state.PlayerB.Deck);
 
-            state.CurrentDraftStage = null;
             state.ActivePlayer = state.FirstPlayer;
 
             StartMatch();
@@ -486,7 +449,7 @@ namespace DDD.TNFY.TCG.Core
 
             state.IsResolvingTurnStartEffects = false;
             state.TurnStartScanSlot = 0;
-            EnterPlayPhase();
+            EnterActionPhase();
         }
 
         private void ResolveTurnStartDrain(BoardUnit source, CardEffect healEffect)
@@ -523,9 +486,19 @@ namespace DDD.TNFY.TCG.Core
             return null;
         }
 
-        public void EnterPlayPhase()
+        public void EnterActionPhase()
         {
-            state.CurrentPhase = TurnPhase.Play;
+            state.CurrentPhase = TurnPhase.Action;
+
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
+
+                if (unit != null && ConsumeStunIfPresent(unit))
+                {
+                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} (Slot={i}) was stunned - stun consumed, cannot attack this turn.");
+                }
+            }
         }
 
         private void TryTriggerPeriodicItemDraw(Player player)
@@ -608,7 +581,7 @@ namespace DDD.TNFY.TCG.Core
         public bool CanPlayUnit(UnitCardData card, int slotIndex)
         {
             if (HasBlockingPendingTargetedEffect()) return false;
-            if (state.CurrentPhase != TurnPhase.Play) return false;
+            if (state.CurrentPhase != TurnPhase.Action) return false;
 
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
@@ -714,203 +687,96 @@ namespace DDD.TNFY.TCG.Core
             return movement.CanAnyUnitMove();
         }
 
-        public void EnterAttackPhase()
+
+        public bool CanAttackWithUnit(int slotIndex)
         {
-            CancelPendingTargetedEffectIfNonMandatory();
+            if (state.CurrentPhase != TurnPhase.Action) return false;
 
-            if (HasBlockingPendingTargetedEffect())
-            {
-                Debug.LogWarning("[PhaseManager] EnterAttackPhase blocked: an On-Play effect is still awaiting a target.");
-                return;
-            }
+            BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
 
-            if (state.HasPendingFreeMove)
-            {
-                Debug.Log("[PhaseManager] Unused pending free move expired at end of Play phase.");
-            }
+            if (unit == null) return false;
+            if (unit.HasAttackedThisTurn) return false;
 
-            state.HasPendingFreeMove = false;
-            state.PendingFreeMoveExcludedUnit = null;
-
-            if (state.HasPendingEnemyMoveGrantOnPlay)
-            {
-                Debug.Log($"[PhaseManager] Unused pending On-Play enemy move for {state.PendingEnemyMoveGrantTarget?.SourceCard?.CardName} expired at end of Move phase.");
-            }
-
-            state.HasPendingEnemyMoveGrantOnPlay = false;
-            state.PendingEnemyMoveGrantTarget = null;
-
-            TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
-
-            if (!CanAnyUnitAttack())
-            {
-                Debug.Log("[PhaseManager] EnterAttackPhase: no eligible attackers — skipping attack phase entirely, banner will not show.");
-                FinishAttackPhase();
-                return;
-            }
-
-            state.CurrentPhase = TurnPhase.Attack;
-
-            if (coroutineRunner != null)
-            {
-                coroutineRunner.StartCoroutine(WaitForBannerThenRunAttackPhase());
-            }
-            else
-            {
-                RunAttackPhaseInstant();
-            }
+            return CanUnitAttack(unit);
         }
 
-        private IEnumerator WaitForBannerThenRunAttackPhase()
+        public bool TryAttackWithUnit(int slotIndex)
         {
-            bool bannerFinished = false;
+            if (!CanAttackWithUnit(slotIndex)) return false;
 
-            void OnBannerFinished()
+            BoardUnit attacker = state.Board.GetUnit(state.ActivePlayer, slotIndex);
+
+            bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
+            int temporaryAttackBonus = ConsumeStatusMagnitude(attacker, StatusEffectType.TemporaryAttackNextAttack);
+
+            attacker.HasAttackedThisTurn = true;
+
+            int effectiveAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
+
+            if (effectiveAttack <= 0 || coroutineRunner == null)
             {
-                bannerFinished = true;
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Slot={slotIndex}) attacking without animation (effectiveAttack={effectiveAttack}, coroutineRunner={(coroutineRunner != null ? "set" : "null")}).");
+
+                bool chainAttack = ResolveAttackerCombat(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus);
+
+                CheckWinCondition();
+
+                if (!state.IsGameOver && chainAttack)
+                {
+                    ResolveChainAttack(attacker, slotIndex, temporaryAttackBonus);
+                    CheckWinCondition();
+                }
+
+                return true;
             }
 
-            state.BannerAnimationFinished += OnBannerFinished;
-
-            float elapsed = 0f;
-
-            while (!bannerFinished && elapsed < BannerWaitTimeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            state.BannerAnimationFinished -= OnBannerFinished;
-
-            if (!bannerFinished)
-            {
-                Debug.LogWarning("[PhaseManager] WaitForBannerThenRunAttackPhase: timed out waiting for BannerAnimationFinished — proceeding anyway.");
-            }
-            else
-            {
-                Debug.Log($"[PhaseManager] WaitForBannerThenRunAttackPhase: banner signalled finished after {elapsed:F2}s.");
-            }
-
-            yield return RunAttackPhaseSequence();
+            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus));
+            return true;
         }
 
-        private IEnumerator RunAttackPhaseSequence()
+        private IEnumerator RunSingleAttackAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
         {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
+            state.CurrentlyAttackingUnit = attacker;
+
+            bool shouldChainAttack = false;
+            yield return ResolveAttackerCombatAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus, result => shouldChainAttack = result);
+
+            state.CurrentlyAttackingUnit = null;
+
+            CheckWinCondition();
+
+            if (state.IsGameOver || !shouldChainAttack)
             {
-                BoardUnit attacker = state.Board.GetUnit(state.ActivePlayer, i);
-
-                if (attacker == null) continue;
-
-                bool wasStunned = ConsumeStunIfPresent(attacker);
-                bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
-                int temporaryAttackBonus = ConsumeStatusMagnitude(attacker, StatusEffectType.TemporaryAttackNextAttack);
-
-                if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush, state)) continue;
-                if (wasStunned) continue;
-
-                int effectiveAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
-
-                if (effectiveAttack <= 0)
-                {
-                    Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Slot={i}) has 0 effective attack — skipping attack animation, resolving combat immediately.");
-                    bool chainAttackNoAnim = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
-
-                    if (state.IsGameOver)
-                    {
-                        break;
-                    }
-
-                    if (chainAttackNoAnim)
-                    {
-                        ResolveChainAttack(attacker, i, temporaryAttackBonus);
-
-                        if (state.IsGameOver)
-                        {
-                            break;
-                        }
-                    }
-
-                    continue;
-                }
-
-                state.CurrentlyAttackingUnit = attacker;
-
-                bool shouldChainAttack = false;
-                yield return ResolveAttackerCombatAnimated(attacker, i, hadDoubleAttack, temporaryAttackBonus, result => shouldChainAttack = result);
-
-                state.CurrentlyAttackingUnit = null;
-
-                if (state.IsGameOver)
-                {
-                    break;
-                }
-
-                if (shouldChainAttack)
-                {
-                    yield return null;
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
-                    {
-                        int chainEffectiveAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
-
-                        if (chainEffectiveAttack <= 0)
-                        {
-                            Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s chained attack has 0 effective attack — skipping animation, resolving immediately.");
-                            ResolveChainAttack(attacker, i, temporaryAttackBonus);
-                        }
-                        else
-                        {
-                            state.CurrentlyAttackingUnit = attacker;
-                            yield return WaitForAttackHitLanded(0);
-
-                            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
-                            {
-                                ResolveChainAttack(attacker, i, temporaryAttackBonus);
-                            }
-
-                            state.CurrentlyAttackingUnit = null;
-                        }
-                    }
-
-                    if (state.IsGameOver)
-                    {
-                        break;
-                    }
-                }
+                yield break;
             }
 
-            FinishAttackPhase();
-        }
+            yield return null;
 
-        private void RunAttackPhaseInstant()
-        {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
+            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
             {
-                BoardUnit attacker = state.Board.GetUnit(state.ActivePlayer, i);
-
-                if (attacker == null) continue;
-
-                bool wasStunned = ConsumeStunIfPresent(attacker);
-                bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
-                int temporaryAttackBonus = ConsumeStatusMagnitude(attacker, StatusEffectType.TemporaryAttackNextAttack);
-
-                if (attacker.PlacedThisTurn && !attacker.HasKeyword(Keyword.Rush, state)) continue;
-                if (wasStunned) continue;
-
-                bool shouldChainAttack = ResolveAttackerCombat(attacker, i, hadDoubleAttack, temporaryAttackBonus);
-
-                if (state.IsGameOver) break;
-
-                if (shouldChainAttack)
-                {
-                    ResolveChainAttack(attacker, i, temporaryAttackBonus);
-
-                    if (state.IsGameOver) break;
-                }
+                yield break;
             }
 
-            FinishAttackPhase();
+            int chainEffectiveAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
+
+            if (chainEffectiveAttack <= 0)
+            {
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s chained attack has 0 effective attack — skipping animation, resolving immediately.");
+                ResolveChainAttack(attacker, slotIndex, temporaryAttackBonus);
+                CheckWinCondition();
+                yield break;
+            }
+
+            state.CurrentlyAttackingUnit = attacker;
+            yield return WaitForAttackHitLanded(0);
+
+            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
+            {
+                ResolveChainAttack(attacker, slotIndex, temporaryAttackBonus);
+                CheckWinCondition();
+            }
+
+            state.CurrentlyAttackingUnit = null;
         }
 
         private bool ResolveAttackerCombat(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
@@ -1137,16 +1003,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             return false;
-        }
-
-        private void FinishAttackPhase()
-        {
-            CheckWinCondition();
-
-            if (!state.IsGameOver)
-            {
-                EnterMovePhase();
-            }
         }
 
         private bool ResolveAttack(BoardUnit attacker, int targetSlot, int temporaryAttackBonus = 0)
@@ -1585,18 +1441,6 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public void EnterMovePhase()
-        {
-            if (!CanAnyUnitMove())
-            {
-                Debug.Log("[PhaseManager] EnterMovePhase: no legal moves available — skipping Move phase entirely, banner will not show.");
-                PassMoveToEndTurn();
-                return;
-            }
-
-            state.CurrentPhase = TurnPhase.Move;
-        }
-
         public bool TryMoveUnit(int fromSlot, int toSlot)
         {
             return movement.TryMoveUnit(fromSlot, toSlot);
@@ -1672,8 +1516,34 @@ namespace DDD.TNFY.TCG.Core
             state.CurrentPhase = TurnPhase.TurnEnd;
         }
 
-        public void PassMoveToEndTurn()
+        public void EndActionPhase()
         {
+            CancelPendingTargetedEffectIfNonMandatory();
+
+            if (HasBlockingPendingTargetedEffect())
+            {
+                Debug.LogWarning("[PhaseManager] EndActionPhase blocked: an On-Play effect is still awaiting a target.");
+                return;
+            }
+
+            if (state.HasPendingFreeMove)
+            {
+                Debug.Log("[PhaseManager] Unused pending free move expired at end of turn.");
+            }
+
+            state.HasPendingFreeMove = false;
+            state.PendingFreeMoveExcludedUnit = null;
+
+            if (state.HasPendingEnemyMoveGrantOnPlay)
+            {
+                Debug.Log($"[PhaseManager] Unused pending On-Play enemy move for {state.PendingEnemyMoveGrantTarget?.SourceCard?.CardName} expired at end of turn.");
+            }
+
+            state.HasPendingEnemyMoveGrantOnPlay = false;
+            state.PendingEnemyMoveGrantTarget = null;
+
+            TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
+
             EnterTurnEndPhase();
             EndTurn();
         }
@@ -1687,6 +1557,7 @@ namespace DDD.TNFY.TCG.Core
                 {
                     unit.PlacedThisTurn = false;
                     unit.HasMovedThisTurn = false;
+                    unit.HasAttackedThisTurn = false;
                     unit.HasUsedGrantedEnemyMoveThisTurn = false;
 
                     if (unit.IsSilenced)
@@ -1772,7 +1643,7 @@ namespace DDD.TNFY.TCG.Core
             {
                 return false;
             }
-            if (state.CurrentPhase != TurnPhase.Play)
+            if (state.CurrentPhase != TurnPhase.Action)
             {
                 return false;
             }
@@ -2141,6 +2012,11 @@ namespace DDD.TNFY.TCG.Core
 
         private void CheckWinCondition()
         {
+            if (state.IsGameOver)
+            {
+                return;
+            }
+
             if (state.PlayerA.LeaderHealth <= 0)
             {
                 state.IsGameOver = true;
@@ -2150,6 +2026,12 @@ namespace DDD.TNFY.TCG.Core
             {
                 state.IsGameOver = true;
                 state.Winner = PlayerSide.PlayerA;
+            }
+
+            if (state.IsGameOver)
+            {
+                Debug.Log($"[PhaseManager] Game over. Winner: {state.Winner}.");
+                state.RaiseGameOver();
             }
         }
     }

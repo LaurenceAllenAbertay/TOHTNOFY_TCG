@@ -13,7 +13,10 @@ namespace DDD.TNFY.TCG.UI
         private static readonly int NewPhaseTrigger = Animator.StringToHash("NewPhase");
 
         private bool hasGameStarted;
-        private bool hasShownFirstPlayBanner;
+        private bool hasShownFirstActionBanner;
+        private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void OnEnable()
         {
@@ -24,6 +27,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             gameManager.State.PhaseChanged += HandlePhaseChanged;
+            networkSync = gameManager.GetComponent<NetworkedMatchSync>();
         }
 
         private void OnDisable()
@@ -79,19 +83,13 @@ namespace DDD.TNFY.TCG.UI
                     }
                     return null;
 
-                case TurnPhase.Play:
-                    if (!hasShownFirstPlayBanner)
+                case TurnPhase.Action:
+                    if (!hasShownFirstActionBanner)
                     {
-                        hasShownFirstPlayBanner = true;
+                        hasShownFirstActionBanner = true;
                         return null;
                     }
-                    return gameManager.State.ActivePlayer == PlayerSide.PlayerA ? "PLAY PHASE" : "OPPONENT'S TURN";
-
-                case TurnPhase.Attack:
-                    return "ATTACK PHASE";
-
-                case TurnPhase.Move:
-                    return "MOVE PHASE";
+                    return gameManager.State.ActivePlayer == LocalSide ? "YOUR TURN" : "OPPONENT'S TURN";
 
                 default:
                     return null;

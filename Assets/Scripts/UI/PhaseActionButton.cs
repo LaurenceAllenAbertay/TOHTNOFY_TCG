@@ -14,12 +14,18 @@ namespace DDD.TNFY.TCG.UI
 
         private TurnPhase? shownPhase;
         private bool? shownHasPendingTarget;
+        private NetworkedMatchSync networkSync;
 
         private void Awake()
         {
             if (button != null)
             {
                 button.onClick.AddListener(HandleClick);
+            }
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
             }
         }
 
@@ -45,7 +51,7 @@ namespace DDD.TNFY.TCG.UI
 
         private void Refresh(TurnPhase phase, bool hasPendingTarget)
         {
-            bool isRelevantPhase = phase == TurnPhase.Play || phase == TurnPhase.Move;
+            bool isRelevantPhase = phase == TurnPhase.Action;
             bool isInteractable = isRelevantPhase && !hasPendingTarget;
 
             if (button != null)
@@ -68,21 +74,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            if (hasPendingTarget)
-            {
-                label.text = "Choose Target...";
-                return;
-            }
-
-            switch (phase)
-            {
-                case TurnPhase.Play:
-                    label.text = "Attack!";
-                    break;
-                case TurnPhase.Move:
-                    label.text = "End Turn";
-                    break;
-            }
+            label.text = hasPendingTarget ? "Choose Target..." : "End Turn";
         }
 
         private void HandleClick()
@@ -92,14 +84,18 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            switch (gameManager.State.CurrentPhase)
+            if (gameManager.State.CurrentPhase != TurnPhase.Action)
             {
-                case TurnPhase.Play:
-                    gameManager.Phases.EnterAttackPhase();
-                    break;
-                case TurnPhase.Move:
-                    gameManager.Phases.PassMoveToEndTurn();
-                    break;
+                return;
+            }
+
+            if (networkSync != null)
+            {
+                networkSync.RequestEndActionPhase();
+            }
+            else
+            {
+                gameManager.Phases.EndActionPhase();
             }
         }
     }

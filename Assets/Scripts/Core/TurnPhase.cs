@@ -5,9 +5,7 @@ namespace DDD.TNFY.TCG.Core
         Draft,
         Mulligan,
         Draw,
-        Play,
-        Attack,
-        Move,
+        Action,
         TurnEnd
     }
 }

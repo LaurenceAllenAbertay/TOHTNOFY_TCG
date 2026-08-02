@@ -22,8 +22,20 @@ namespace DDD.TNFY.TCG.Core
         private int shownHandCount = -1;
         private CardData shownLastCard;
         private bool shownHasUsedFirstUnitDiscountThisTurn;
+        private NetworkedMatchSync networkSync;
 
         public IReadOnlyList<UI.HandCardView> SpawnedViews => spawnedViews;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+        private PlayerSide ActualSide => side.ToActualSide(LocalSide);
+
+        private void Awake()
+        {
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
+        }
 
         private void Update()
         {
@@ -32,9 +44,9 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            Player player = gameManager.State.GetPlayer(side);
+            Player player = gameManager.State.GetPlayer(ActualSide);
             List<CardData> hand = player.Hand;
-            bool isFaceUp = gameManager.State.ActivePlayer == side;
+            bool isFaceUp = side == PlayerSide.PlayerA;
             CardData lastCard = hand.Count > 0 ? hand[hand.Count - 1] : null;
             bool hasUsedFirstUnitDiscountThisTurn = player.HasUsedFirstUnitDiscountThisTurn;
 
@@ -63,7 +75,7 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            List<CardData> hand = gameManager.State.GetPlayer(side).Hand;
+            List<CardData> hand = gameManager.State.GetPlayer(ActualSide).Hand;
 
             spawnedViews.Sort((a, b) => a.transform.GetSiblingIndex().CompareTo(b.transform.GetSiblingIndex()));
 
@@ -164,7 +176,7 @@ namespace DDD.TNFY.TCG.Core
 
                 if (isFaceUp)
                 {
-                    view.Bind(card, side, gameManager.State);
+                    view.Bind(card, ActualSide, gameManager.State);
                 }
 
                 spawnedViews.Add(view);

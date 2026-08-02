@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Photon.Pun;
 using DDD.TNFY.TCG.Cards;
 
 namespace DDD.TNFY.TCG.Core
@@ -7,15 +8,15 @@ namespace DDD.TNFY.TCG.Core
     [RequireComponent(typeof(GameManager))]
     public class MatchBootstrapper : MonoBehaviour
     {
-        [Header("Match Setup")]
-        [SerializeField] private GameMode gameMode = GameMode.Draft;
-
         [Header("Card Pool Setup")]
         [SerializeField] private List<CardData> cardPool = new List<CardData>();
         [SerializeField] private DraftSettings draftSettings = new DraftSettings();
 
         [Header("Leader Setup")]
         [SerializeField] private List<LeaderData> leaderPool = new List<LeaderData>();
+
+        public IReadOnlyList<CardData> CardPool => cardPool;
+        public IReadOnlyList<LeaderData> LeaderPool => leaderPool;
 
         private GameManager manager;
 
@@ -26,18 +27,14 @@ namespace DDD.TNFY.TCG.Core
 
         private void Start()
         {
-            AssignRandomLeaders();
-
-            switch (gameMode)
+            if (PhotonNetwork.InRoom && !PhotonNetwork.IsMasterClient)
             {
-                case GameMode.RandomDeck:
-                    manager.Phases.StartRandomDeck(cardPool, draftSettings);
-                    break;
-                case GameMode.Draft:
-                default:
-                    manager.Phases.StartDraft(cardPool, draftSettings);
-                    break;
+                Debug.Log("[MatchBootstrapper] Not the Master Client - waiting for synced draft/match state instead of starting the draft locally.");
+                return;
             }
+
+            AssignRandomLeaders();
+            manager.Phases.StartDraft(cardPool, draftSettings);
         }
 
         private void AssignRandomLeaders()

@@ -16,12 +16,20 @@ namespace DDD.TNFY.TCG.Core
         private readonly List<UI.MulliganCardSelectable> spawnedCards = new List<UI.MulliganCardSelectable>();
         private TurnPhase? shownPhase;
         private PlayerSide? shownSide;
+        private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
             if (confirmButton != null)
             {
                 confirmButton.onClick.AddListener(HandleConfirm);
+            }
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
             }
         }
 
@@ -42,6 +50,8 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
+            Debug.Log($"[MulliganPanel] Update detected state change: ({shownPhase}, {shownSide}) -> ({currentPhase}, {currentSide}). LocalSide={LocalSide}.");
+
             Refresh(currentPhase, currentSide);
 
             shownPhase = currentPhase;
@@ -50,7 +60,9 @@ namespace DDD.TNFY.TCG.Core
 
         private void Refresh(TurnPhase phase, PlayerSide side)
         {
-            bool isMulligan = phase == TurnPhase.Mulligan;
+            bool isMulligan = phase == TurnPhase.Mulligan && side == LocalSide;
+
+            Debug.Log($"[MulliganPanel] Refresh: phase={phase}, side={side}, LocalSide={LocalSide} -> isMulligan={isMulligan}.");
 
             if (panelRoot != null)
             {
@@ -74,6 +86,7 @@ namespace DDD.TNFY.TCG.Core
                 UI.MulliganCardSelectable selectable = view.GetComponent<UI.MulliganCardSelectable>();
                 if (selectable != null)
                 {
+                    selectable.Toggled += HandleCardToggled;
                     spawnedCards.Add(selectable);
                 }
             }
@@ -85,11 +98,37 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (existing != null)
                 {
+                    existing.Toggled -= HandleCardToggled;
                     Destroy(existing.gameObject);
                 }
             }
 
             spawnedCards.Clear();
+        }
+
+        private List<int> ComputeSelectedIndices()
+        {
+            List<int> selectedIndices = new List<int>();
+
+            for (int i = 0; i < spawnedCards.Count; i++)
+            {
+                if (spawnedCards[i] != null && spawnedCards[i].IsSelected)
+                {
+                    selectedIndices.Add(i);
+                }
+            }
+
+            return selectedIndices;
+        }
+
+        private void HandleCardToggled()
+        {
+            if (gameManager == null || gameManager.State == null || networkSync == null)
+            {
+                return;
+            }
+
+            networkSync.RequestUpdateMulliganSelection(gameManager.State.ActivePlayer, ComputeSelectedIndices());
         }
 
         private void HandleConfirm()
@@ -100,17 +139,24 @@ namespace DDD.TNFY.TCG.Core
             }
 
             PlayerSide side = gameManager.State.ActivePlayer;
-            List<CardData> selectedCards = new List<CardData>();
+            List<int> selectedIndices = ComputeSelectedIndices();
 
-            foreach (UI.MulliganCardSelectable card in spawnedCards)
+            if (networkSync != null)
             {
-                if (card != null && card.IsSelected)
+                networkSync.RequestMulliganChoice(side, selectedIndices);
+            }
+            else
+            {
+                List<CardData> selectedCards = new List<CardData>();
+                foreach (int index in selectedIndices)
                 {
-                    selectedCards.Add(card.Card);
+                    selectedCards.Add(gameManager.State.GetPlayer(side).Hand[index]);
                 }
+
+                gameManager.Phases.ResolveMulliganAndAdvance(side, selectedCards);
             }
 
-            gameManager.Phases.ResolveMulliganAndAdvance(side, selectedCards);
+            Debug.Log($"[MulliganPanel] Mulligan choice requested for {side}: {selectedIndices.Count} card(s) to swap. LocalSide={LocalSide}, IsMasterClient={Photon.Pun.PhotonNetwork.IsMasterClient}.");
         }
     }
 }

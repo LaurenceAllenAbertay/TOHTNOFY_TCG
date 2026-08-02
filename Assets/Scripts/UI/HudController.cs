@@ -22,9 +22,17 @@ namespace DDD.TNFY.TCG.UI
 
         private Color originalPlayerALeaderHealthColor;
         private Color originalPlayerBLeaderHealthColor;
+        private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
+
             if (playerALeaderHealthText != null)
             {
                 originalPlayerALeaderHealthColor = playerALeaderHealthText.color;
@@ -49,6 +57,8 @@ namespace DDD.TNFY.TCG.UI
         private void Refresh(GameState state)
         {
             Player active = state.GetActivePlayerData();
+            Player bottomSeatPlayer = state.GetPlayer(PlayerSide.PlayerA.ToActualSide(LocalSide));
+            Player topSeatPlayer = state.GetPlayer(PlayerSide.PlayerB.ToActualSide(LocalSide));
 
             if (manaText != null)
             {
@@ -57,14 +67,14 @@ namespace DDD.TNFY.TCG.UI
 
             if (playerALeaderHealthText != null)
             {
-                playerALeaderHealthText.text = state.PlayerA.LeaderHealth.ToString();
-                playerALeaderHealthText.color = CardDisplayFormatter.GetHealthColor(state.PlayerA.LeaderHealth, state.PlayerA.MaxLeaderHealth, originalPlayerALeaderHealthColor);
+                playerALeaderHealthText.text = bottomSeatPlayer.LeaderHealth.ToString();
+                playerALeaderHealthText.color = CardDisplayFormatter.GetHealthColor(bottomSeatPlayer.LeaderHealth, bottomSeatPlayer.MaxLeaderHealth, originalPlayerALeaderHealthColor);
             }
 
             if (playerBLeaderHealthText != null)
             {
-                playerBLeaderHealthText.text = state.PlayerB.LeaderHealth.ToString();
-                playerBLeaderHealthText.color = CardDisplayFormatter.GetHealthColor(state.PlayerB.LeaderHealth, state.PlayerB.MaxLeaderHealth, originalPlayerBLeaderHealthColor);
+                playerBLeaderHealthText.text = topSeatPlayer.LeaderHealth.ToString();
+                playerBLeaderHealthText.color = CardDisplayFormatter.GetHealthColor(topSeatPlayer.LeaderHealth, topSeatPlayer.MaxLeaderHealth, originalPlayerBLeaderHealthColor);
             }
 
             if (turnText != null)
@@ -79,7 +89,7 @@ namespace DDD.TNFY.TCG.UI
 
             if (activePlayerText != null)
             {
-                activePlayerText.text = $"Active: {state.ActivePlayer}";
+                activePlayerText.text = state.ActivePlayer == LocalSide ? "Active: You" : "Active: Opponent";
             }
         }
     }

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,6 +15,8 @@ namespace DDD.TNFY.TCG.UI
 
         public CardData Card => handCardView.Card;
         public bool IsSelected { get; private set; }
+
+        public event Action Toggled;
 
         private void Awake()
         {
@@ -33,6 +36,8 @@ namespace DDD.TNFY.TCG.UI
             {
                 selectedOverlay.enabled = IsSelected;
             }
+
+            Toggled?.Invoke();
         }
     }
 }

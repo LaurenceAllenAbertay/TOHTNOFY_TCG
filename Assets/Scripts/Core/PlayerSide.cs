@@ -12,5 +12,10 @@ namespace DDD.TNFY.TCG.Core
         {
             return side == PlayerSide.PlayerA ? PlayerSide.PlayerB : PlayerSide.PlayerA;
         }
+
+        public static PlayerSide ToActualSide(this PlayerSide seat, PlayerSide localSide)
+        {
+            return localSide == PlayerSide.PlayerA ? seat : seat.Opposite();
+        }
     }
 }

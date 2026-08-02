@@ -18,12 +18,20 @@ namespace DDD.TNFY.TCG.UI
         private RectTransform dragGhostRect;
         private bool droppedOnLegalSlot;
         private List<BoardSlotDropTarget> cachedSlotDropTargets;
+        private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
             boardCardView = GetComponent<BoardCardView>();
             gameManager = FindFirstObjectByType<GameManager>();
             boardView = FindFirstObjectByType<BoardView>();
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
 
             if (boardView != null)
             {
@@ -87,7 +95,7 @@ namespace DDD.TNFY.TCG.UI
 
         private bool IsEnemyMoveGrantEligible()
         {
-            if (gameManager.State.CurrentPhase != TurnPhase.Move)
+            if (gameManager.State.CurrentPhase != TurnPhase.Action)
             {
                 return false;
             }
@@ -119,12 +127,17 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
-            bool isMovePhase = gameManager.State.CurrentPhase == TurnPhase.Move;
+            if (gameManager.State.ActivePlayer != LocalSide)
+            {
+                return false;
+            }
+
+            bool isActionPhase = gameManager.State.CurrentPhase == TurnPhase.Action;
             bool isOwnUnit = boardCardView.Unit.Owner == gameManager.State.ActivePlayer;
 
             if (isOwnUnit)
             {
-                return isMovePhase || IsPendingFreeMoveEligible();
+                return isActionPhase || IsPendingFreeMoveEligible();
             }
 
             return IsEnemyMoveGrantEligible() || IsPendingOnPlayEnemyMoveEligible();
@@ -218,10 +231,18 @@ namespace DDD.TNFY.TCG.UI
             {
                 if (IsPendingOnPlayEnemyMoveEligible())
                 {
-                    if (gameManager.Phases.MoveGrantedEnemyUnitFree(boardCardView.Unit, slot.SlotIndex))
+                    bool moved = networkSync != null
+                        ? networkSync.RequestMoveGrantedEnemyUnitFree(slot.SlotIndex)
+                        : gameManager.Phases.MoveGrantedEnemyUnitFree(boardCardView.Unit, slot.SlotIndex);
+
+                    if (moved)
                     {
-                        state.HasPendingEnemyMoveGrantOnPlay = false;
-                        state.PendingEnemyMoveGrantTarget = null;
+                        if (networkSync == null)
+                        {
+                            state.HasPendingEnemyMoveGrantOnPlay = false;
+                            state.PendingEnemyMoveGrantTarget = null;
+                        }
+
                         droppedOnLegalSlot = true;
                         Debug.Log($"[BoardCardDrag] Pending On-Play enemy move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
                     }
@@ -229,7 +250,11 @@ namespace DDD.TNFY.TCG.UI
                     return;
                 }
 
-                if (gameManager.Phases.MoveEnemyUnitViaGrantedAbility(state.ActivePlayer, fromSlot, slot.SlotIndex))
+                bool grantedMove = networkSync != null
+                    ? networkSync.RequestMoveEnemyUnitViaGrantedAbility(fromSlot, slot.SlotIndex)
+                    : gameManager.Phases.MoveEnemyUnitViaGrantedAbility(state.ActivePlayer, fromSlot, slot.SlotIndex);
+
+                if (grantedMove)
                 {
                     droppedOnLegalSlot = true;
                     Debug.Log($"[BoardCardDrag] Granted enemy move used: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
@@ -240,10 +265,18 @@ namespace DDD.TNFY.TCG.UI
 
             if (state.HasPendingFreeMove && IsPendingFreeMoveEligible())
             {
-                if (gameManager.Phases.MoveUnitFree(boardCardView.Unit.Owner, fromSlot, slot.SlotIndex))
+                bool movedFree = networkSync != null
+                    ? networkSync.RequestMoveUnitFree(fromSlot, slot.SlotIndex)
+                    : gameManager.Phases.MoveUnitFree(boardCardView.Unit.Owner, fromSlot, slot.SlotIndex);
+
+                if (movedFree)
                 {
-                    state.HasPendingFreeMove = false;
-                    state.PendingFreeMoveExcludedUnit = null;
+                    if (networkSync == null)
+                    {
+                        state.HasPendingFreeMove = false;
+                        state.PendingFreeMoveExcludedUnit = null;
+                    }
+
                     droppedOnLegalSlot = true;
                     Debug.Log($"[BoardCardDrag] Pending free move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
                 }
@@ -251,7 +284,11 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            if (gameManager.Phases.TryMoveUnit(fromSlot, slot.SlotIndex))
+            bool movedNormally = networkSync != null
+                ? networkSync.RequestMoveUnit(fromSlot, slot.SlotIndex)
+                : gameManager.Phases.TryMoveUnit(fromSlot, slot.SlotIndex);
+
+            if (movedNormally)
             {
                 droppedOnLegalSlot = true;
             }

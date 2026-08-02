@@ -28,6 +28,18 @@ namespace DDD.TNFY.TCG.UI
         private readonly BoardCardView[] spawnedPlayerAViews = new BoardCardView[Board.SlotsPerSide];
         private readonly BoardCardView[] spawnedPlayerBViews = new BoardCardView[Board.SlotsPerSide];
 
+        private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+
+        private void Awake()
+        {
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
+        }
+
         private void Update()
         {
             if (gameManager == null || gameManager.State == null)
@@ -35,8 +47,8 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            RefreshSide(PlayerSide.PlayerA, playerASlotContainers, playerACardLayer, shownPlayerAUnits, spawnedPlayerAViews);
-            RefreshSide(PlayerSide.PlayerB, playerBSlotContainers, playerBCardLayer, shownPlayerBUnits, spawnedPlayerBViews);
+            RefreshSide(PlayerSide.PlayerA.ToActualSide(LocalSide), playerASlotContainers, playerACardLayer, shownPlayerAUnits, spawnedPlayerAViews);
+            RefreshSide(PlayerSide.PlayerB.ToActualSide(LocalSide), playerBSlotContainers, playerBCardLayer, shownPlayerBUnits, spawnedPlayerBViews);
         }
 
         private void RefreshSide(PlayerSide side, Transform[] containers, RectTransform cardLayer, BoardUnit[] shownUnits, BoardCardView[] spawnedViews)

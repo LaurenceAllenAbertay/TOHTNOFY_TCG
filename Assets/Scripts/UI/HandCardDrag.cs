@@ -21,15 +21,18 @@ namespace DDD.TNFY.TCG.UI
         private HandCardView handCardView;
         private GameObject dragGhost;
         private RectTransform dragGhostRect;
-        private bool droppedOnLegalTarget;
         private bool isDragging;
+        private bool everEnteredBoardArea;
         private bool isInsideBoardArea;
         private int originalSiblingIndex;
         private List<BoardSlotDropTarget> cachedSlotDropTargets;
         private List<LeaderDropTarget> cachedLeaderDropTargets;
+        private NetworkedMatchSync networkSync;
 
         public bool IsDraggingUnitCard => handCardView != null && handCardView.Card is UnitCardData;
         public bool IsDraggingItemCard => handCardView != null && handCardView.Card is ItemCardData;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
@@ -38,6 +41,11 @@ namespace DDD.TNFY.TCG.UI
             boardView = FindFirstObjectByType<BoardView>();
             handView = GetComponentInParent<HandView>();
             boardAreaDropTarget = FindFirstObjectByType<BoardAreaDropTarget>();
+
+            if (gameManager != null)
+            {
+                networkSync = gameManager.GetComponent<NetworkedMatchSync>();
+            }
 
             if (boardAreaDropTarget != null)
             {
@@ -110,6 +118,11 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
+            if (gameManager.State.ActivePlayer != LocalSide)
+            {
+                return false;
+            }
+
             if (gameManager.Phases.HasBlockingPendingTargetedEffect())
             {
                 return false;
@@ -120,7 +133,6 @@ namespace DDD.TNFY.TCG.UI
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            droppedOnLegalTarget = false;
             isDragging = false;
 
             if (!CanDragThisCard())
@@ -161,7 +173,14 @@ namespace DDD.TNFY.TCG.UI
 
             handCardView.SetVisible(false);
 
+            everEnteredBoardArea = false;
             isInsideBoardArea = IsPointerInsideBoardArea(eventData);
+
+            if (isInsideBoardArea)
+            {
+                everEnteredBoardArea = true;
+            }
+
             UpdateHighlights(isInsideBoardArea);
         }
 
@@ -187,7 +206,12 @@ namespace DDD.TNFY.TCG.UI
                 UpdateHighlights(isInsideBoardArea);
             }
 
-            if (!isInsideBoardArea)
+            if (isInsideBoardArea)
+            {
+                everEnteredBoardArea = true;
+            }
+
+            if (!everEnteredBoardArea)
             {
                 UpdateReorderPreview(eventData);
             }
@@ -202,9 +226,9 @@ namespace DDD.TNFY.TCG.UI
                 dragGhostRect = null;
             }
 
-            if (isDragging && !droppedOnLegalTarget)
+            if (isDragging)
             {
-                if (!isInsideBoardArea)
+                if (!everEnteredBoardArea)
                 {
                     if (handView != null)
                     {
@@ -315,22 +339,14 @@ namespace DDD.TNFY.TCG.UI
                     return;
                 }
 
-                if (gameManager.Phases.TryPlayUnit(unitCard, slot.SlotIndex))
-                {
-                    droppedOnLegalTarget = true;
-                }
-
+                TryRequestPlayUnit(unitCard, slot.SlotIndex);
                 return;
             }
 
             if (handCardView.Card is ItemCardData itemCard)
             {
                 EffectTarget target = ResolveDropTarget(itemCard, slot, null);
-
-                if (gameManager.Phases.TryPlayItem(itemCard, target))
-                {
-                    droppedOnLegalTarget = true;
-                }
+                TryRequestPlayItem(itemCard, target);
             }
         }
 
@@ -347,11 +363,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             EffectTarget target = ResolveDropTarget(itemCard, null, leader);
-
-            if (gameManager.Phases.TryPlayItem(itemCard, target))
-            {
-                droppedOnLegalTarget = true;
-            }
+            TryRequestPlayItem(itemCard, target);
         }
 
         public void HandleDroppedOnUnit(BoardUnit unit)
@@ -370,11 +382,7 @@ namespace DDD.TNFY.TCG.UI
                     return;
                 }
 
-                if (gameManager.Phases.TryPlayUnit(unitCard, unit.SlotIndex))
-                {
-                    droppedOnLegalTarget = true;
-                }
-
+                TryRequestPlayUnit(unitCard, unit.SlotIndex);
                 return;
             }
 
@@ -385,13 +393,8 @@ namespace DDD.TNFY.TCG.UI
 
             EffectTarget target = IsBoardTargeted(itemCard) ? EffectTarget.None : EffectTarget.ForUnit(unit);
 
-            bool played = gameManager.Phases.TryPlayItem(itemCard, target);
+            bool played = TryRequestPlayItem(itemCard, target);
             Debug.Log($"[HandCardDrag] TryPlayItem({itemCard.CardName}, target.Kind={target.Kind}) returned {played}");
-
-            if (played)
-            {
-                droppedOnLegalTarget = true;
-            }
         }
 
         public void HandleDroppedOnBoardArea()
@@ -406,10 +409,35 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            if (gameManager.Phases.TryPlayItem(itemCard, EffectTarget.None))
+            TryRequestPlayItem(itemCard, EffectTarget.None);
+        }
+
+        private bool TryRequestPlayUnit(UnitCardData unitCard, int slotIndex)
+        {
+            int handIndex = gameManager.State.GetPlayer(LocalSide).Hand.IndexOf(unitCard);
+
+            if (handIndex < 0)
             {
-                droppedOnLegalTarget = true;
+                return false;
             }
+
+            return networkSync != null
+                ? networkSync.RequestPlayUnit(handIndex, slotIndex)
+                : gameManager.Phases.TryPlayUnit(unitCard, slotIndex);
+        }
+
+        private bool TryRequestPlayItem(ItemCardData itemCard, EffectTarget target)
+        {
+            int handIndex = gameManager.State.GetPlayer(LocalSide).Hand.IndexOf(itemCard);
+
+            if (handIndex < 0)
+            {
+                return false;
+            }
+
+            return networkSync != null
+                ? networkSync.RequestPlayItem(handIndex, target)
+                : gameManager.Phases.TryPlayItem(itemCard, target);
         }
 
         private bool IsBoardTargeted(ItemCardData itemCard)
