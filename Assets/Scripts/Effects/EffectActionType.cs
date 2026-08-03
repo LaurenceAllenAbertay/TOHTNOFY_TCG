@@ -12,7 +12,7 @@ namespace DDD.TNFY.TCG.Effects
         ApplyDelayedKill,
         BounceUnit,
         GrantRush,
-        ApplyLeaderDamageShield,
+        ApplyShield,
         DealDamageToTarget,
         ReduceOpponentMana,
         GrantKeyword,

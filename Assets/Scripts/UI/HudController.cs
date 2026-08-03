@@ -62,7 +62,13 @@ namespace DDD.TNFY.TCG.UI
 
             if (manaText != null)
             {
-                manaText.text = $"Mana: {active.CurrentMana} / {active.MaxManaThisGame}";
+                bool manaIsRelevant = state.CurrentPhase != TurnPhase.Draft && state.CurrentPhase != TurnPhase.Mulligan;
+                manaText.enabled = manaIsRelevant;
+
+                if (manaIsRelevant)
+                {
+                    manaText.text = $"Mana: {active.CurrentMana} / {active.MaxManaThisGame}";
+                }
             }
 
             if (playerALeaderHealthText != null)

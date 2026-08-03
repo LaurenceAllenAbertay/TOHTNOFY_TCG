@@ -238,7 +238,6 @@ namespace DDD.TNFY.TCG.Core
 
             player.CurrentDraftStage = null;
             Debug.Log($"[PhaseManager] {side}'s draft is complete.");
-            state.RaiseDraftOptionsChanged();
 
             if (state.PlayerA.CurrentDraftStage != null || state.PlayerB.CurrentDraftStage != null)
             {
@@ -268,6 +267,9 @@ namespace DDD.TNFY.TCG.Core
 
             state.ActivePlayer = state.FirstPlayer;
             state.TurnNumber = 1;
+
+            TriggerLeaderEffects(EffectTriggerType.OnGameStart, state.FirstPlayer, null);
+
             EnterMulliganPhase();
         }
 
@@ -307,12 +309,25 @@ namespace DDD.TNFY.TCG.Core
         {
             Player player = state.GetPlayer(side);
 
+            List<CardData> validCardsToMulligan = new List<CardData>();
+
             foreach (CardData card in cardsToMulligan)
+            {
+                if (player.GameStartBonusCards.Contains(card))
+                {
+                    Debug.LogWarning($"[PhaseManager] {card.CardName} is a GameStartBonusCard for {side} - ignoring attempt to mulligan it.");
+                    continue;
+                }
+
+                validCardsToMulligan.Add(card);
+            }
+
+            foreach (CardData card in validCardsToMulligan)
             {
                 player.Hand.Remove(card);
             }
 
-            for (int i = 0; i < cardsToMulligan.Count; i++)
+            for (int i = 0; i < validCardsToMulligan.Count; i++)
             {
                 if (player.Deck.Count == 0) break;
 
@@ -323,7 +338,7 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
-            foreach (CardData card in cardsToMulligan)
+            foreach (CardData card in validCardsToMulligan)
             {
                 player.Deck.Add(card);
             }
@@ -489,16 +504,6 @@ namespace DDD.TNFY.TCG.Core
         public void EnterActionPhase()
         {
             state.CurrentPhase = TurnPhase.Action;
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
-
-                if (unit != null && ConsumeStunIfPresent(unit))
-                {
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} (Slot={i}) was stunned - stun consumed, cannot attack this turn.");
-                }
-            }
         }
 
         private void TryTriggerPeriodicItemDraw(Player player)
@@ -534,11 +539,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             active.CurrentMana -= effectiveCost;
-
-            if (active.Leader != null && active.Leader.FirstUnitCostDiscount > 0)
-            {
-                active.HasUsedFirstUnitDiscountThisTurn = true;
-            }
 
             active.Hand.Remove(card);
 
@@ -700,7 +700,7 @@ namespace DDD.TNFY.TCG.Core
             return CanUnitAttack(unit);
         }
 
-        public bool TryAttackWithUnit(int slotIndex)
+        public bool TryAttackWithUnit(int slotIndex, System.Action onAttackFullyResolved = null)
         {
             if (!CanAttackWithUnit(slotIndex)) return false;
 
@@ -727,26 +727,31 @@ namespace DDD.TNFY.TCG.Core
                     CheckWinCondition();
                 }
 
+                onAttackFullyResolved?.Invoke();
+
                 return true;
             }
 
-            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus));
+            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus, onAttackFullyResolved));
             return true;
         }
 
-        private IEnumerator RunSingleAttackAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
+        private IEnumerator RunSingleAttackAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus, System.Action onAttackFullyResolved)
         {
             state.CurrentlyAttackingUnit = attacker;
+            Debug.Log($"[PhaseManager] CurrentlyAttackingUnit = {attacker.SourceCard.CardName} (this field is NOT networked - only visible on this machine). Coroutine now waiting on the animation before damage is applied.");
 
             bool shouldChainAttack = false;
             yield return ResolveAttackerCombatAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus, result => shouldChainAttack = result);
 
             state.CurrentlyAttackingUnit = null;
+            Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s attack coroutine finished - invoking onAttackFullyResolved now so the network layer can broadcast.");
 
             CheckWinCondition();
 
             if (state.IsGameOver || !shouldChainAttack)
             {
+                onAttackFullyResolved?.Invoke();
                 yield break;
             }
 
@@ -754,6 +759,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
             {
+                onAttackFullyResolved?.Invoke();
                 yield break;
             }
 
@@ -764,6 +770,7 @@ namespace DDD.TNFY.TCG.Core
                 Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s chained attack has 0 effective attack — skipping animation, resolving immediately.");
                 ResolveChainAttack(attacker, slotIndex, temporaryAttackBonus);
                 CheckWinCondition();
+                onAttackFullyResolved?.Invoke();
                 yield break;
             }
 
@@ -777,6 +784,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.CurrentlyAttackingUnit = null;
+            onAttackFullyResolved?.Invoke();
         }
 
         private bool ResolveAttackerCombat(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, int temporaryAttackBonus)
@@ -1085,9 +1093,9 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public void DamageLeader(PlayerSide side, int amount)
+        public bool DamageLeader(PlayerSide side, int amount)
         {
-            lifecycle.DamageLeader(side, amount);
+            return lifecycle.DamageLeader(side, amount);
         }
 
         public void HealUnit(BoardUnit unit, int amount)
@@ -1132,6 +1140,12 @@ namespace DDD.TNFY.TCG.Core
             if (target == null || amount <= 0)
             {
                 Debug.Log($"[PhaseManager] DamageUnit skipped: target={(target == null ? "null" : target.SourceCard.CardName)}, amount={amount}.");
+                return false;
+            }
+
+            if (UnitLifecycleService.ConsumeShieldIfPresent(target.Statuses))
+            {
+                Debug.Log($"[PhaseManager] {target.SourceCard.CardName} had Shield — {amount} {sourceType} damage from {source} blocked and Shield consumed.");
                 return false;
             }
 
@@ -1293,9 +1307,11 @@ namespace DDD.TNFY.TCG.Core
             System.Random rng = new System.Random();
             BoardUnit target = candidates[rng.Next(candidates.Count)];
 
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Unstable dealing 1 damage to {target.SourceCard.CardName} in slot {target.SlotIndex}.");
+            int unstableDamage = unit.GetCurrentAttack(state);
 
-            DamageUnit(target, 1, unit.Owner, DamageSourceType.Effect);
+            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Unstable dealing {unstableDamage} (its Attack) damage to {target.SourceCard.CardName} in slot {target.SlotIndex}.");
+
+            DamageUnit(target, unstableDamage, unit.Owner, DamageSourceType.Effect);
         }
 
         public void BounceUnit(BoardUnit unit)
@@ -1348,11 +1364,6 @@ namespace DDD.TNFY.TCG.Core
             SyncQualifyingEnemyAuraHealth();
 
             return true;
-        }
-
-        private bool ConsumeStunIfPresent(BoardUnit unit)
-        {
-            return UnitLifecycleService.ConsumeStunIfPresent(unit);
         }
 
         private static bool ConsumeStatus(BoardUnit unit, StatusEffectType type)
@@ -1422,11 +1433,6 @@ namespace DDD.TNFY.TCG.Core
 
                 DamageUnit(unit, decayStacks, killer ?? unit.Owner.Opposite(), DamageSourceType.Effect);
             }
-        }
-
-        private void TickLeaderDamageShield(Player owner)
-        {
-            lifecycle.TickLeaderDamageShield(owner);
         }
 
         private void ApplyAndConsumeManaReduction(Player active)
@@ -1542,8 +1548,6 @@ namespace DDD.TNFY.TCG.Core
             state.HasPendingEnemyMoveGrantOnPlay = false;
             state.PendingEnemyMoveGrantTarget = null;
 
-            TickLeaderDamageShield(state.GetPlayer(state.ActivePlayer.Opposite()));
-
             EnterTurnEndPhase();
             EndTurn();
         }
@@ -1565,14 +1569,18 @@ namespace DDD.TNFY.TCG.Core
                         unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Silenced);
                         Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
                     }
+
+                    if (IsStunned(unit))
+                    {
+                        unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Stunned);
+                        Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Stun wore off at the end of {state.ActivePlayer}'s turn.");
+                    }
                 }
             }
 
             state.HasUsedMoveThisTurn = false;
             state.PlayerA.TriggeredOncePerTurnEffects.Clear();
             state.PlayerB.TriggeredOncePerTurnEffects.Clear();
-            state.PlayerA.HasUsedFirstUnitDiscountThisTurn = false;
-            state.PlayerB.HasUsedFirstUnitDiscountThisTurn = false;
 
             Player endingPlayer = state.GetPlayer(state.ActivePlayer);
             if (endingPlayer.HasNextItemDoubled)
@@ -1947,9 +1955,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            EffectTarget defaultTarget = EffectTarget.ForLeader(leaderOwner.Side);
-            EffectContext context = new EffectContext(state, leaderOwner.Side, sourceUnit, defaultTarget, triggeringPlayer);
-
             foreach (CardEffect effect in leaderOwner.Leader.Effects)
             {
                 if (effect.trigger != trigger)
@@ -1961,6 +1966,18 @@ namespace DDD.TNFY.TCG.Core
                 {
                     continue;
                 }
+
+                EffectTarget resolvedTarget = (effect.targetType == TargetType.None || (effect.targetType == TargetType.Self && sourceUnit == null))
+                    ? EffectTarget.ForLeader(leaderOwner.Side)
+                    : EffectTargeting.ResolveImmediateTarget(effect.targetType, sourceUnit, leaderOwner.Side, state);
+
+                if (resolvedTarget.Kind == EffectTargetKind.None || (resolvedTarget.Kind == EffectTargetKind.Unit && resolvedTarget.Unit == null))
+                {
+                    Debug.LogWarning($"[PhaseManager] {leaderOwner.Side}'s leader effect (trigger={trigger}, action={effect.action}, targetType={effect.targetType}) could not resolve a target — skipped.");
+                    continue;
+                }
+
+                EffectContext context = new EffectContext(state, leaderOwner.Side, sourceUnit, resolvedTarget, triggeringPlayer);
 
                 EffectExecutor.Execute(effect, context, this);
 

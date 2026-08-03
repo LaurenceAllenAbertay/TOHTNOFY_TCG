@@ -108,16 +108,32 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public void DamageLeader(PlayerSide side, int amount)
+        public bool DamageLeader(PlayerSide side, int amount)
         {
             Player player = state.GetPlayer(side);
 
-            if (player.HasStatus(StatusEffectType.LeaderDamageShield))
+            if (ConsumeShieldIfPresent(player.Statuses))
             {
-                return;
+                Debug.Log($"[UnitLifecycleService] {side}'s leader had Shield — damage blocked and Shield consumed.");
+                return false;
             }
 
             player.LeaderHealth -= amount;
+            return true;
+        }
+
+        public static bool ConsumeShieldIfPresent(List<ActiveStatusEffect> statuses)
+        {
+            for (int i = 0; i < statuses.Count; i++)
+            {
+                if (statuses[i].Type == StatusEffectType.Shield)
+                {
+                    statuses.RemoveAt(i);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void HealUnit(BoardUnit unit, int amount)
@@ -230,26 +246,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, 1));
-        }
-
-        public void TickLeaderDamageShield(Player owner)
-        {
-            for (int i = owner.Statuses.Count - 1; i >= 0; i--)
-            {
-                if (owner.Statuses[i].Type != StatusEffectType.LeaderDamageShield) continue;
-
-                owner.Statuses[i].RemainingTriggers--;
-
-                if (owner.Statuses[i].RemainingTriggers <= 0)
-                {
-                    owner.Statuses.RemoveAt(i);
-                }
-            }
-        }
-
-        public static bool ConsumeStunIfPresent(BoardUnit unit)
-        {
-            return ConsumeStatus(unit, StatusEffectType.Stunned);
         }
 
         public static bool ConsumeStatus(BoardUnit unit, StatusEffectType type)

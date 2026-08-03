@@ -1,3 +1,4 @@
+using System;
 using Photon.Pun;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,6 +13,13 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private string gameSceneName = "Game";
 
         private bool isReturningToMenu;
+        private bool localWantsRematch;
+        private bool remoteWantsRematch;
+
+        public bool LocalWantsRematch => localWantsRematch;
+        public bool RemoteWantsRematch => remoteWantsRematch;
+
+        public event Action<bool, bool> RematchVoteChanged;
 
         public override void OnPlayerLeftRoom(Photon.Realtime.Player otherPlayer)
         {
@@ -46,6 +54,12 @@ namespace DDD.TNFY.TCG.Core
 
         public void RequestRematch()
         {
+            if (isReturningToMenu)
+            {
+                Debug.Log("[MatchLifecycleController] RequestRematch ignored - already returning to the main menu.");
+                return;
+            }
+
             if (!PhotonNetwork.InRoom)
             {
                 Debug.Log("[MatchLifecycleController] Rematch (offline): reloading the match scene.");
@@ -53,21 +67,46 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            if (PhotonNetwork.IsMasterClient)
+            if (localWantsRematch)
             {
-                Debug.Log("[MatchLifecycleController] Rematch: reloading the match scene for the room.");
-                PhotonNetwork.LoadLevel(gameSceneName);
+                Debug.Log("[MatchLifecycleController] RequestRematch ignored - local vote already cast.");
                 return;
             }
 
-            Debug.Log("[MatchLifecycleController] Requesting rematch from the Master Client.");
-            photonView.RPC(nameof(ReceiveRematchRequest), RpcTarget.MasterClient);
+            localWantsRematch = true;
+            Debug.Log($"[MatchLifecycleController] Local player voted for rematch. remoteWantsRematch={remoteWantsRematch}.");
+            RematchVoteChanged?.Invoke(localWantsRematch, remoteWantsRematch);
+
+            photonView.RPC(nameof(ReceiveRematchVote), RpcTarget.Others);
+
+            TryStartRematchIfBothReady();
         }
 
         [PunRPC]
-        private void ReceiveRematchRequest()
+        private void ReceiveRematchVote()
         {
-            Debug.Log("[MatchLifecycleController] Rematch requested by the other client - reloading the match scene.");
+            remoteWantsRematch = true;
+            Debug.Log($"[MatchLifecycleController] Received rematch vote from the other client. localWantsRematch={localWantsRematch}.");
+            RematchVoteChanged?.Invoke(localWantsRematch, remoteWantsRematch);
+
+            TryStartRematchIfBothReady();
+        }
+
+        private void TryStartRematchIfBothReady()
+        {
+            if (!localWantsRematch || !remoteWantsRematch)
+            {
+                Debug.Log($"[MatchLifecycleController] Not starting rematch yet - localWantsRematch={localWantsRematch}, remoteWantsRematch={remoteWantsRematch}.");
+                return;
+            }
+
+            if (!PhotonNetwork.IsMasterClient)
+            {
+                Debug.Log("[MatchLifecycleController] Both players want a rematch - waiting for the Master Client to reload the scene.");
+                return;
+            }
+
+            Debug.Log("[MatchLifecycleController] Both players want a rematch - Master Client reloading the scene now.");
             PhotonNetwork.LoadLevel(gameSceneName);
         }
     }

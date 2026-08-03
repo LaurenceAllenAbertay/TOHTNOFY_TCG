@@ -14,7 +14,6 @@ namespace DDD.TNFY.TCG.Cards
         [TextArea(2, 4)]
         [SerializeField] private string abilityText;
         [Header( "Leader Effects" )]
-        [SerializeField] private int firstUnitCostDiscount;
         [SerializeField] private int itemDrawIntervalTurns;
         [SerializeField] private int moveManaCost;
         [SerializeField] private int moveTemporaryAttackBonus;
@@ -31,7 +30,6 @@ namespace DDD.TNFY.TCG.Cards
         public int MaxHealth => maxHealth;
         public Sprite Portrait => portrait;
         public string AbilityText => abilityText;
-        public int FirstUnitCostDiscount => firstUnitCostDiscount;
         public int ItemDrawIntervalTurns => itemDrawIntervalTurns;
         public int MoveManaCost => moveManaCost;
         public int MoveTemporaryAttackBonus => moveTemporaryAttackBonus;

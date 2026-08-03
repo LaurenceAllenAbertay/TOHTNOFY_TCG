@@ -442,8 +442,8 @@ namespace DDD.TNFY.TCG.UI
                     statusType = StatusEffectType.DelayedKill;
                     return true;
 
-                case EffectActionType.ApplyLeaderDamageShield:
-                    statusType = StatusEffectType.LeaderDamageShield;
+                case EffectActionType.ApplyShield:
+                    statusType = StatusEffectType.Shield;
                     return true;
 
                 case EffectActionType.ReduceOpponentMana:

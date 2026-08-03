@@ -39,6 +39,19 @@ namespace DDD.TNFY.TCG.UI
                 lifecycle = gameManager.GetComponent<MatchLifecycleController>();
                 networkSync = gameManager.GetComponent<NetworkedMatchSync>();
             }
+
+            if (lifecycle != null)
+            {
+                lifecycle.RematchVoteChanged += HandleRematchVoteChanged;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (lifecycle != null)
+            {
+                lifecycle.RematchVoteChanged -= HandleRematchVoteChanged;
+            }
         }
 
         private void Update()
@@ -84,6 +97,23 @@ namespace DDD.TNFY.TCG.UI
             {
                 lifecycle.ReturnToMainMenu();
             }
+        }
+
+        private void HandleRematchVoteChanged(bool localWantsRematch, bool remoteWantsRematch)
+        {
+            Debug.Log($"[WinLoseScreen] Rematch vote changed - local={localWantsRematch}, remote={remoteWantsRematch}.");
+
+            if (rematchButton != null && localWantsRematch)
+            {
+                rematchButton.interactable = false;
+            }
+
+            if (resultText == null || !localWantsRematch)
+            {
+                return;
+            }
+
+            resultText.text = remoteWantsRematch ? "Rematch starting..." : "Waiting for opponent to accept rematch...";
         }
     }
 }

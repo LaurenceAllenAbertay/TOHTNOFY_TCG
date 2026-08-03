@@ -144,14 +144,17 @@ namespace DDD.TNFY.TCG.Core
 
             PlayerSide side = LocalSide;
 
-            foreach (CardData card in deck)
+            List<CardData> sortedForDisplay = new List<CardData>(deck);
+            sortedForDisplay.Sort((a, b) => string.CompareOrdinal(a.CardId, b.CardId));
+
+            foreach (CardData card in sortedForDisplay)
             {
                 UI.HandCardView view = Instantiate(deckCardPrefab, cardContainer);
                 view.Bind(card, side, gameManager.State, useLiveCost: false);
                 spawnedCards.Add(view);
             }
 
-            Debug.Log($"[DeckViewPanel] Refreshed with {deck.Count} card(s) remaining in {side}'s deck.");
+            Debug.Log($"[DeckViewPanel] Refreshed with {deck.Count} card(s) remaining in {side}'s deck, sorted alphabetically by CardId for display.");
         }
 
         private void UpdateCardCountText()

@@ -19,8 +19,8 @@ namespace DDD.TNFY.TCG.Core
         private float? playerBDraftDeadline;
         private float? turnDeadline;
 
-        private List<CardData> lastSeenPlayerADraftOptions;
-        private List<CardData> lastSeenPlayerBDraftOptions;
+        private DraftStage? lastSeenPlayerADraftStage;
+        private DraftStage? lastSeenPlayerBDraftStage;
         private TurnPhase? lastSeenTurnPhase;
         private PlayerSide? lastSeenTurnActivePlayer;
 
@@ -71,17 +71,35 @@ namespace DDD.TNFY.TCG.Core
         {
             GameState state = gameManager.State;
 
-            if (state.PlayerA.PendingDraftOptions != lastSeenPlayerADraftOptions)
+            bool playerADraftStarting = state.PlayerA.CurrentDraftStage != null && lastSeenPlayerADraftStage == null;
+            bool playerADraftEnding = state.PlayerA.CurrentDraftStage == null && lastSeenPlayerADraftStage != null;
+
+            if (playerADraftStarting)
             {
-                lastSeenPlayerADraftOptions = state.PlayerA.PendingDraftOptions;
-                playerADraftDeadline = state.PlayerA.PendingDraftOptions != null ? (float?)(Time.time + timerDurationSeconds) : null;
+                playerADraftDeadline = Time.time + timerDurationSeconds;
+                Debug.Log($"[TurnTimerController] PlayerA's draft has begun - starting a single {timerDurationSeconds}s timer for the whole draft phase.");
+            }
+            else if (playerADraftEnding)
+            {
+                playerADraftDeadline = null;
             }
 
-            if (state.PlayerB.PendingDraftOptions != lastSeenPlayerBDraftOptions)
+            lastSeenPlayerADraftStage = state.PlayerA.CurrentDraftStage;
+
+            bool playerBDraftStarting = state.PlayerB.CurrentDraftStage != null && lastSeenPlayerBDraftStage == null;
+            bool playerBDraftEnding = state.PlayerB.CurrentDraftStage == null && lastSeenPlayerBDraftStage != null;
+
+            if (playerBDraftStarting)
             {
-                lastSeenPlayerBDraftOptions = state.PlayerB.PendingDraftOptions;
-                playerBDraftDeadline = state.PlayerB.PendingDraftOptions != null ? (float?)(Time.time + timerDurationSeconds) : null;
+                playerBDraftDeadline = Time.time + timerDurationSeconds;
+                Debug.Log($"[TurnTimerController] PlayerB's draft has begun - starting a single {timerDurationSeconds}s timer for the whole draft phase.");
             }
+            else if (playerBDraftEnding)
+            {
+                playerBDraftDeadline = null;
+            }
+
+            lastSeenPlayerBDraftStage = state.PlayerB.CurrentDraftStage;
         }
 
         private void DetectTurnChanges()

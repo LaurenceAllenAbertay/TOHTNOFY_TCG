@@ -26,7 +26,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            gameManager.State.PhaseChanged += HandlePhaseChanged;
+            gameManager.State.PhaseAnnounced += HandlePhaseAnnounced;
             networkSync = gameManager.GetComponent<NetworkedMatchSync>();
         }
 
@@ -37,12 +37,12 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            gameManager.State.PhaseChanged -= HandlePhaseChanged;
+            gameManager.State.PhaseAnnounced -= HandlePhaseAnnounced;
         }
 
-        private void HandlePhaseChanged(TurnPhase newPhase)
+        private void HandlePhaseAnnounced(TurnPhase newPhase, PlayerSide activePlayerAtAnnouncement)
         {
-            string text = GetAnnouncementText(newPhase);
+            string text = GetAnnouncementText(newPhase, activePlayerAtAnnouncement);
 
             if (text == null)
             {
@@ -71,7 +71,7 @@ namespace DDD.TNFY.TCG.UI
             gameManager.State.RaiseBannerAnimationFinished();
         }
 
-        private string GetAnnouncementText(TurnPhase newPhase)
+        private string GetAnnouncementText(TurnPhase newPhase, PlayerSide activePlayerAtAnnouncement)
         {
             switch (newPhase)
             {
@@ -89,7 +89,7 @@ namespace DDD.TNFY.TCG.UI
                         hasShownFirstActionBanner = true;
                         return null;
                     }
-                    return gameManager.State.ActivePlayer == LocalSide ? "YOUR TURN" : "OPPONENT'S TURN";
+                    return activePlayerAtAnnouncement == LocalSide ? "YOUR TURN" : "OPPONENT'S TURN";
 
                 default:
                     return null;

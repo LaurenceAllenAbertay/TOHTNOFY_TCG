@@ -13,7 +13,7 @@ namespace DDD.TNFY.TCG.Cards
             { Keyword.Nimble, "This unit can move for free." },
             { Keyword.Piercing, "This unit attacks the leader directly." },
             { Keyword.Unmoving, "This unit can never move." },
-            { Keyword.Unstable, "When this unit dies, deal 1 damage to a random enemy unit." },
+            { Keyword.Unstable, "When this unit dies, deal damage equal to its Attack to a random enemy unit." },
             { Keyword.Retaliate, "If this unit survives a hit, it attacks the attacking unit." },
             { Keyword.Teleport, "This unit can move to any open slot." },
             { Keyword.Absorb, "Can be placed on an allied unit, replacing it and gaining its stats." },

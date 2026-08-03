@@ -14,6 +14,7 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private Button confirmButton;
 
         private readonly List<UI.MulliganCardSelectable> spawnedCards = new List<UI.MulliganCardSelectable>();
+        private readonly List<int> spawnedCardHandIndices = new List<int>();
         private TurnPhase? shownPhase;
         private PlayerSide? shownSide;
         private NetworkedMatchSync networkSync;
@@ -76,10 +77,20 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            List<CardData> hand = gameManager.State.GetPlayer(side).Hand;
+            Player player = gameManager.State.GetPlayer(side);
+            List<CardData> hand = player.Hand;
+            List<CardData> remainingExemptCards = new List<CardData>(player.GameStartBonusCards);
 
-            foreach (CardData card in hand)
+            for (int handIndex = 0; handIndex < hand.Count; handIndex++)
             {
+                CardData card = hand[handIndex];
+
+                if (remainingExemptCards.Remove(card))
+                {
+                    Debug.Log($"[MulliganPanel] {card.CardName} is a GameStartBonusCard for {side} - excluding it from the mulligan.");
+                    continue;
+                }
+
                 UI.HandCardView view = Instantiate(mulliganCardPrefab, cardContainer);
                 view.Bind(card, side, gameManager.State, useLiveCost: false);
 
@@ -88,6 +99,7 @@ namespace DDD.TNFY.TCG.Core
                 {
                     selectable.Toggled += HandleCardToggled;
                     spawnedCards.Add(selectable);
+                    spawnedCardHandIndices.Add(handIndex);
                 }
             }
         }
@@ -104,6 +116,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             spawnedCards.Clear();
+            spawnedCardHandIndices.Clear();
         }
 
         private List<int> ComputeSelectedIndices()
@@ -114,7 +127,7 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (spawnedCards[i] != null && spawnedCards[i].IsSelected)
                 {
-                    selectedIndices.Add(i);
+                    selectedIndices.Add(spawnedCardHandIndices[i]);
                 }
             }
 

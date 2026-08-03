@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
 
@@ -34,6 +35,7 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (currentPhase == value)
                 {
+                    Debug.Log($"[GameState] CurrentPhase set to {value} but it was already {currentPhase} - PhaseChanged will NOT fire.");
                     return;
                 }
 
@@ -43,6 +45,13 @@ namespace DDD.TNFY.TCG.Core
         }
 
         public event Action<TurnPhase> PhaseChanged;
+
+        public event Action<TurnPhase, PlayerSide> PhaseAnnounced;
+
+        public void RaisePhaseAnnounced(TurnPhase phase, PlayerSide activePlayerAtAnnouncement)
+        {
+            PhaseAnnounced?.Invoke(phase, activePlayerAtAnnouncement);
+        }
 
         public event Action BannerAnimationFinished;
 
@@ -107,7 +116,18 @@ namespace DDD.TNFY.TCG.Core
         public bool IsResolvingTurnStartEffects { get; set; }
         public int TurnStartScanSlot { get; set; }
 
-        public BoardUnit CurrentlyAttackingUnit { get; set; }
+        private BoardUnit currentlyAttackingUnit;
+        public BoardUnit CurrentlyAttackingUnit
+        {
+            get => currentlyAttackingUnit;
+            set
+            {
+                currentlyAttackingUnit = value;
+                CurrentlyAttackingUnitChanged?.Invoke(currentlyAttackingUnit);
+            }
+        }
+
+        public event Action<BoardUnit> CurrentlyAttackingUnitChanged;
 
         public Player GetPlayer(PlayerSide side)
         {

@@ -5,7 +5,7 @@ namespace DDD.TNFY.TCG.Effects
         Stunned,
         DoubleAttackNextAttack,
         DelayedKill,
-        LeaderDamageShield,
+        Shield,
         OpponentManaReduction,
         TemporaryAttackNextAttack,
         Decaying,

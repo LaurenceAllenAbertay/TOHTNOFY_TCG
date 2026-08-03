@@ -16,14 +16,26 @@ MonoBehaviour:
   leaderName: Moose
   maxHealth: 30
   portrait: {fileID: -2152135653450920974, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
-  abilityText: Once you reach max mana for the first time, your units permanently
-    gain +2/+1
-  firstUnitCostDiscount: 0
+  abilityText: Start Shielded and once you reach max mana for the first time, your
+    units permanently gain +2/+1
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
   healthToManaRatio: 0
-  effects: []
+  effects:
+  - trigger: 11
+    action: 10
+    targetType: 5
+    amount: 1
+    oncePerTurn: 0
+    mandatoryTarget: 0
+    relevantCard: {fileID: 0}
+    keyword: 0
+    targetsOwnHand: 0
+    cardCategory: 0
+    randomizeMin: 0
+    randomizeMax: 0
+    fixedChoiceOptions: []
   auras:
   - scope: 0
     activationCondition: 1

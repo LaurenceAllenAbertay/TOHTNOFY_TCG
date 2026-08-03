@@ -15,6 +15,7 @@ namespace DDD.TNFY.TCG.UI
 
         public CardData Card => handCardView.Card;
         public bool IsSelected { get; private set; }
+        public bool IsLocked { get; private set; }
 
         public event Action Toggled;
 
@@ -28,8 +29,30 @@ namespace DDD.TNFY.TCG.UI
             }
         }
 
+        public void SetLocked(bool locked)
+        {
+            IsLocked = locked;
+
+            if (locked && IsSelected)
+            {
+                IsSelected = false;
+
+                if (selectedOverlay != null)
+                {
+                    selectedOverlay.enabled = false;
+                }
+            }
+
+            handCardView.SetDimmed(locked);
+        }
+
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (IsLocked)
+            {
+                return;
+            }
+
             IsSelected = !IsSelected;
 
             if (selectedOverlay != null)

@@ -200,24 +200,7 @@ namespace DDD.TNFY.TCG.Effects
 
         public static int GetUnitCost(UnitCardData card, Player player)
         {
-            int baseCost = card.ManaCost;
-
-            if (player.Leader == null)
-            {
-                return baseCost;
-            }
-
-            if (player.Leader.FirstUnitCostDiscount <= 0)
-            {
-                return baseCost;
-            }
-
-            if (player.HasUsedFirstUnitDiscountThisTurn)
-            {
-                return baseCost;
-            }
-
-            return System.Math.Max(0, baseCost - player.Leader.FirstUnitCostDiscount);
+            return card.ManaCost;
         }
 
         public static bool TryGetHealthCostForManaShortfall(Player player, int manaShort, out int healthCost)
@@ -234,7 +217,7 @@ namespace DDD.TNFY.TCG.Effects
                 return false;
             }
 
-            if (player.HasStatus(StatusEffectType.LeaderDamageShield))
+            if (player.HasStatus(StatusEffectType.Shield))
             {
                 return false;
             }

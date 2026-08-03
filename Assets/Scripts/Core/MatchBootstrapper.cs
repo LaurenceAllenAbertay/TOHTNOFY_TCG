@@ -34,7 +34,14 @@ namespace DDD.TNFY.TCG.Core
             }
 
             AssignRandomLeaders();
+            AssignRandomFirstPlayer();
             manager.Phases.StartDraft(cardPool, draftSettings);
+        }
+
+        private void AssignRandomFirstPlayer()
+        {
+            manager.State.FirstPlayer = Random.Range(0, 2) == 0 ? PlayerSide.PlayerA : PlayerSide.PlayerB;
+            Debug.Log($"[MatchBootstrapper] Randomly assigned {manager.State.FirstPlayer} to go first this game.");
         }
 
         private void AssignRandomLeaders()

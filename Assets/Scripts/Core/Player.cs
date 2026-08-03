@@ -14,6 +14,7 @@ namespace DDD.TNFY.TCG.Core
         public PlayerSide Side { get; }
         public List<CardData> Deck { get; } = new List<CardData>();
         public List<CardData> Hand { get; } = new List<CardData>();
+        public List<CardData> GameStartBonusCards { get; } = new List<CardData>();
         public LeaderData Leader { get; set; }
 
         public List<CardData> PendingDraftOptions { get; set; }
@@ -25,7 +26,6 @@ namespace DDD.TNFY.TCG.Core
         public int LeaderHealth { get; set; } = StartingLeaderHealth;
         public int PendingManaReduction { get; set; }
         public bool HasReachedMaxMana { get; set; }
-        public bool HasUsedFirstUnitDiscountThisTurn { get; set; }
         public bool HasNextItemDoubled { get; set; }
         public int OwnTurnCount { get; set; }
         public int FatigueDamageTaken { get; set; }

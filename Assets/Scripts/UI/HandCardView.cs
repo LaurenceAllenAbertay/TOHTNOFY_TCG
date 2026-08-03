@@ -106,6 +106,11 @@ namespace DDD.TNFY.TCG.UI
             canvasGroup.blocksRaycasts = visible;
         }
 
+        public void SetDimmed(bool dimmed)
+        {
+            canvasGroup.alpha = dimmed ? 0.6f : 1f;
+        }
+
         public void Bind(CardData card, PlayerSide side, GameState state, bool useLiveCost = true)
         {
             Card = card;

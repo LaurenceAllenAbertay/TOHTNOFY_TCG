@@ -1,3 +1,4 @@
+using Photon.Pun;
 using TMPro;
 using UnityEngine;
 using DDD.TNFY.TCG.Core;
@@ -32,6 +33,11 @@ namespace DDD.TNFY.TCG.UI
 
             if (!remaining.HasValue)
             {
+                if (timerText.enabled)
+                {
+                    Debug.Log($"[TurnTimerDisplay] Hiding timer - no remaining seconds for phase={gameManager.State.CurrentPhase} (IsMasterClient={PhotonNetwork.IsMasterClient}).");
+                }
+
                 timerText.enabled = false;
                 return;
             }

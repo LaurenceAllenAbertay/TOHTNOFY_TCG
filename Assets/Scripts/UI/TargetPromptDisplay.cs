@@ -12,9 +12,12 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private string promptMessage = "Choose a target...";
 
         private bool? shownIsTargeting;
+        private NetworkedMatchSync networkSync;
 
         private void Awake()
         {
+            networkSync = gameManager != null ? gameManager.GetComponent<NetworkedMatchSync>() : null;
+
             if (promptRoot != null)
             {
                 promptRoot.SetActive(false);
@@ -32,7 +35,12 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            bool isTargeting = gameManager.State.PendingTargetedEffect != null;
+            PlayerSide localSide = networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+            BoardUnit pendingSource = gameManager.State.PendingTargetedEffectSource;
+
+            bool isTargeting = gameManager.State.PendingTargetedEffect != null
+                && pendingSource != null
+                && pendingSource.Owner == localSide;
 
             if (shownIsTargeting == isTargeting)
             {

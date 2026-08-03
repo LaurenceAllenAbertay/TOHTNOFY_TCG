@@ -16,7 +16,6 @@ namespace DDD.TNFY.TCG.UI
         private BoardCardView boardCardView;
         private GameObject dragGhost;
         private RectTransform dragGhostRect;
-        private bool droppedOnLegalSlot;
         private List<BoardSlotDropTarget> cachedSlotDropTargets;
         private NetworkedMatchSync networkSync;
 
@@ -145,8 +144,6 @@ namespace DDD.TNFY.TCG.UI
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            droppedOnLegalSlot = false;
-
             if (!CanDragThisUnit())
             {
                 return;
@@ -203,10 +200,7 @@ namespace DDD.TNFY.TCG.UI
                 dragGhostRect = null;
             }
 
-            if (!droppedOnLegalSlot)
-            {
-                boardCardView.SetVisible(true);
-            }
+            boardCardView.SetVisible(true);
 
             UpdateHighlights(false);
         }
@@ -243,7 +237,6 @@ namespace DDD.TNFY.TCG.UI
                             state.PendingEnemyMoveGrantTarget = null;
                         }
 
-                        droppedOnLegalSlot = true;
                         Debug.Log($"[BoardCardDrag] Pending On-Play enemy move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
                     }
 
@@ -256,7 +249,6 @@ namespace DDD.TNFY.TCG.UI
 
                 if (grantedMove)
                 {
-                    droppedOnLegalSlot = true;
                     Debug.Log($"[BoardCardDrag] Granted enemy move used: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
                 }
 
@@ -277,20 +269,19 @@ namespace DDD.TNFY.TCG.UI
                         state.PendingFreeMoveExcludedUnit = null;
                     }
 
-                    droppedOnLegalSlot = true;
                     Debug.Log($"[BoardCardDrag] Pending free move consumed: {boardCardView.Unit.SourceCard.CardName} {fromSlot} -> {slot.SlotIndex}");
                 }
 
                 return;
             }
 
-            bool movedNormally = networkSync != null
-                ? networkSync.RequestMoveUnit(fromSlot, slot.SlotIndex)
-                : gameManager.Phases.TryMoveUnit(fromSlot, slot.SlotIndex);
-
-            if (movedNormally)
+            if (networkSync != null)
             {
-                droppedOnLegalSlot = true;
+                networkSync.RequestMoveUnit(fromSlot, slot.SlotIndex);
+            }
+            else
+            {
+                gameManager.Phases.TryMoveUnit(fromSlot, slot.SlotIndex);
             }
         }
 

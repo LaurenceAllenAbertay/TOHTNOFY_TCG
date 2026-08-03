@@ -59,7 +59,6 @@ namespace DDD.TNFY.TCG.Core
             public int maxManaThisGame;
             public int pendingManaReduction;
             public bool hasReachedMaxMana;
-            public bool hasUsedFirstUnitDiscountThisTurn;
             public bool hasNextItemDoubled;
             public int ownTurnCount;
             public int fatigueDamageTaken;
@@ -87,6 +86,13 @@ namespace DDD.TNFY.TCG.Core
             public int[] pendingFreeMoveExcludedUnitRef;
             public bool hasPendingEnemyMoveGrantOnPlay;
             public int[] pendingEnemyMoveGrantTargetRef;
+            public bool hasPendingTargetedEffect;
+            public int[] pendingTargetedEffectSourceRef;
+            public int pendingTargetedEffectIndex;
+            public int pendingTargetedEffectTrigger;
+            public CardRefDto[] pendingCardChoiceOptions;
+            public int[] pendingCardChoiceSourceRef;
+            public int[] currentlyAttackingUnitRef;
             public float playerADraftRemaining;
             public float playerBDraftRemaining;
             public float turnRemaining;
@@ -121,6 +127,7 @@ namespace DDD.TNFY.TCG.Core
             gameManager.State.PhaseChanged += HandlePhaseChangedForBroadcast;
             gameManager.State.GameOver += HandleStateChangedForBroadcast;
             gameManager.State.ActivePlayerChanged += HandleActivePlayerChangedForBroadcast;
+            gameManager.State.CurrentlyAttackingUnitChanged += HandleCurrentlyAttackingUnitChangedForBroadcast;
         }
 
         private void OnDestroy()
@@ -131,11 +138,19 @@ namespace DDD.TNFY.TCG.Core
                 gameManager.State.PhaseChanged -= HandlePhaseChangedForBroadcast;
                 gameManager.State.GameOver -= HandleStateChangedForBroadcast;
                 gameManager.State.ActivePlayerChanged -= HandleActivePlayerChangedForBroadcast;
+                gameManager.State.CurrentlyAttackingUnitChanged -= HandleCurrentlyAttackingUnitChangedForBroadcast;
             }
         }
 
         private void HandleActivePlayerChangedForBroadcast(PlayerSide newActivePlayer)
         {
+            Debug.Log($"[NetworkedMatchSync] ActivePlayerChanged fired (newActivePlayer={newActivePlayer}) - queuing broadcast.");
+            BroadcastStateIfMaster();
+        }
+
+        private void HandleCurrentlyAttackingUnitChangedForBroadcast(BoardUnit newAttacker)
+        {
+            Debug.Log($"[NetworkedMatchSync] CurrentlyAttackingUnitChanged fired (newAttacker={newAttacker?.SourceCard?.CardName}) - queuing broadcast.");
             BroadcastStateIfMaster();
         }
 
@@ -146,12 +161,39 @@ namespace DDD.TNFY.TCG.Core
 
         private void HandleStateChangedForBroadcast()
         {
+            Debug.Log("[NetworkedMatchSync] DraftOptionsChanged/GameOver fired - queuing broadcast.");
             BroadcastStateIfMaster();
         }
 
         private void HandlePhaseChangedForBroadcast(TurnPhase newPhase)
         {
+            Debug.Log($"[NetworkedMatchSync] PhaseChanged fired (newPhase={newPhase}) - queuing broadcast.");
             BroadcastStateIfMaster();
+
+            bool isAuthoritative = !PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient;
+
+            if (!isAuthoritative)
+            {
+                return;
+            }
+
+            PlayerSide activePlayerAtAnnouncement = gameManager.State.ActivePlayer;
+            Debug.Log($"[NetworkedMatchSync] Announcing phase locally: newPhase={newPhase}, activePlayer={activePlayerAtAnnouncement}.");
+            gameManager.State.RaisePhaseAnnounced(newPhase, activePlayerAtAnnouncement);
+
+            if (PhotonNetwork.InRoom)
+            {
+                photonView.RPC(nameof(ReceivePhaseAnnouncement), RpcTarget.Others, (int)newPhase, (int)activePlayerAtAnnouncement);
+            }
+        }
+
+        [PunRPC]
+        private void ReceivePhaseAnnouncement(int newPhaseRaw, int activePlayerRaw)
+        {
+            TurnPhase newPhase = (TurnPhase)newPhaseRaw;
+            PlayerSide activePlayerAtAnnouncement = (PlayerSide)activePlayerRaw;
+            Debug.Log($"[NetworkedMatchSync] Received phase announcement: newPhase={newPhase}, activePlayer={activePlayerAtAnnouncement}.");
+            gameManager.State.RaisePhaseAnnounced(newPhase, activePlayerAtAnnouncement);
         }
 
         private bool broadcastPending;
@@ -201,6 +243,13 @@ namespace DDD.TNFY.TCG.Core
                 pendingFreeMoveExcludedUnitRef = EncodeUnitRef(state.PendingFreeMoveExcludedUnit),
                 hasPendingEnemyMoveGrantOnPlay = state.HasPendingEnemyMoveGrantOnPlay,
                 pendingEnemyMoveGrantTargetRef = EncodeUnitRef(state.PendingEnemyMoveGrantTarget),
+                hasPendingTargetedEffect = state.PendingTargetedEffect != null,
+                pendingTargetedEffectSourceRef = EncodeUnitRef(state.PendingTargetedEffectSource),
+                pendingTargetedEffectIndex = EncodeEffectIndex(state.PendingTargetedEffectSource, state.PendingTargetedEffect),
+                pendingTargetedEffectTrigger = (int)(state.PendingTargetedEffectTrigger ?? default),
+                pendingCardChoiceOptions = state.PendingCardChoiceOptions != null ? BuildCardRefs(state.PendingCardChoiceOptions) : new CardRefDto[0],
+                pendingCardChoiceSourceRef = EncodeUnitRef(state.PendingCardChoiceSource),
+                currentlyAttackingUnitRef = EncodeUnitRef(state.CurrentlyAttackingUnit),
                 playerADraftRemaining = turnTimer != null ? (turnTimer.GetDraftRemainingSeconds(PlayerSide.PlayerA) ?? -1f) : -1f,
                 playerBDraftRemaining = turnTimer != null ? (turnTimer.GetDraftRemainingSeconds(PlayerSide.PlayerB) ?? -1f) : -1f,
                 turnRemaining = turnTimer != null ? (turnTimer.GetTurnRemainingSeconds() ?? -1f) : -1f,
@@ -233,6 +282,31 @@ namespace DDD.TNFY.TCG.Core
             state.PendingFreeMoveExcludedUnit = DecodeUnitRef(dto.pendingFreeMoveExcludedUnitRef, state);
             state.HasPendingEnemyMoveGrantOnPlay = dto.hasPendingEnemyMoveGrantOnPlay;
             state.PendingEnemyMoveGrantTarget = DecodeUnitRef(dto.pendingEnemyMoveGrantTargetRef, state);
+
+            BoardUnit pendingTargetedEffectSource = dto.hasPendingTargetedEffect
+                ? DecodeUnitRef(dto.pendingTargetedEffectSourceRef, state)
+                : null;
+            state.PendingTargetedEffectSource = pendingTargetedEffectSource;
+            state.PendingTargetedEffect = dto.hasPendingTargetedEffect
+                ? DecodeEffect(pendingTargetedEffectSource, dto.pendingTargetedEffectIndex)
+                : null;
+            state.PendingTargetedEffectTrigger = dto.hasPendingTargetedEffect
+                ? (EffectTriggerType?)dto.pendingTargetedEffectTrigger
+                : null;
+
+            Debug.Log($"[NetworkedMatchSync] Synced pending targeted effect: hasPendingTargetedEffect={dto.hasPendingTargetedEffect}, source={pendingTargetedEffectSource?.SourceCard?.CardName}, effect={state.PendingTargetedEffect?.action}.");
+
+            state.PendingCardChoiceSource = DecodeUnitRef(dto.pendingCardChoiceSourceRef, state);
+            state.PendingCardChoiceOptions = (dto.pendingCardChoiceOptions != null && dto.pendingCardChoiceOptions.Length > 0)
+                ? new List<CardData>(Array.ConvertAll(dto.pendingCardChoiceOptions, ResolveCard))
+                : null;
+
+            Debug.Log($"[NetworkedMatchSync] Synced pending card choice: hasPendingCardChoice={state.PendingCardChoiceOptions != null}, source={state.PendingCardChoiceSource?.SourceCard?.CardName}, optionCount={state.PendingCardChoiceOptions?.Count ?? 0}.");
+
+            BoardUnit syncedAttacker = DecodeUnitRef(dto.currentlyAttackingUnitRef, state);
+            state.CurrentlyAttackingUnit = syncedAttacker;
+
+            Debug.Log($"[NetworkedMatchSync] Synced CurrentlyAttackingUnit: attacker={syncedAttacker?.SourceCard?.CardName}.");
 
             if (turnTimer != null && !PhotonNetwork.IsMasterClient)
             {
@@ -566,6 +640,45 @@ namespace DDD.TNFY.TCG.Core
             return state.Board.GetUnit((PlayerSide)data[1], data[2]);
         }
 
+        private int EncodeEffectIndex(BoardUnit sourceUnit, CardEffect effect)
+        {
+            if (sourceUnit == null || effect == null)
+            {
+                return -1;
+            }
+
+            IReadOnlyList<CardEffect> effects = sourceUnit.SourceCard.Effects;
+
+            for (int i = 0; i < effects.Count; i++)
+            {
+                if (effects[i] == effect)
+                {
+                    return i;
+                }
+            }
+
+            Debug.LogWarning($"[NetworkedMatchSync] EncodeEffectIndex: could not find pending effect on {sourceUnit.SourceCard.CardName}'s effect list. Target prompt will not sync correctly.");
+            return -1;
+        }
+
+        private CardEffect DecodeEffect(BoardUnit sourceUnit, int index)
+        {
+            if (sourceUnit == null || index < 0)
+            {
+                return null;
+            }
+
+            IReadOnlyList<CardEffect> effects = sourceUnit.SourceCard.Effects;
+
+            if (index >= effects.Count)
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] DecodeEffect: index {index} out of range for {sourceUnit.SourceCard.CardName} ({effects.Count} effects).");
+                return null;
+            }
+
+            return effects[index];
+        }
+
         public bool RequestMoveUnit(int fromSlot, int toSlot)
         {
             if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
@@ -741,7 +854,7 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
             {
-                bool resolved = gameManager.Phases.TryAttackWithUnit(slotIndex);
+                bool resolved = gameManager.Phases.TryAttackWithUnit(slotIndex, OnAttackFullyResolved);
                 Debug.Log($"[NetworkedMatchSync] TryAttackWithUnit resolved={resolved} for slot={slotIndex}.");
                 BroadcastStateIfMaster();
                 return resolved;
@@ -760,8 +873,14 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            bool resolved = gameManager.Phases.TryAttackWithUnit(slotIndex);
+            bool resolved = gameManager.Phases.TryAttackWithUnit(slotIndex, OnAttackFullyResolved);
             Debug.Log($"[NetworkedMatchSync] ReceiveAttackWithUnitRequest resolved={resolved} for slot={slotIndex}.");
+            BroadcastStateIfMaster();
+        }
+
+        private void OnAttackFullyResolved()
+        {
+            Debug.Log("[NetworkedMatchSync] Attack sequence fully resolved (damage/chain-attacks applied) - queuing a follow-up broadcast.");
             BroadcastStateIfMaster();
         }
 
@@ -818,7 +937,6 @@ namespace DDD.TNFY.TCG.Core
                 maxManaThisGame = player.MaxManaThisGame,
                 pendingManaReduction = player.PendingManaReduction,
                 hasReachedMaxMana = player.HasReachedMaxMana,
-                hasUsedFirstUnitDiscountThisTurn = player.HasUsedFirstUnitDiscountThisTurn,
                 hasNextItemDoubled = player.HasNextItemDoubled,
                 ownTurnCount = player.OwnTurnCount,
                 fatigueDamageTaken = player.FatigueDamageTaken,
@@ -922,7 +1040,6 @@ namespace DDD.TNFY.TCG.Core
             player.MaxManaThisGame = dto.maxManaThisGame;
             player.PendingManaReduction = dto.pendingManaReduction;
             player.HasReachedMaxMana = dto.hasReachedMaxMana;
-            player.HasUsedFirstUnitDiscountThisTurn = dto.hasUsedFirstUnitDiscountThisTurn;
             player.HasNextItemDoubled = dto.hasNextItemDoubled;
             player.OwnTurnCount = dto.ownTurnCount;
             player.FatigueDamageTaken = dto.fatigueDamageTaken;

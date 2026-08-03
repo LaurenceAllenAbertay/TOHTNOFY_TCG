@@ -226,15 +226,23 @@ namespace DDD.TNFY.TCG.UI
                 }
             }
 
-            bool shouldBeActive = gameManager != null
+            bool isPendingTargetSource = gameManager != null
                 && gameManager.State != null
                 && gameManager.State.PendingTargetedEffectSource == Unit;
+
+            bool isPendingEnemyMoveGrantTarget = gameManager != null
+                && gameManager.State != null
+                && gameManager.State.HasPendingEnemyMoveGrantOnPlay
+                && gameManager.State.PendingEnemyMoveGrantTarget == Unit;
+
+            bool shouldBeActive = isPendingTargetSource || isPendingEnemyMoveGrantTarget;
 
             AnimatorStateInfo currentState = animator.GetCurrentAnimatorStateInfo(0);
             bool isCurrentlyActive = currentState.IsName(AnimState.Active);
 
             if (shouldBeActive && !isCurrentlyActive)
             {
+                Debug.Log($"[BoardCardView] Playing Active on {Unit?.SourceCard?.CardName} (Owner={Unit?.Owner}, Slot={Unit?.SlotIndex}) - isPendingTargetSource={isPendingTargetSource}, isPendingEnemyMoveGrantTarget={isPendingEnemyMoveGrantTarget}.");
                 animator.Play(AnimState.Active, 0, 0f);
             }
             else if (!shouldBeActive && (isCurrentlyActive || justFinishedOneShot))

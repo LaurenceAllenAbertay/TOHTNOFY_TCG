@@ -67,8 +67,8 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteGrantKeyword(effect, context);
                     break;
 
-                case EffectActionType.ApplyLeaderDamageShield:
-                    ExecuteApplyLeaderDamageShield(effect, context);
+                case EffectActionType.ApplyShield:
+                    ExecuteApplyShield(effect, context);
                     break;
 
                 case EffectActionType.DealDamageToTarget:
@@ -317,15 +317,19 @@ namespace DDD.TNFY.TCG.Effects
             context.ChosenTarget.Unit.GrantKeyword(effect.keyword);
         }
 
-        private static void ExecuteApplyLeaderDamageShield(CardEffect effect, EffectContext context)
+        private static void ExecuteApplyShield(CardEffect effect, EffectContext context)
         {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Leader)
+            if (context.ChosenTarget.Kind == EffectTargetKind.Unit)
             {
+                context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
                 return;
             }
 
-            Player player = context.GameState.GetPlayer(context.ChosenTarget.LeaderSide);
-            player.Statuses.Add(new ActiveStatusEffect(StatusEffectType.LeaderDamageShield, 1));
+            if (context.ChosenTarget.Kind == EffectTargetKind.Leader)
+            {
+                Player player = context.GameState.GetPlayer(context.ChosenTarget.LeaderSide);
+                player.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
+            }
         }
 
         private static void ExecuteDealDamageToTarget(CardEffect effect, EffectContext context, PhaseManager phases)
@@ -580,6 +584,13 @@ namespace DDD.TNFY.TCG.Effects
                 if (!recipient.TryAddCardToHand(effect.relevantCard))
                 {
                     Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                    continue;
+                }
+
+                if (effect.trigger == EffectTriggerType.OnGameStart)
+                {
+                    recipient.GameStartBonusCards.Add(effect.relevantCard);
+                    Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} added to {recipient.Side}'s hand via OnGameStart - marking it exempt from mulligan.");
                 }
             }
         }
