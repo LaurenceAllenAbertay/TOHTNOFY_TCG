@@ -658,23 +658,10 @@ namespace DDD.TNFY.TCG.Core
         {
             if (unit == null) return false;
             if (unit.PlacedThisTurn && !unit.HasKeyword(Keyword.Rush, state)) return false;
-            if (IsStunned(unit)) return false;
+            if (unit.IsStunned) return false;
             if (unit.GetCurrentAttack(state) <= 0) return false;
 
             return true;
-        }
-
-        private static bool IsStunned(BoardUnit unit)
-        {
-            for (int i = 0; i < unit.Statuses.Count; i++)
-            {
-                if (unit.Statuses[i].Type == StatusEffectType.Stunned)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private const float BannerWaitTimeout = 3f;
@@ -1570,7 +1557,7 @@ namespace DDD.TNFY.TCG.Core
                         Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
                     }
 
-                    if (IsStunned(unit))
+                    if (unit.IsStunned)
                     {
                         unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Stunned);
                         Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Stun wore off at the end of {state.ActivePlayer}'s turn.");

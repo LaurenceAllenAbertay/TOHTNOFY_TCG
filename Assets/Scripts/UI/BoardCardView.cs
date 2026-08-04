@@ -44,6 +44,7 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private Image stunnedOverlay;
         [SerializeField] private GameObject attackingIndicator;
         [SerializeField] private Animator animator;
+        [SerializeField] private RectTransform visualRoot;
         [SerializeField] private List<KeywordIcon> keywordIcons = new List<KeywordIcon>();
         [SerializeField] private List<StatusIcon> statusIcons = new List<StatusIcon>();
 
@@ -57,11 +58,15 @@ namespace DDD.TNFY.TCG.UI
         private int lastKnownSlotIndex = -1;
         private string currentOneShot;
         private BoardUnit lastAnimatedAttacker;
+        private RectTransform selfRect;
+        private bool? lastAppliedIsOpponentCard;
 
         public BoardUnit Unit { get; private set; }
 
         private void Awake()
         {
+            selfRect = transform as RectTransform;
+
             canvasGroup = GetComponent<CanvasGroup>();
             if (canvasGroup == null)
             {
@@ -138,6 +143,7 @@ namespace DDD.TNFY.TCG.UI
             {
                 lastBoundUnit = unit;
                 lastKnownSlotIndex = unit.SlotIndex;
+                ApplyBoardOrientation();
                 PlayTriggered();
             }
             else if (unit.SlotIndex != lastKnownSlotIndex)
@@ -145,6 +151,36 @@ namespace DDD.TNFY.TCG.UI
                 lastKnownSlotIndex = unit.SlotIndex;
                 PlayTriggered();
             }
+        }
+
+        private void ApplyBoardOrientation()
+        {
+            if (selfRect == null || visualRoot == null || Unit == null)
+            {
+                Debug.LogWarning($"[BoardCardView] ApplyBoardOrientation skipped: selfRect={selfRect != null}, visualRoot={visualRoot != null}, Unit={Unit != null}.");
+                return;
+            }
+
+            PlayerSide localSide = networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+            bool isOpponentCard = Unit.Owner != localSide;
+
+            if (lastAppliedIsOpponentCard == isOpponentCard)
+            {
+                return;
+            }
+
+            lastAppliedIsOpponentCard = isOpponentCard;
+            float flip = isOpponentCard ? -1f : 1f;
+
+            Vector3 selfScale = selfRect.localScale;
+            selfScale.y = flip;
+            selfRect.localScale = selfScale;
+
+            Vector3 rootScale = visualRoot.localScale;
+            rootScale.y = flip;
+            visualRoot.localScale = rootScale;
+
+            Debug.Log($"[BoardCardView] {Unit.SourceCard.CardName} orientation applied: isOpponentCard={isOpponentCard} (Owner={Unit.Owner}, LocalSide={localSide}).");
         }
 
         public void PlayTriggered()

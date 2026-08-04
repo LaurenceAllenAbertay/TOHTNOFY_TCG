@@ -427,6 +427,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (unit == null) return false;
             if (unit.HasKeyword(Keyword.Unmoving, state)) return false;
+            if (unit.IsStunned) return false;
 
             bool isNimble = unit.HasKeyword(Keyword.Nimble, state);
 

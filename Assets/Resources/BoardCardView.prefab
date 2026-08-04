@@ -941,6 +941,7 @@ MonoBehaviour:
   stunnedOverlay: {fileID: 1550602385248609024}
   attackingIndicator: {fileID: 1375989573557018747}
   animator: {fileID: 7143475450705363290}
+  visualRoot: {fileID: 8926056701592727860}
   keywordIcons:
   - keyword: 4
     icon: {fileID: 5680772732967107369}

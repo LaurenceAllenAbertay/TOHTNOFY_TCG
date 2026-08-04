@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: obliviondisastermind
   cardName: Oblivion Disastermind
-  manaCost: 5
+  manaCost: 4
   rarity: 2
   cardArt: {fileID: 0}
-  abilityText: 'On Play: Silence all enemy units.'
+  abilityText: 'On Play: Silence all enemy units for 1 turn.'
   effects:
   - trigger: 0
     action: 32
@@ -32,7 +32,7 @@ MonoBehaviour:
     randomizeMin: 0
     randomizeMax: 0
     fixedChoiceOptions: []
-  attack: 3
+  attack: 4
   health: 5
   keywords: 0
   grantsEnemyUnitMove: 0

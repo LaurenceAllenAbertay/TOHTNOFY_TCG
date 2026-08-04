@@ -69,6 +69,7 @@ namespace DDD.TNFY.TCG.Core
             public CardRefDto[] pendingDraftOptions;
             public CardRefDto[] deck;
             public CardRefDto[] hand;
+            public CardRefDto[] gameStartBonusCards;
         }
 
         [Serializable]
@@ -946,7 +947,8 @@ namespace DDD.TNFY.TCG.Core
                 draftStage = player.CurrentDraftStage.HasValue ? (int)player.CurrentDraftStage.Value : -1,
                 pendingDraftOptions = player.PendingDraftOptions != null ? BuildCardRefs(player.PendingDraftOptions) : new CardRefDto[0],
                 deck = BuildCardRefs(player.Deck),
-                hand = BuildCardRefs(player.Hand)
+                hand = BuildCardRefs(player.Hand),
+                gameStartBonusCards = BuildCardRefs(player.GameStartBonusCards)
             };
         }
 
@@ -1061,6 +1063,17 @@ namespace DDD.TNFY.TCG.Core
             {
                 player.Hand.Add(ResolveCard(cardDto));
             }
+
+            player.GameStartBonusCards.Clear();
+            if (dto.gameStartBonusCards != null)
+            {
+                foreach (CardRefDto cardDto in dto.gameStartBonusCards)
+                {
+                    player.GameStartBonusCards.Add(ResolveCard(cardDto));
+                }
+            }
+
+            Debug.Log($"[NetworkedMatchSync] Applied player state for {player.Side}: hand={player.Hand.Count}, gameStartBonusCards={player.GameStartBonusCards.Count}.");
         }
 
         private void ApplyBoard(GameState state, PlayerSide side, BoardUnitDto[] unitDtos)

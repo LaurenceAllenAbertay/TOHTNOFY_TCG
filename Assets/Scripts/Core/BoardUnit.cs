@@ -22,6 +22,7 @@ namespace DDD.TNFY.TCG.Core
         public List<ActiveStatusEffect> Statuses { get; } = new List<ActiveStatusEffect>();
 
         public bool IsSilenced => HasStatus(StatusEffectType.Silenced);
+        public bool IsStunned => HasStatus(StatusEffectType.Stunned);
 
         public int GetCurrentAttack(GameState state)
         {
