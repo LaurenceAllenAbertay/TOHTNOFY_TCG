@@ -21,13 +21,12 @@ MonoBehaviour:
   effects:
   - trigger: 0
     action: 0
-    targetType: 0
+    targetType: 5
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

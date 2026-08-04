@@ -28,6 +28,6 @@ MonoBehaviour:
   - scope: 4
     activationCondition: 0
     grant:
-      action: 35
+      action: 36
       amount: 6
       keyword: 0

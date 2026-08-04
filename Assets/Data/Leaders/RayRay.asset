@@ -30,7 +30,6 @@ MonoBehaviour:
     mandatoryTarget: 0
     relevantCard: {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}
     keyword: 0
-    targetsOwnHand: 1
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

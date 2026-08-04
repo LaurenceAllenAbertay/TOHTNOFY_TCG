@@ -17,7 +17,7 @@ MonoBehaviour:
   manaCost: 3
   rarity: 1
   cardArt: {fileID: 21300000, guid: d6230af0a3f5ac94481179818f5228ef, type: 3}
-  abilityText: Every Move phase, you may also move 1 enemy unit.
+  abilityText: You may also move 1 enemy unit.
   effects: []
   attack: 1
   health: 6

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
 using UnityEngine;
@@ -7,6 +6,8 @@ namespace DDD.TNFY.TCG.Effects
 {
     public static class EffectExecutor
     {
+        private static readonly System.Random rng = new System.Random();
+
         public static void Execute(CardEffect effect, EffectContext context, PhaseManager phases, int? runtimeAmount = null)
         {
             switch (effect.action)
@@ -51,10 +52,6 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteSilenceUnit(context, phases);
                     break;
 
-                case EffectActionType.SilenceAllEnemyUnits:
-                    ExecuteSilenceAllEnemyUnits(context, phases);
-                    break;
-
                 case EffectActionType.SwapAttackAndHealth:
                     ExecuteSwapAttackAndHealth(context, phases);
                     break;
@@ -71,16 +68,12 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteApplyShield(effect, context);
                     break;
 
-                case EffectActionType.DealDamageToTarget:
-                    ExecuteDealDamageToTarget(effect, context, phases);
+                case EffectActionType.DealDamage:
+                    ExecuteDealDamage(effect, context, phases);
                     break;
 
                 case EffectActionType.ReduceOpponentMana:
                     ExecuteReduceOpponentMana(effect, context);
-                    break;
-
-                case EffectActionType.HealAdjacentUnits:
-                    ExecuteHealAdjacentUnits(effect, context, phases);
                     break;
 
                 case EffectActionType.MoveAllyUnit:
@@ -89,10 +82,6 @@ namespace DDD.TNFY.TCG.Effects
 
                 case EffectActionType.SwapUnitSlot:
                     ExecuteSwapUnitSlot(context, phases);
-                    break;
-
-                case EffectActionType.DealDamageToAllEnemyUnits:
-                    ExecuteDealDamageToAllEnemyUnits(effect, context, phases);
                     break;
 
                 case EffectActionType.PullUnitOpposite:
@@ -119,16 +108,8 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteAddCardToHand(effect, context);
                     break;
 
-                case EffectActionType.DamageOwnLeader:
-                    ExecuteDamageOwnLeader(effect, context, phases);
-                    break;
-
                 case EffectActionType.StealRandomCard:
                     ExecuteStealRandomCard(context);
-                    break;
-
-                case EffectActionType.BounceUnitOpposite:
-                    ExecuteBounceUnitOpposite(context, phases);
                     break;
 
                 case EffectActionType.TransformCard:
@@ -139,16 +120,16 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteHookClosestAllyLeft(context, phases);
                     break;
 
-                case EffectActionType.RandomizeAllyStats:
-                    ExecuteRandomizeAllyStats(effect, context, phases);
+                case EffectActionType.RandomizeStats:
+                    ExecuteRandomizeStats(effect, context, phases);
                     break;
 
-                case EffectActionType.SpawnUnitsAdjacent:
-                    ExecuteSpawnUnitsAdjacent(effect, context, phases);
+                case EffectActionType.MoveUnitToUnblockedSlot:
+                    ExecuteMoveUnitToUnblockedSlot(context, phases);
                     break;
 
-                case EffectActionType.MoveOpposingUnitFree:
-                    ExecuteMoveOpposingUnitFree(context, phases);
+                case EffectActionType.SpawnUnit:
+                    ExecuteSpawnUnit(effect, context, phases);
                     break;
             }
         }
@@ -255,28 +236,6 @@ namespace DDD.TNFY.TCG.Effects
             phases.SilenceUnit(context.ChosenTarget.Unit);
         }
 
-        private static void ExecuteSilenceAllEnemyUnits(EffectContext context, PhaseManager phases)
-        {
-            PlayerSide enemySide = context.SourceOwner.Opposite();
-
-            List<BoardUnit> targets = new List<BoardUnit>();
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = context.Board.GetUnit(enemySide, i);
-
-                if (unit != null)
-                {
-                    targets.Add(unit);
-                }
-            }
-
-            foreach (BoardUnit unit in targets)
-            {
-                phases.SilenceUnit(unit);
-            }
-        }
-
         private static void ExecuteSwapAttackAndHealth(EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
@@ -285,16 +244,6 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             phases.SwapAttackAndHealth(context.ChosenTarget.Unit);
-        }
-
-        private static void ExecuteBounceUnitOpposite(EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            phases.BounceUnitOpposite(context.SourceUnit);
         }
 
         private static void ExecuteGrantRush(EffectContext context)
@@ -332,7 +281,7 @@ namespace DDD.TNFY.TCG.Effects
             }
         }
 
-        private static void ExecuteDealDamageToTarget(CardEffect effect, EffectContext context, PhaseManager phases)
+        private static void ExecuteDealDamage(CardEffect effect, EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind == EffectTargetKind.Unit)
             {
@@ -350,72 +299,20 @@ namespace DDD.TNFY.TCG.Effects
             opponent.Statuses.Add(new ActiveStatusEffect(StatusEffectType.OpponentManaReduction, 1, effect.amount));
         }
 
-        private static void ExecuteSpawnUnitsAdjacent(CardEffect effect, EffectContext context, PhaseManager phases)
+        private static void ExecuteSpawnUnit(CardEffect effect, EffectContext context, PhaseManager phases)
         {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            if (context.SourceUnit.Owner != context.SourceOwner)
+            if (context.ChosenTarget.Kind != EffectTargetKind.Slot)
             {
                 return;
             }
 
             if (!(effect.relevantCard is UnitCardData spawnCard))
             {
-                Debug.Log($"[EffectExecutor] SpawnUnitsAdjacent FAIL: {context.SourceUnit.SourceCard.CardName}'s effect has no UnitCardData set as relevantCard.");
+                Debug.Log("[EffectExecutor] SpawnUnit FAIL: effect has no UnitCardData set as relevantCard.");
                 return;
             }
 
-            int slotIndex = context.SourceUnit.SlotIndex;
-            PlayerSide side = context.SourceUnit.Owner;
-
-            bool leftIsEmpty = slotIndex - 1 >= 0 && context.Board.GetUnit(side, slotIndex - 1) == null;
-            bool rightIsEmpty = slotIndex + 1 < Board.SlotsPerSide && context.Board.GetUnit(side, slotIndex + 1) == null;
-
-            Debug.Log($"[EffectExecutor] SpawnUnitsAdjacent from slot {slotIndex} ({side}): leftIsEmpty={leftIsEmpty}, rightIsEmpty={rightIsEmpty}, spawnCard={spawnCard.CardName}");
-
-            if (leftIsEmpty)
-            {
-                phases.SpawnUnit(side, slotIndex - 1, spawnCard);
-            }
-
-            if (rightIsEmpty)
-            {
-                phases.SpawnUnit(side, slotIndex + 1, spawnCard);
-            }
-        }
-
-        private static void ExecuteHealAdjacentUnits(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            if (context.SourceUnit.Owner != context.SourceOwner)
-            {
-                return;
-            }
-
-            int slotIndex = context.SourceUnit.SlotIndex;
-            PlayerSide side = context.SourceUnit.Owner;
-
-            BoardUnit leftNeighbor = slotIndex - 1 >= 0 ? context.Board.GetUnit(side, slotIndex - 1) : null;
-            BoardUnit rightNeighbor = slotIndex + 1 < Board.SlotsPerSide ? context.Board.GetUnit(side, slotIndex + 1) : null;
-
-            Debug.Log($"[EffectExecutor] HealAdjacentUnits from slot {slotIndex} ({side}): left={leftNeighbor?.SourceCard?.CardName ?? "none"}, right={rightNeighbor?.SourceCard?.CardName ?? "none"}, amount={effect.amount}");
-
-            if (leftNeighbor != null)
-            {
-                phases.HealUnit(leftNeighbor, effect.amount);
-            }
-
-            if (rightNeighbor != null)
-            {
-                phases.HealUnit(rightNeighbor, effect.amount);
-            }
+            phases.SpawnUnit(context.ChosenTarget.SlotSide, context.ChosenTarget.SlotIndex, spawnCard);
         }
 
         private static void ExecuteMoveAllyUnit(EffectContext context)
@@ -425,11 +322,11 @@ namespace DDD.TNFY.TCG.Effects
             Debug.Log($"[EffectExecutor] Pending free move granted, excluding {context.SourceUnit?.SourceCard?.CardName}");
         }
 
-        private static void ExecuteMoveOpposingUnitFree(EffectContext context, PhaseManager phases)
+        private static void ExecuteMoveUnitToUnblockedSlot(EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
             {
-                Debug.Log("[EffectExecutor] MoveOpposingUnitFree: no opposing unit found — fizzling.");
+                Debug.Log("[EffectExecutor] MoveUnitToUnblockedSlot: no unit found — fizzling.");
                 return;
             }
 
@@ -437,14 +334,14 @@ namespace DDD.TNFY.TCG.Effects
 
             if (!phases.HasAnyLegalUnblockedSlot(target.Owner, target.SlotIndex))
             {
-                Debug.Log($"[EffectExecutor] MoveOpposingUnitFree: {target.SourceCard.CardName} has no legal unblocked slot to move to — fizzling.");
+                Debug.Log($"[EffectExecutor] MoveUnitToUnblockedSlot: {target.SourceCard.CardName} has no legal unblocked slot to move to — fizzling.");
                 return;
             }
 
             context.GameState.HasPendingEnemyMoveGrantOnPlay = true;
             context.GameState.PendingEnemyMoveGrantTarget = target;
 
-            Debug.Log($"[EffectExecutor] MoveOpposingUnitFree: pending grant armed for {target.SourceCard.CardName} at slot {target.SlotIndex}.");
+            Debug.Log($"[EffectExecutor] MoveUnitToUnblockedSlot: pending grant armed for {target.SourceCard.CardName} at slot {target.SlotIndex}.");
         }
 
         private static void ExecuteSwapUnitSlot(EffectContext context, PhaseManager phases)
@@ -460,28 +357,6 @@ namespace DDD.TNFY.TCG.Effects
             }
 
             phases.SwapUnitSlots(context.SourceUnit, context.ChosenTarget.Unit);
-        }
-
-        private static void ExecuteDealDamageToAllEnemyUnits(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            PlayerSide enemySide = context.SourceOwner.Opposite();
-
-            List<BoardUnit> targets = new List<BoardUnit>();
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = context.Board.GetUnit(enemySide, i);
-
-                if (unit != null)
-                {
-                    targets.Add(unit);
-                }
-            }
-
-            foreach (BoardUnit unit in targets)
-            {
-                phases.DamageUnit(unit, effect.amount, context.SourceOwner, DamageSourceType.Effect);
-            }
         }
 
         private static void ExecutePullUnitOpposite(EffectContext context, PhaseManager phases)
@@ -545,24 +420,24 @@ namespace DDD.TNFY.TCG.Effects
             phases.HookClosestAllyLeft(context.SourceUnit);
         }
 
-        private static void ExecuteRandomizeAllyStats(CardEffect effect, EffectContext context, PhaseManager phases)
+        private static void ExecuteRandomizeStats(CardEffect effect, EffectContext context, PhaseManager phases)
         {
-            List<BoardUnit> targets = new List<BoardUnit>(context.Board.GetUnits(context.SourceOwner));
-
-            System.Random rng = new System.Random();
-
-            foreach (BoardUnit unit in targets)
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
             {
-                int newAttack = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
-                int newHealth = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
-
-                unit.BonusAttack = newAttack - unit.SourceCard.Attack;
-                unit.MaxHealth = newHealth;
-                unit.CurrentHealth = newHealth;
-                unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, context.GameState);
-
-                Debug.Log($"[EffectExecutor] RandomizeAllyStats: {unit.SourceCard.CardName} (slot {unit.SlotIndex}) rolled Attack={newAttack}, Health={newHealth}.");
+                return;
             }
+
+            BoardUnit unit = context.ChosenTarget.Unit;
+
+            int newAttack = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+            int newHealth = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+
+            unit.BonusAttack = newAttack - unit.SourceCard.Attack;
+            unit.MaxHealth = newHealth;
+            unit.CurrentHealth = newHealth;
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, context.GameState);
+
+            Debug.Log($"[EffectExecutor] RandomizeStats: {unit.SourceCard.CardName} (slot {unit.SlotIndex}) rolled Attack={newAttack}, Health={newHealth}.");
 
             phases.SyncQualifyingEnemyAuraHealth();
         }
@@ -574,7 +449,13 @@ namespace DDD.TNFY.TCG.Effects
                 return;
             }
 
-            PlayerSide recipientSide = effect.targetsOwnHand ? context.SourceOwner : context.SourceOwner.Opposite();
+            if (context.ChosenTarget.Kind != EffectTargetKind.Leader)
+            {
+                Debug.Log($"[EffectExecutor] AddCardToHand FAIL: {effect.relevantCard.CardName}'s effect needs targetType AllyLeader or EnemyLeader, but resolved target.Kind={context.ChosenTarget.Kind} — fizzling.");
+                return;
+            }
+
+            PlayerSide recipientSide = context.ChosenTarget.LeaderSide;
             Player recipient = context.GameState.GetPlayer(recipientSide);
 
             int copies = Mathf.Max(1, effect.amount);
@@ -593,11 +474,6 @@ namespace DDD.TNFY.TCG.Effects
                     Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} added to {recipient.Side}'s hand via OnGameStart - marking it exempt from mulligan.");
                 }
             }
-        }
-
-        private static void ExecuteDamageOwnLeader(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            phases.DamageLeader(context.SourceOwner, effect.amount);
         }
 
         private static void ExecuteTransformCard(CardEffect effect, EffectContext context, PhaseManager phases)
@@ -625,7 +501,6 @@ namespace DDD.TNFY.TCG.Effects
                 return;
             }
 
-            System.Random rng = new System.Random();
             CardData stolen = victim.Hand[rng.Next(victim.Hand.Count)];
             victim.Hand.Remove(stolen);
 

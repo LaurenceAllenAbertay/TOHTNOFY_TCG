@@ -16,7 +16,6 @@ namespace DDD.TNFY.TCG.Effects
         [FormerlySerializedAs("grantedCard")]
         public CardData relevantCard;
         public Keyword keyword;
-        public bool targetsOwnHand;
         public CardCategory cardCategory;
         public int randomizeMin;
         public int randomizeMax;

@@ -443,7 +443,7 @@ namespace DDD.TNFY.TCG.UI
         private bool IsBoardTargeted(ItemCardData itemCard)
         {
             CardEffect effect = itemCard != null ? itemCard.PrimaryEffect : null;
-            return effect != null && effect.targetType == TargetType.Board;
+            return effect != null && !EffectTargeting.RequiresClick(effect.targetType);
         }
 
         private EffectTarget ResolveDropTarget(ItemCardData itemCard, BoardSlotDropTarget slot, LeaderDropTarget leader)

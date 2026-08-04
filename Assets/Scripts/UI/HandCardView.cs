@@ -12,6 +12,10 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private Image artImage;
         [SerializeField] private TextMeshProUGUI costText;
         [SerializeField] private TextMeshProUGUI nameText;
+        [SerializeField] private TextMeshProUGUI attackText;
+        [SerializeField] private TextMeshProUGUI healthText;
+        [SerializeField] private TextMeshProUGUI abilityText;
+        [SerializeField] private Image rarityIndicator;
         [SerializeField] private RectTransform visualRoot;
         [SerializeField] private RectTransform selfRect;
         [SerializeField] private float hoverRiseAmount = 67f;
@@ -133,6 +137,48 @@ namespace DDD.TNFY.TCG.UI
             if (nameText != null)
             {
                 nameText.text = CardDisplayFormatter.GetNameText(card);
+            }
+
+            if (abilityText != null)
+            {
+                abilityText.text = CardDisplayFormatter.GetAbilityText(card);
+            }
+
+            UnitCardData unitCard = card as UnitCardData;
+            bool isUnit = unitCard != null;
+
+            if (attackText != null)
+            {
+                attackText.gameObject.SetActive(isUnit);
+                if (isUnit)
+                {
+                    attackText.text = useLiveCost
+                        ? CardDisplayFormatter.GetAttackText(unitCard, side, state)
+                        : CardDisplayFormatter.GetAttackText(unitCard);
+                }
+            }
+
+            if (healthText != null)
+            {
+                healthText.gameObject.SetActive(isUnit);
+                if (isUnit)
+                {
+                    healthText.text = useLiveCost
+                        ? CardDisplayFormatter.GetHealthText(unitCard, side, state)
+                        : CardDisplayFormatter.GetHealthText(unitCard);
+                }
+            }
+
+            if (rarityIndicator != null)
+            {
+                if (CardRarityReference.TryGetColor(card.Rarity, out Color rarityColor))
+                {
+                    rarityIndicator.color = rarityColor;
+                }
+                else
+                {
+                    Debug.LogWarning($"[HandCardView] No rarity color defined for {card.Rarity} on card {card.CardName}.");
+                }
             }
         }
 

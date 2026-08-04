@@ -189,6 +189,10 @@ MonoBehaviour:
   artImage: {fileID: 4970269353720416045}
   costText: {fileID: 4195893400430775102}
   nameText: {fileID: 4345479471303603929}
+  attackText: {fileID: 7152440664074581556}
+  healthText: {fileID: 3729872192687796961}
+  abilityText: {fileID: 436271722406936003}
+  rarityIndicator: {fileID: 1135702825298021618}
   visualRoot: {fileID: 4033625534850315273}
   selfRect: {fileID: 7297803707384486184}
   hoverRiseAmount: 30
@@ -684,7 +688,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.6509434, g: 0, b: 0, a: 1}
+  m_Color: {r: 0.6509434, g: 0.1, b: 0.9, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

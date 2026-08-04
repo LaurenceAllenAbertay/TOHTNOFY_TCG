@@ -17,7 +17,7 @@ MonoBehaviour:
   manaCost: 3
   rarity: 1
   cardArt: {fileID: 21300000, guid: 1ab30bc05d8500d4faec89c35c5f089c, type: 3}
-  abilityText: 'On Play: Stun the enemy unit directly opposite'
+  abilityText: 'On Play: Stun the enemy unit directly opposite.'
   effects:
   - trigger: 0
     action: 2
@@ -27,7 +27,6 @@ MonoBehaviour:
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

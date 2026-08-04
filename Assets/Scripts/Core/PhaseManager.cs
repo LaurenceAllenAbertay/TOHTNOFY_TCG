@@ -442,7 +442,29 @@ namespace DDD.TNFY.TCG.Core
                         continue;
                     }
 
-                    if (RequiresChosenTarget(effect.targetType))
+                    if (EffectTargeting.IsGroupTarget(effect.targetType))
+                    {
+                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
+                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                    {
+                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
+                    if (EffectTargeting.RequiresClick(effect.targetType))
                     {
                         state.TurnStartScanSlot = slot + 1;
                         DeferTargetedEffect(effect, unit, EffectTriggerType.OnTurnStart, excludeSource: false);
@@ -1166,7 +1188,29 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (RequiresChosenTarget(effect.targetType))
+                if (EffectTargeting.IsGroupTarget(effect.targetType))
+                {
+                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    continue;
+                }
+
+                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                {
+                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    continue;
+                }
+
+                if (EffectTargeting.RequiresClick(effect.targetType))
                 {
                     Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect requires a chosen target, which isn't supported yet — skipping.");
                     continue;
@@ -1205,7 +1249,29 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (RequiresChosenTarget(effect.targetType))
+                if (EffectTargeting.IsGroupTarget(effect.targetType))
+                {
+                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    continue;
+                }
+
+                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                {
+                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    continue;
+                }
+
+                if (EffectTargeting.RequiresClick(effect.targetType))
                 {
                     Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnMove effect requires a chosen target, which isn't supported yet — skipping.");
                     continue;
@@ -1236,6 +1302,28 @@ namespace DDD.TNFY.TCG.Core
                         continue;
                     }
 
+                    if (EffectTargeting.IsGroupTarget(effect.targetType))
+                    {
+                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, ally, ally.Owner, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, ally.Owner, ally, EffectTarget.ForUnit(groupUnit));
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
+                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                    {
+                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, ally, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, ally.Owner, ally, slotTarget);
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
                     EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, ally, ally.Owner, state);
                     Debug.Log($"[PhaseManager] {deadUnit.SourceCard.CardName}'s death triggered {ally.SourceCard.CardName}'s OnAllyDeath effect (targetType={effect.targetType}), target.Kind={immediateTarget.Kind}.");
                     EffectContext context = new EffectContext(state, ally.Owner, ally, immediateTarget);
@@ -1259,7 +1347,29 @@ namespace DDD.TNFY.TCG.Core
                         continue;
                     }
 
-                    if (RequiresChosenTarget(effect.targetType))
+                    if (EffectTargeting.IsGroupTarget(effect.targetType))
+                    {
+                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
+                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                    {
+                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
+                        {
+                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
+                            EffectExecutor.Execute(effect, groupContext, this);
+                        }
+
+                        continue;
+                    }
+
+                    if (EffectTargeting.RequiresClick(effect.targetType))
                     {
                         Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s On-Death effect requires a chosen target, which isn't supported yet since the source unit is already off the board — skipping.");
                         continue;
@@ -1459,11 +1569,6 @@ namespace DDD.TNFY.TCG.Core
             return movement.SwapUnitSlots(unitA, unitB);
         }
 
-        public bool BounceUnitOpposite(BoardUnit sourceUnit)
-        {
-            return lifecycle.BounceUnitOpposite(sourceUnit);
-        }
-
         public bool PullUnitOpposite(BoardUnit sourceUnit, BoardUnit targetUnit)
         {
             return movement.PullUnitOpposite(sourceUnit, targetUnit);
@@ -1608,6 +1713,51 @@ namespace DDD.TNFY.TCG.Core
             active.HasNextItemDoubled = false;
 
             CardEffect effect = card.PrimaryEffect;
+
+            if (EffectTargeting.IsGroupTarget(effect.targetType))
+            {
+                List<BoardUnit> groupTargets = EffectTargeting.ResolveGroupTargets(effect.targetType, null, state.ActivePlayer, state);
+                int passes = isDoubled ? 2 : 1;
+
+                for (int pass = 0; pass < passes; pass++)
+                {
+                    if (pass == 1)
+                    {
+                        Debug.Log($"[PhaseManager] {card.CardName} played twice due to Bobby H. Chicago's bonus.");
+                    }
+
+                    foreach (BoardUnit groupUnit in groupTargets)
+                    {
+                        EffectContext groupContext = new EffectContext(state, state.ActivePlayer, null, EffectTarget.ForUnit(groupUnit));
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+                }
+
+                return true;
+            }
+
+            if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+            {
+                List<EffectTarget> slotTargets = EffectTargeting.ResolveGroupSlotTargets(effect.targetType, null, state);
+                int slotPasses = isDoubled ? 2 : 1;
+
+                for (int pass = 0; pass < slotPasses; pass++)
+                {
+                    if (pass == 1)
+                    {
+                        Debug.Log($"[PhaseManager] {card.CardName} played twice due to Bobby H. Chicago's bonus.");
+                    }
+
+                    foreach (EffectTarget slotTarget in slotTargets)
+                    {
+                        EffectContext groupContext = new EffectContext(state, state.ActivePlayer, null, slotTarget);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+                }
+
+                return true;
+            }
+
             EffectContext context = new EffectContext(state, state.ActivePlayer, null, target);
             EffectExecutor.Execute(effect, context, this);
 
@@ -1675,7 +1825,23 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (RequiresChosenTarget(effect.targetType))
+                if (EffectTargeting.IsGroupTarget(effect.targetType))
+                {
+                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+                }
+                else if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                {
+                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+                }
+                else if (EffectTargeting.RequiresClick(effect.targetType))
                 {
                     DeferTargetedEffect(effect, unit, EffectTriggerType.OnPlay);
                 }
@@ -1689,18 +1855,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             TriggerLeaderEffects(EffectTriggerType.OnPlay, unit.Owner, unit);
-        }
-
-        private static bool RequiresChosenTarget(TargetType targetType)
-        {
-            return targetType != TargetType.None
-                && targetType != TargetType.Board
-                && targetType != TargetType.Self
-                && targetType != TargetType.AllyLeader
-                && targetType != TargetType.EnemyLeader
-                && targetType != TargetType.OpposingEnemy
-                && targetType != TargetType.LowestHealthEnemy
-                && targetType != TargetType.RandomUnitEitherSide;
         }
 
         private void DeferCardPoolChoice(CardEffect effect, BoardUnit sourceUnit)
@@ -1951,6 +2105,38 @@ namespace DDD.TNFY.TCG.Core
 
                 if (effect.oncePerTurn && leaderOwner.TriggeredOncePerTurnEffects.Contains(effect))
                 {
+                    continue;
+                }
+
+                if (EffectTargeting.IsGroupTarget(effect.targetType))
+                {
+                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, sourceUnit, leaderOwner.Side, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, leaderOwner.Side, sourceUnit, EffectTarget.ForUnit(groupUnit), triggeringPlayer);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    if (effect.oncePerTurn)
+                    {
+                        leaderOwner.TriggeredOncePerTurnEffects.Add(effect);
+                    }
+
+                    continue;
+                }
+
+                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                {
+                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, sourceUnit, state))
+                    {
+                        EffectContext groupContext = new EffectContext(state, leaderOwner.Side, sourceUnit, slotTarget, triggeringPlayer);
+                        EffectExecutor.Execute(effect, groupContext, this);
+                    }
+
+                    if (effect.oncePerTurn)
+                    {
+                        leaderOwner.TriggeredOncePerTurnEffects.Add(effect);
+                    }
+
                     continue;
                 }
 

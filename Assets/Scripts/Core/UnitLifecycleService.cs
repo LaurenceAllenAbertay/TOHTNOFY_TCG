@@ -220,19 +220,6 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public bool BounceUnitOpposite(BoardUnit sourceUnit)
-        {
-            if (sourceUnit == null) return false;
-
-            PlayerSide enemySide = sourceUnit.Owner.Opposite();
-            BoardUnit opposingUnit = state.Board.GetUnit(enemySide, sourceUnit.SlotIndex);
-
-            if (opposingUnit == null) return false;
-
-            BounceUnit(opposingUnit);
-            return true;
-        }
-
         public void SilenceUnit(BoardUnit unit)
         {
             if (unit == null)

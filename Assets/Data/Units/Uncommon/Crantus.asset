@@ -21,26 +21,24 @@ MonoBehaviour:
   effects:
   - trigger: 8
     action: 4
-    targetType: 12
+    targetType: 13
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
     fixedChoiceOptions: []
   - trigger: 8
     action: 5
-    targetType: 12
+    targetType: 13
     amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
@@ -49,4 +47,5 @@ MonoBehaviour:
   health: 2
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

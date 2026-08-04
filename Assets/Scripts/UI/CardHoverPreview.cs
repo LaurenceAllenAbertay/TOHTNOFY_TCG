@@ -455,7 +455,6 @@ namespace DDD.TNFY.TCG.UI
                     return true;
 
                 case EffectActionType.SilenceUnit:
-                case EffectActionType.SilenceAllEnemyUnits:
                     statusType = StatusEffectType.Silenced;
                     return true;
 

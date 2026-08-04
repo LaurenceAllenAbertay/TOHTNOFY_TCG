@@ -17,17 +17,16 @@ MonoBehaviour:
   manaCost: 3
   rarity: 0
   cardArt: {fileID: 21300000, guid: fb5e0780fb22c75408f852f9030c7b9d, type: 3}
-  abilityText: 'On Play: Deal 1 damage to enemy leader.'
+  abilityText: 'On Play: Deal 2 damage to enemy leader.'
   effects:
   - trigger: 0
     action: 11
     targetType: 6
-    amount: 1
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

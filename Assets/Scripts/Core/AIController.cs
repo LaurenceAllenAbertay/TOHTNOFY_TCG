@@ -403,7 +403,8 @@ namespace DDD.TNFY.TCG.Core
 
         private IEnumerable<EffectTarget> EnumerateCandidateTargets(TargetType targetType)
         {
-            if (targetType == TargetType.None || targetType == TargetType.Board || targetType == TargetType.Self)
+            if (targetType == TargetType.None || targetType == TargetType.Board || targetType == TargetType.Self
+                || EffectTargeting.IsGroupTarget(targetType))
             {
                 yield return EffectTarget.None;
                 yield break;
@@ -436,12 +437,12 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
-            if (targetType == TargetType.AnyUnitOrLeader || targetType == TargetType.EnemyUnitOrLeader)
+            if (targetType == TargetType.AnyUnitOrLeader || targetType == TargetType.AnyEnemyUnitOrLeader)
             {
                 yield return EffectTarget.ForLeader(aiSide.Opposite());
             }
 
-            if (targetType == TargetType.AnyUnitOrLeader)
+            if (targetType == TargetType.AnyUnitOrLeader || targetType == TargetType.AnyAllyUnitOrLeader)
             {
                 yield return EffectTarget.ForLeader(aiSide);
             }
@@ -450,9 +451,8 @@ namespace DDD.TNFY.TCG.Core
         private static readonly HashSet<EffectActionType> HarmfulActions = new HashSet<EffectActionType>
         {
             EffectActionType.StunUnit,
-            EffectActionType.DealDamageToTarget,
+            EffectActionType.DealDamage,
             EffectActionType.BounceUnit,
-            EffectActionType.BounceUnitOpposite,
             EffectActionType.ApplyDelayedKill,
             EffectActionType.SilenceUnit,
             EffectActionType.ApplyDecay,
