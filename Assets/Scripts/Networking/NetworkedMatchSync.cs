@@ -155,7 +155,7 @@ namespace DDD.TNFY.TCG.Core
             BroadcastStateIfMaster();
         }
 
-        private static PlayerSide SideForActorNumber(int actorNumber)
+        public static PlayerSide SideForActorNumber(int actorNumber)
         {
             return actorNumber == 1 ? PlayerSide.PlayerA : PlayerSide.PlayerB;
         }
@@ -1055,13 +1055,27 @@ namespace DDD.TNFY.TCG.Core
             player.Deck.Clear();
             foreach (CardRefDto cardDto in dto.deck)
             {
-                player.Deck.Add(ResolveCard(cardDto));
+                CardData resolvedCard = ResolveCard(cardDto);
+                if (resolvedCard == null)
+                {
+                    Debug.LogError($"[NetworkedMatchSync] Dropped unresolved card '{cardDto.cardId}' from {player.Side}'s synced Deck instead of adding null.");
+                    continue;
+                }
+
+                player.Deck.Add(resolvedCard);
             }
 
             player.Hand.Clear();
             foreach (CardRefDto cardDto in dto.hand)
             {
-                player.Hand.Add(ResolveCard(cardDto));
+                CardData resolvedCard = ResolveCard(cardDto);
+                if (resolvedCard == null)
+                {
+                    Debug.LogError($"[NetworkedMatchSync] Dropped unresolved card '{cardDto.cardId}' from {player.Side}'s synced Hand instead of adding null.");
+                    continue;
+                }
+
+                player.Hand.Add(resolvedCard);
             }
 
             player.GameStartBonusCards.Clear();
@@ -1069,7 +1083,14 @@ namespace DDD.TNFY.TCG.Core
             {
                 foreach (CardRefDto cardDto in dto.gameStartBonusCards)
                 {
-                    player.GameStartBonusCards.Add(ResolveCard(cardDto));
+                    CardData resolvedCard = ResolveCard(cardDto);
+                    if (resolvedCard == null)
+                    {
+                        Debug.LogError($"[NetworkedMatchSync] Dropped unresolved card '{cardDto.cardId}' from {player.Side}'s synced GameStartBonusCards instead of adding null.");
+                        continue;
+                    }
+
+                    player.GameStartBonusCards.Add(resolvedCard);
                 }
             }
 
@@ -1158,7 +1179,7 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!cardLookup.TryGetValue(dto.cardId, out CardData baseCard))
             {
-                Debug.LogWarning($"[NetworkedMatchSync] Unknown cardId '{dto.cardId}' received - no matching asset in the local card pool.");
+                Debug.LogWarning($"[NetworkedMatchSync] Unknown cardId '{dto.cardId}' received - no matching asset in the local card pool. Check that this card is included in MatchBootstrapper's Card Pool list, even if it's a reward-only card that's never drafted.");
                 return null;
             }
 
@@ -1199,16 +1220,60 @@ namespace DDD.TNFY.TCG.Core
             }
 
             cardLookup = new Dictionary<string, CardData>();
+            Queue<CardData> cardsToScanForReferences = new Queue<CardData>();
+
             foreach (CardData card in bootstrapper.CardPool)
             {
-                cardLookup[card.CardId] = card;
+                if (TryRegisterCard(card))
+                {
+                    cardsToScanForReferences.Enqueue(card);
+                }
             }
+
+            while (cardsToScanForReferences.Count > 0)
+            {
+                CardData card = cardsToScanForReferences.Dequeue();
+
+                foreach (CardEffect effect in card.Effects)
+                {
+                    if (TryRegisterCard(effect.relevantCard))
+                    {
+                        cardsToScanForReferences.Enqueue(effect.relevantCard);
+                    }
+
+                    if (effect.fixedChoiceOptions == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (CardData option in effect.fixedChoiceOptions)
+                    {
+                        if (TryRegisterCard(option))
+                        {
+                            cardsToScanForReferences.Enqueue(option);
+                        }
+                    }
+                }
+            }
+
+            Debug.Log($"[NetworkedMatchSync] Built card lookup with {cardLookup.Count} card(s) ({bootstrapper.CardPool.Count} from Card Pool, {cardLookup.Count - bootstrapper.CardPool.Count} discovered via relevantCard/fixedChoiceOptions references).");
 
             leaderLookup = new Dictionary<string, LeaderData>();
             foreach (LeaderData leader in bootstrapper.LeaderPool)
             {
                 leaderLookup[leader.LeaderId] = leader;
             }
+        }
+
+        private bool TryRegisterCard(CardData card)
+        {
+            if (card == null || cardLookup.ContainsKey(card.CardId))
+            {
+                return false;
+            }
+
+            cardLookup[card.CardId] = card;
+            return true;
         }
     }
 }

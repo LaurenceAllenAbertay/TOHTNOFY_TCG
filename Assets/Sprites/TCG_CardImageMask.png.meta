@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 48e69be1cde7eb944964ae02c44c6491
+guid: 6244474fe64e8a54db5078aecc26c3ba
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8846667847080806600
-    second: TCG_PortraitMask_0
+      213: 8739239006608702380
+    second: TCG_CardImageMask_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -113,11 +113,11 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_PortraitMask_0
+      name: TCG_CardImageMask_0
       rect:
         serializedVersion: 2
-        x: 5
-        y: 2
+        x: 21
+        y: 242
         width: 490
         height: 373
       alignment: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8c80f17098da5ca70800000000000000
-      internalID: 8846667847080806600
+      spriteID: cab3624f293084970800000000000000
+      internalID: 8739239006608702380
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_PortraitMask_0: 8846667847080806600
+      TCG_CardImageMask_0: 8739239006608702380
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

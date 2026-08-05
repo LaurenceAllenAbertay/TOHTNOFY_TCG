@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 5cf21128dc3eb0041903e89424cc8211
+guid: e47718b03307166499077e7c0f7ec177
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1275684938857220632
-    second: TCG_FullCardRarity_0
+      213: 5404807585092175159
+    second: TCG_CardRarityIndicator_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_FullCardRarity_0
+      name: TCG_CardRarityIndicator_0
       rect:
         serializedVersion: 2
-        x: 340
-        y: 441
+        x: 356
+        y: 461
         width: 153
-        height: 154
+        height: 151
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8e579169e4bdb4ee0800000000000000
-      internalID: -1275684938857220632
+      spriteID: 73581ccdcdbb10b40800000000000000
+      internalID: 5404807585092175159
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_FullCardRarity_0: -1275684938857220632
+      TCG_CardRarityIndicator_0: 5404807585092175159
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

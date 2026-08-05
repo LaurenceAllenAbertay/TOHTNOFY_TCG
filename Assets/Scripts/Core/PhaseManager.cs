@@ -1898,7 +1898,7 @@ namespace DDD.TNFY.TCG.Core
             Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName} is now awaiting a fixed card choice from {offeredCards.Count} option(s): {string.Join(", ", offeredCards.ConvertAll(c => c.CardName))}.");
         }
 
-        private static bool MatchesCardCategory(CardData card, CardCategory category)
+        public static bool MatchesCardCategory(CardData card, CardCategory category)
         {
             switch (category)
             {

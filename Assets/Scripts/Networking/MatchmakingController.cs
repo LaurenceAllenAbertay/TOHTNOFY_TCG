@@ -3,6 +3,8 @@ using Photon.Realtime;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.DeckBuilding;
 
 namespace DDD.TNFY.TCG.Networking
 {
@@ -16,6 +18,8 @@ namespace DDD.TNFY.TCG.Networking
         [SerializeField] private Button cancelMatchmakingButton;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private string gameSceneName = "Game";
+        [SerializeField] private CardDatabase cardDatabase;
+        [SerializeField] private Toggle constructedModeToggle;
 
         private bool cancelRequested;
 
@@ -75,6 +79,11 @@ namespace DDD.TNFY.TCG.Networking
 
             PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
             PhotonNetwork.NickName = chosenName;
+
+            DDD.TNFY.TCG.Core.GameMode selectedMode = constructedModeToggle != null && constructedModeToggle.isOn
+                ? DDD.TNFY.TCG.Core.GameMode.Constructed
+                : DDD.TNFY.TCG.Core.GameMode.Draft;
+            ConstructedMatchSync.PublishSelection(selectedMode, cardDatabase);
 
             cancelRequested = false;
             findMatchButton.interactable = false;
