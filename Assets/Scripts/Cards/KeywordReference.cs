@@ -6,12 +6,12 @@ namespace DDD.TNFY.TCG.Cards
     {
         private static readonly Dictionary<Keyword, string> Descriptions = new Dictionary<Keyword, string>
         {
-            { Keyword.Taunt, "A unit must be placed opposing this one before placing elsewhere." },
+            { Keyword.Taunt, "A unit must be placed opposing this one before placing elsewhere. Also blocks Piercing attacks." },
             { Keyword.Rush, "This unit can attack the turn it's played." },
             { Keyword.BifurcatedAttack, "This unit attacks diagonally left and right." },
             { Keyword.Agile, "This unit can move 2 slots instead of 1." },
             { Keyword.Nimble, "This unit can move for free." },
-            { Keyword.Piercing, "This unit attacks the leader directly." },
+            { Keyword.Piercing, "This unit attacks the leader directly, unless blocked by a Taunt unit opposing it." },
             { Keyword.Unmoving, "This unit can never move." },
             { Keyword.Unstable, "When this unit dies, deal damage equal to its Attack to a random enemy unit." },
             { Keyword.Retaliate, "If this unit survives a hit, it attacks the attacking unit." },

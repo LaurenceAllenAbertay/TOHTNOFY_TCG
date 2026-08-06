@@ -71,7 +71,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             GrantCodyMoveBonusIfApplicable(unit);
-            OnUnitRelocated(unit);
+            OnUnitRelocated(unit, fromSlot);
 
             return true;
         }
@@ -87,7 +87,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
-            OnUnitRelocated(unit);
+            OnUnitRelocated(unit, fromSlot);
 
             return true;
         }
@@ -125,7 +125,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
-            OnUnitRelocated(unit);
+            OnUnitRelocated(unit, fromSlot);
 
             return true;
         }
@@ -199,7 +199,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, destinationSlot, closestAlly);
 
             GrantCodyMoveBonusIfApplicable(closestAlly);
-            OnUnitRelocated(closestAlly);
+            OnUnitRelocated(closestAlly, fromSlot);
 
             Debug.Log($"[MovementResolver] {sourceUnit.SourceCard.CardName}'s Hook moved {closestAlly.SourceCard.CardName} from slot {fromSlot} to slot {destinationSlot}.");
 
@@ -258,7 +258,7 @@ namespace DDD.TNFY.TCG.Core
             state.Board.PlaceUnit(side, toSlot, unit);
 
             GrantCodyMoveBonusIfApplicable(unit);
-            OnUnitRelocated(unit);
+            OnUnitRelocated(unit, fromSlot);
         }
 
         public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
@@ -279,8 +279,8 @@ namespace DDD.TNFY.TCG.Core
 
             GrantCodyMoveBonusIfApplicable(unitA);
             GrantCodyMoveBonusIfApplicable(unitB);
-            OnUnitRelocated(unitA);
-            OnUnitRelocated(unitB);
+            OnUnitRelocated(unitA, slotA);
+            OnUnitRelocated(unitB, slotB);
 
             return true;
         }
@@ -305,10 +305,12 @@ namespace DDD.TNFY.TCG.Core
                 return false;
             }
 
-            state.Board.RemoveUnit(targetSide, targetUnit.SlotIndex);
+            int originSlot = targetUnit.SlotIndex;
+
+            state.Board.RemoveUnit(targetSide, originSlot);
             state.Board.PlaceUnit(targetSide, destinationSlot, targetUnit);
 
-            OnUnitRelocated(targetUnit);
+            OnUnitRelocated(targetUnit, originSlot);
 
             return true;
         }
@@ -326,7 +328,7 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void OnUnitRelocated(BoardUnit relocatedUnit)
+        private void OnUnitRelocated(BoardUnit relocatedUnit, int originSlot)
         {
             if (relocatedUnit == null)
             {
@@ -341,7 +343,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             PlayerSide relentlessSide = relocatedUnit.Owner.Opposite();
-            BoardUnit relentlessUnit = state.Board.GetUnit(relentlessSide, relocatedUnit.SlotIndex);
+            BoardUnit relentlessUnit = state.Board.GetUnit(relentlessSide, originSlot);
 
             if (relentlessUnit == null || relentlessUnit.IsSilenced || !relentlessUnit.HasKeyword(Keyword.Relentless, state))
             {
@@ -350,7 +352,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (relentlessUnit.HasKeyword(Keyword.Unmoving, state))
             {
-                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName} has Relentless but is Unmoving — cannot follow.");
+                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName} has Relentless but is Unmoving — staying still.");
                 return;
             }
 
@@ -364,7 +366,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (state.Board.GetUnit(relentlessSide, relentlessToSlot) != null)
             {
-                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName}'s Relentless FAIL: slot {relentlessToSlot} is occupied.");
+                Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName}'s Relentless FAIL: slot {relentlessToSlot} is occupied — staying still.");
                 return;
             }
 
@@ -373,7 +375,7 @@ namespace DDD.TNFY.TCG.Core
 
             Debug.Log($"[MovementResolver] {relentlessUnit.SourceCard.CardName}'s Relentless followed {relocatedUnit.SourceCard.CardName} from slot {relentlessFromSlot} to slot {relentlessToSlot}.");
 
-            OnUnitRelocated(relentlessUnit);
+            OnUnitRelocated(relentlessUnit, relentlessFromSlot);
         }
 
         public bool TrySlippyDodge(BoardUnit defender)
@@ -415,7 +417,7 @@ namespace DDD.TNFY.TCG.Core
 
             Debug.Log($"[MovementResolver] {defender.SourceCard.CardName}'s Slippy dodged from slot {fromSlot} to slot {destinationSlot}.");
 
-            OnUnitRelocated(defender);
+            OnUnitRelocated(defender, fromSlot);
 
             return true;
         }
@@ -511,7 +513,7 @@ namespace DDD.TNFY.TCG.Core
 
             granter.HasUsedGrantedEnemyMoveThisTurn = true;
 
-            OnUnitRelocated(unit);
+            OnUnitRelocated(unit, fromSlot);
 
             return true;
         }

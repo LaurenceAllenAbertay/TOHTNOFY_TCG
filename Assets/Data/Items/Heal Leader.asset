@@ -17,17 +17,16 @@ MonoBehaviour:
   manaCost: 3
   rarity: 0
   cardArt: {fileID: 0}
-  abilityText: Heal your leader 3 health.
+  abilityText: Heal your leader 6 health.
   effects:
   - trigger: 0
     action: 3
     targetType: 5
-    amount: 3
+    amount: 6
     oncePerTurn: 0
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

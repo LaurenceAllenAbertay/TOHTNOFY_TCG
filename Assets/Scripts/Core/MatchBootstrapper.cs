@@ -49,6 +49,10 @@ namespace DDD.TNFY.TCG.Core
             {
                 StartConstructedMatch();
             }
+            else if (effectiveMode == GameMode.RandomDeck)
+            {
+                StartRandomDeckMatch();
+            }
             else
             {
                 manager.Phases.StartDraft(new List<CardData>(CardPool), draftSettings);
@@ -94,6 +98,47 @@ namespace DDD.TNFY.TCG.Core
             manager.State.ActivePlayer = manager.State.FirstPlayer;
 
             manager.Phases.StartMatch();
+        }
+
+        private void StartRandomDeckMatch()
+        {
+            manager.State.PlayerA.Deck.AddRange(BuildRandomDeck());
+            manager.State.PlayerB.Deck.AddRange(BuildRandomDeck());
+
+            ListShuffler.Shuffle(manager.State.PlayerA.Deck);
+            ListShuffler.Shuffle(manager.State.PlayerB.Deck);
+
+            Debug.Log($"[MatchBootstrapper] Random Deck mode - built PlayerA {manager.State.PlayerA.Deck.Count}-card deck and PlayerB {manager.State.PlayerB.Deck.Count}-card deck from the full card pool.");
+
+            manager.State.ActivePlayer = manager.State.FirstPlayer;
+
+            manager.Phases.StartMatch();
+        }
+
+        private List<CardData> BuildRandomDeck()
+        {
+            int maxCopies = cardDatabase != null ? cardDatabase.MaxCopiesPerCard : 0;
+            int targetSize = cardDatabase != null ? cardDatabase.TargetDeckSize : 0;
+
+            List<CardData> pool = new List<CardData>();
+
+            foreach (CardData card in CardPool)
+            {
+                for (int i = 0; i < maxCopies; i++)
+                {
+                    pool.Add(card);
+                }
+            }
+
+            ListShuffler.Shuffle(pool);
+
+            if (pool.Count < targetSize)
+            {
+                Debug.LogWarning($"[MatchBootstrapper] BuildRandomDeck() - pool only produced {pool.Count} card(s) (target is {targetSize}). The Card Database may not have enough unique cards x Max Copies Per Card to fill a deck - using all {pool.Count} available.");
+                return pool;
+            }
+
+            return pool.GetRange(0, targetSize);
         }
 
         private void AssignRandomFirstPlayer()

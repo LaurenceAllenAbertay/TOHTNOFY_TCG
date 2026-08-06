@@ -137,6 +137,7 @@ namespace DDD.TNFY.TCG.DeckBuilding
         public void Open()
         {
             Debug.Log("[DeckBuilderPanel] Open() start.");
+            System.Diagnostics.Stopwatch openStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             if (panelRoot != null)
             {
@@ -153,7 +154,9 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
             Debug.Log("[DeckBuilderPanel] Calling RefreshAll().");
             RefreshAll();
-            Debug.Log("[DeckBuilderPanel] Open() complete.");
+
+            openStopwatch.Stop();
+            Debug.Log($"[DeckBuilderPanel] Open() complete. Total time {openStopwatch.ElapsedMilliseconds}ms.");
         }
 
         public void Close()
@@ -410,6 +413,8 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
             Debug.Log("[DeckBuilderPanel] Sorting done. Starting instantiate loop.");
 
+            System.Diagnostics.Stopwatch spawnStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
             int spawnedCount = 0;
             foreach (CardData card in filtered)
             {
@@ -421,7 +426,9 @@ namespace DDD.TNFY.TCG.DeckBuilding
                 spawnedCount++;
             }
 
-            Debug.Log($"[DeckBuilderPanel] RefreshCollectionGrid() complete. Spawned {spawnedCount} entries.");
+            spawnStopwatch.Stop();
+
+            Debug.Log($"[DeckBuilderPanel] RefreshCollectionGrid() complete. Spawned {spawnedCount} entries in {spawnStopwatch.ElapsedMilliseconds}ms.");
         }
 
         private bool MatchesSearch(CardData card)

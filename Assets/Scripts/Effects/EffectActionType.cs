@@ -37,6 +37,7 @@ namespace DDD.TNFY.TCG.Effects
         ChooseFixedCard = 37,
         BuffAttackAndHealthPerAlliedDeath = 39,
         MoveUnitToUnblockedSlot = 40,
-        SpawnUnit = 41
+        SpawnUnit = 41,
+        AddTemporaryAttack = 42
     }
 }

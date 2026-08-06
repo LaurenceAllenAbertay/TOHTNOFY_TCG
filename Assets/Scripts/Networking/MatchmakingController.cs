@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
@@ -5,6 +6,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.DeckBuilding;
+using Hashtable = ExitGames.Client.Photon.Hashtable;
+using GameMode = DDD.TNFY.TCG.Core.GameMode;
 
 namespace DDD.TNFY.TCG.Networking
 {
@@ -12,6 +15,21 @@ namespace DDD.TNFY.TCG.Networking
     {
         private const string NicknamePrefsKey = "SavedPlayerNickname";
         private const byte MaxPlayersPerRoom = 2;
+        private const string GameModeRoomPropertyKey = "gm";
+
+        private static readonly GameMode[] DropdownModeOrder =
+        {
+            GameMode.Draft,
+            GameMode.RandomDeck,
+            GameMode.Constructed
+        };
+
+        private static readonly List<string> DropdownModeLabels = new List<string>
+        {
+            "Draft",
+            "Random Deck",
+            "Constructed"
+        };
 
         [SerializeField] private TMP_InputField nameInputField;
         [SerializeField] private Button findMatchButton;
@@ -19,9 +37,10 @@ namespace DDD.TNFY.TCG.Networking
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private string gameSceneName = "Game";
         [SerializeField] private CardDatabase cardDatabase;
-        [SerializeField] private Toggle constructedModeToggle;
+        [SerializeField] private TMP_Dropdown gameModeDropdown;
 
         private bool cancelRequested;
+        private GameMode pendingGameMode;
 
         private void Awake()
         {
@@ -38,6 +57,12 @@ namespace DDD.TNFY.TCG.Networking
             if (PlayerPrefs.HasKey(NicknamePrefsKey))
             {
                 nameInputField.text = PlayerPrefs.GetString(NicknamePrefsKey);
+            }
+
+            if (gameModeDropdown != null)
+            {
+                gameModeDropdown.ClearOptions();
+                gameModeDropdown.AddOptions(DropdownModeLabels);
             }
         }
 
@@ -73,6 +98,15 @@ namespace DDD.TNFY.TCG.Networking
 
         private void HandleFindMatchClicked()
         {
+            GameMode selectedMode = ReadSelectedModeFromDropdown();
+
+            Debug.Log($"[MatchmakingController] HandleFindMatchClicked() - selectedMode={selectedMode}, gameModeDropdown.value={(gameModeDropdown != null ? gameModeDropdown.value.ToString() : "null dropdown ref")}.");
+
+            if (selectedMode == GameMode.Constructed && !ActiveDeckIsQueueReady())
+            {
+                return;
+            }
+
             string chosenName = string.IsNullOrWhiteSpace(nameInputField.text)
                 ? "Player" + Random.Range(1000, 9999)
                 : nameInputField.text.Trim();
@@ -80,12 +114,10 @@ namespace DDD.TNFY.TCG.Networking
             PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
             PhotonNetwork.NickName = chosenName;
 
-            DDD.TNFY.TCG.Core.GameMode selectedMode = constructedModeToggle != null && constructedModeToggle.isOn
-                ? DDD.TNFY.TCG.Core.GameMode.Constructed
-                : DDD.TNFY.TCG.Core.GameMode.Draft;
             ConstructedMatchSync.PublishSelection(selectedMode, cardDatabase);
 
             cancelRequested = false;
+            pendingGameMode = selectedMode;
             findMatchButton.interactable = false;
             nameInputField.interactable = false;
             SetStatus("Searching for an opponent...");
@@ -96,8 +128,59 @@ namespace DDD.TNFY.TCG.Networking
                 cancelMatchmakingButton.interactable = true;
             }
 
-            Debug.Log($"[MatchmakingController] Attempting JoinRandomOrCreateRoom as '{chosenName}'.");
-            PhotonNetwork.JoinRandomOrCreateRoom();
+            RoomOptions roomOptions = BuildRoomOptions(selectedMode);
+
+            Debug.Log($"[MatchmakingController] Attempting JoinRandomOrCreateRoom as '{chosenName}' - filtering by {GameModeRoomPropertyKey}={selectedMode}.");
+            PhotonNetwork.JoinRandomOrCreateRoom(
+                expectedCustomRoomProperties: roomOptions.CustomRoomProperties,
+                expectedMaxPlayers: MaxPlayersPerRoom,
+                roomOptions: roomOptions);
+        }
+
+        private GameMode ReadSelectedModeFromDropdown()
+        {
+            if (gameModeDropdown == null)
+            {
+                return GameMode.Draft;
+            }
+
+            int index = gameModeDropdown.value;
+
+            if (index < 0 || index >= DropdownModeOrder.Length)
+            {
+                Debug.LogWarning($"[MatchmakingController] gameModeDropdown.value ({index}) is out of range for DropdownModeOrder - defaulting to Draft.");
+                return GameMode.Draft;
+            }
+
+            return DropdownModeOrder[index];
+        }
+
+        private RoomOptions BuildRoomOptions(GameMode mode)
+        {
+            Hashtable modeProperties = new Hashtable { { GameModeRoomPropertyKey, mode.ToString() } };
+
+            return new RoomOptions
+            {
+                MaxPlayers = MaxPlayersPerRoom,
+                CustomRoomProperties = modeProperties,
+                CustomRoomPropertiesForLobby = new[] { GameModeRoomPropertyKey }
+            };
+        }
+
+        private bool ActiveDeckIsQueueReady()
+        {
+            int targetSize = cardDatabase != null ? cardDatabase.TargetDeckSize : 0;
+            int activeSize = DeckStorage.LoadActiveDeckCards(cardDatabase).Count;
+
+            if (activeSize == targetSize)
+            {
+                Debug.Log($"[MatchmakingController] ActiveDeckIsQueueReady() passed - active deck has {activeSize} card(s).");
+                return true;
+            }
+
+            Debug.LogWarning($"[MatchmakingController] Blocked matchmaking - active Constructed deck has {activeSize} card(s), needs exactly {targetSize}.");
+            SetStatus($"Your deck needs exactly {targetSize} cards to queue (currently {activeSize}).");
+            return false;
         }
 
         private void HandleCancelMatchmakingClicked()
@@ -131,10 +214,9 @@ namespace DDD.TNFY.TCG.Networking
                 return;
             }
 
-            Debug.Log($"[MatchmakingController] OnJoinRandomFailed (no open room found) - creating one. message={message}");
+            Debug.Log($"[MatchmakingController] OnJoinRandomFailed (no open room found) - creating one for mode={pendingGameMode}. message={message}");
 
-            RoomOptions roomOptions = new RoomOptions { MaxPlayers = MaxPlayersPerRoom };
-            PhotonNetwork.CreateRoom(null, roomOptions);
+            PhotonNetwork.CreateRoom(null, BuildRoomOptions(pendingGameMode));
         }
 
         public override void OnJoinedRoom()

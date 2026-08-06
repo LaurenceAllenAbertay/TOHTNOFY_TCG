@@ -16,7 +16,7 @@ MonoBehaviour:
   leaderName: RayRay
   maxHealth: 30
   portrait: {fileID: 302086664905093045, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
-  abilityText: Start with 3 Gain Mana cards.
+  abilityText: Start with 2 Gain Mana cards.
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
@@ -25,7 +25,7 @@ MonoBehaviour:
   - trigger: 11
     action: 23
     targetType: 5
-    amount: 3
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 11400000, guid: 7d0508847b181bd4f8418bfa243e671d, type: 2}

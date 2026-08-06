@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: blobonavirus
   cardName: Blobona Virus
-  manaCost: 5
+  manaCost: 4
   rarity: 3
   cardArt: {fileID: 0}
   abilityText: Transform a unit into a Blobman.
@@ -27,7 +27,6 @@ MonoBehaviour:
     mandatoryTarget: 0
     relevantCard: {fileID: 11400000, guid: 1d601bc448e3988449712a2a6596da04, type: 2}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

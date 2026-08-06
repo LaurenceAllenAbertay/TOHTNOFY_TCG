@@ -1026,14 +1026,22 @@ namespace DDD.TNFY.TCG.Core
         {
             int attackerCurrentAttack = attacker.GetCurrentAttack(state) + temporaryAttackBonus;
 
-            if (attacker.HasKeyword(Keyword.Piercing, state))
+            BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
+
+            bool piercingBlockedByTaunt = defender != null && defender.HasKeyword(Keyword.Taunt, state);
+
+            if (attacker.HasKeyword(Keyword.Piercing, state) && !piercingBlockedByTaunt)
             {
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Piercing) bypasses slot {targetSlot} and hits the leader directly.");
                 DamageLeader(state.ActivePlayer.Opposite(), attackerCurrentAttack);
                 TriggerOnAttack(attacker, null, attackerCurrentAttack);
                 return false;
             }
 
-            BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
+            if (piercingBlockedByTaunt)
+            {
+                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Piercing) is blocked by {defender.SourceCard.CardName}'s Taunt — resolving as a normal attack instead.");
+            }
 
             if (defender != null && movement.TrySlippyDodge(defender))
             {
@@ -1416,9 +1424,9 @@ namespace DDD.TNFY.TCG.Core
             lifecycle.BounceUnit(unit);
         }
 
-        public void SilenceUnit(BoardUnit unit)
+        public void SilenceUnit(BoardUnit unit, int duration)
         {
-            lifecycle.SilenceUnit(unit);
+            lifecycle.SilenceUnit(unit, duration);
         }
 
         public bool SwapAttackAndHealth(BoardUnit unit)
@@ -1658,14 +1666,34 @@ namespace DDD.TNFY.TCG.Core
 
                     if (unit.IsSilenced)
                     {
-                        unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Silenced);
-                        Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
+                        ActiveStatusEffect silence = unit.Statuses.Find(status => status.Type == StatusEffectType.Silenced);
+
+                        if (silence != null)
+                        {
+                            silence.RemainingTriggers--;
+
+                            if (silence.RemainingTriggers <= 0)
+                            {
+                                unit.Statuses.Remove(silence);
+                                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
+                            }
+                            else
+                            {
+                                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence has {silence.RemainingTriggers} of {state.ActivePlayer}'s turn(s) left.");
+                            }
+                        }
                     }
 
                     if (unit.IsStunned)
                     {
                         unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Stunned);
                         Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Stun wore off at the end of {state.ActivePlayer}'s turn.");
+                    }
+
+                    if (unit.HasStatus(StatusEffectType.TemporaryAttackThisTurn))
+                    {
+                        unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.TemporaryAttackThisTurn);
+                        Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s temporary attack bonus wore off at the end of {state.ActivePlayer}'s turn.");
                     }
                 }
             }

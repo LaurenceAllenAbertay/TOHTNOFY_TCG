@@ -27,13 +27,12 @@ MonoBehaviour:
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
     fixedChoiceOptions: []
   attack: 4
-  health: 7
+  health: 8
   keywords: 0
   grantsEnemyUnitMove: 0
   pendingCurrentHealth: 0

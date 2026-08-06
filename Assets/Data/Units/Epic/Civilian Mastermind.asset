@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: civilianmastermind
   cardName: Civilian Mastermind
-  manaCost: 8
+  manaCost: 9
   rarity: 3
   cardArt: {fileID: 0}
   abilityText: "All allied units get +1/+1. \nOn Turn Start: Add a CMG Goon to your

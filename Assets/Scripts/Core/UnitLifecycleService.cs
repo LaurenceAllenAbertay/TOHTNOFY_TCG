@@ -220,7 +220,7 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        public void SilenceUnit(BoardUnit unit)
+        public void SilenceUnit(BoardUnit unit, int duration)
         {
             if (unit == null)
             {
@@ -232,7 +232,7 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, 1));
+            unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, duration));
         }
 
         public static bool ConsumeStatus(BoardUnit unit, StatusEffectType type)

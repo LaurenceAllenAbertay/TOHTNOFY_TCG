@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardId: kindheartednoble
   cardName: Kindhearted Noble
-  manaCost: 3
+  manaCost: 4
   rarity: 1
   cardArt: {fileID: 21300000, guid: 67cc68c8713eb774bb1650aacab62f07, type: 3}
   abilityText: 'On Play: Bounce opposing unit.'
@@ -27,7 +27,6 @@ MonoBehaviour:
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
@@ -36,4 +35,5 @@ MonoBehaviour:
   health: 6
   keywords: 0
   grantsEnemyUnitMove: 0
+  pendingCurrentHealth: 0
   auras: []

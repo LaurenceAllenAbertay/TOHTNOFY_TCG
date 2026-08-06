@@ -32,6 +32,10 @@ namespace DDD.TNFY.TCG.Effects
                     ExecuteBuffAttack(effect, context);
                     break;
 
+                case EffectActionType.AddTemporaryAttack:
+                    ExecuteAddTemporaryAttack(effect, context);
+                    break;
+
                 case EffectActionType.BuffMaxHealth:
                     ExecuteBuffMaxHealth(effect, context, phases);
                     break;
@@ -49,7 +53,7 @@ namespace DDD.TNFY.TCG.Effects
                     break;
 
                 case EffectActionType.SilenceUnit:
-                    ExecuteSilenceUnit(context, phases);
+                    ExecuteSilenceUnit(effect, context, phases);
                     break;
 
                 case EffectActionType.SwapAttackAndHealth:
@@ -89,7 +93,7 @@ namespace DDD.TNFY.TCG.Effects
                     break;
 
                 case EffectActionType.ApplyDecay:
-                    ExecuteApplyDecay(context);
+                    ExecuteApplyDecay(effect, context);
                     break;
 
                 case EffectActionType.HealSelfByDamageDealt:
@@ -182,6 +186,16 @@ namespace DDD.TNFY.TCG.Effects
             context.ChosenTarget.Unit.BonusAttack += effect.amount;
         }
 
+        private static void ExecuteAddTemporaryAttack(CardEffect effect, EffectContext context)
+        {
+            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
+            {
+                return;
+            }
+
+            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackThisTurn, 1, effect.amount));
+        }
+
         private static void ExecuteBuffMaxHealth(CardEffect effect, EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
@@ -226,14 +240,15 @@ namespace DDD.TNFY.TCG.Effects
             phases.BounceUnit(context.ChosenTarget.Unit);
         }
 
-        private static void ExecuteSilenceUnit(EffectContext context, PhaseManager phases)
+        private static void ExecuteSilenceUnit(CardEffect effect, EffectContext context, PhaseManager phases)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
             {
                 return;
             }
 
-            phases.SilenceUnit(context.ChosenTarget.Unit);
+            int duration = System.Math.Max(1, effect.amount);
+            phases.SilenceUnit(context.ChosenTarget.Unit, duration);
         }
 
         private static void ExecuteSwapAttackAndHealth(EffectContext context, PhaseManager phases)
@@ -374,14 +389,19 @@ namespace DDD.TNFY.TCG.Effects
             phases.PullUnitOpposite(context.SourceUnit, context.ChosenTarget.Unit);
         }
 
-        private static void ExecuteApplyDecay(EffectContext context)
+        private static void ExecuteApplyDecay(CardEffect effect, EffectContext context)
         {
             if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
             {
                 return;
             }
 
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Decaying, 1, 1, context.SourceOwner));
+            int stacksToApply = System.Math.Max(1, effect.amount);
+
+            for (int i = 0; i < stacksToApply; i++)
+            {
+                context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Decaying, 1, 1, context.SourceOwner));
+            }
         }
 
         private static void ExecuteHealSelfByDamageDealt(EffectContext context, PhaseManager phases, int? runtimeAmount)

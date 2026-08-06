@@ -16,7 +16,7 @@ MonoBehaviour:
   leaderName: Oliver
   maxHealth: 35
   portrait: {fileID: 2531974361064379262, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
-  abilityText: Whenever an ally unit dies, heal adjacent units 1 health.
+  abilityText: Whenever an ally unit dies, heal adjacent units 2 health.
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
@@ -25,7 +25,7 @@ MonoBehaviour:
   - trigger: 4
     action: 3
     targetType: 17
-    amount: 1
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 1
     relevantCard: {fileID: 0}

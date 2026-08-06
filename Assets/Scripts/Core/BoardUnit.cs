@@ -35,7 +35,7 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (ActiveStatusEffect status in Statuses)
             {
-                if (status.Type == StatusEffectType.TemporaryAttackNextAttack)
+                if (status.Type == StatusEffectType.TemporaryAttackNextAttack || status.Type == StatusEffectType.TemporaryAttackThisTurn)
                 {
                     bonus += status.Magnitude;
                 }

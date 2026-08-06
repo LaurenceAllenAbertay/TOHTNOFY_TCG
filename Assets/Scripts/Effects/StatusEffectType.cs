@@ -8,6 +8,7 @@ namespace DDD.TNFY.TCG.Effects
         Shield,
         OpponentManaReduction,
         TemporaryAttackNextAttack,
+        TemporaryAttackThisTurn,
         Decaying,
         Silenced
     }

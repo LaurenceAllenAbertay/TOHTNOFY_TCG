@@ -17,10 +17,10 @@ MonoBehaviour:
   maxHealth: 20
   portrait: {fileID: -1846636880181321129, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Whenever a unit dies, heal your leader 1 health.
-  firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0
+  healthToManaRatio: 0
   effects:
   - trigger: 4
     action: 3
@@ -30,7 +30,6 @@ MonoBehaviour:
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

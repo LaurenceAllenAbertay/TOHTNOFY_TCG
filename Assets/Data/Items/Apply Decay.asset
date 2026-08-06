@@ -17,12 +17,12 @@ MonoBehaviour:
   manaCost: 2
   rarity: 1
   cardArt: {fileID: 0}
-  abilityText: Apply Decay to a unit.
+  abilityText: Apply 2 stacks of Decay to a unit.
   effects:
   - trigger: 0
     action: 19
     targetType: 1
-    amount: 1
+    amount: 2
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}
