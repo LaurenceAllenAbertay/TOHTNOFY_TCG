@@ -14,6 +14,12 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private UI.HandCardView choiceCardPrefab;
         [SerializeField] private Button confirmButton;
         [SerializeField] private TextMeshProUGUI stageLabel;
+        [SerializeField] private Button hideShowButton;
+        [SerializeField] private Sprite hideShowButtonShownSprite;
+        [SerializeField] private Sprite hideShowButtonHiddenSprite;
+
+        private Image hideShowButtonImage;
+        private bool isManuallyHidden;
 
         private readonly List<UI.ChoiceCardSelectable> spawnedCards = new List<UI.ChoiceCardSelectable>();
         private List<CardData> shownOptions;
@@ -26,6 +32,12 @@ namespace DDD.TNFY.TCG.Core
             if (confirmButton != null)
             {
                 confirmButton.onClick.AddListener(HandleConfirm);
+            }
+
+            if (hideShowButton != null)
+            {
+                hideShowButton.onClick.AddListener(HandleHideShowClicked);
+                hideShowButtonImage = hideShowButton.GetComponent<Image>();
             }
 
             if (gameManager != null)
@@ -98,10 +110,12 @@ namespace DDD.TNFY.TCG.Core
             bool isChoicePending = options != null;
             isDraftChoice = draftPending;
 
-            if (panelRoot != null)
+            if (!isChoicePending)
             {
-                panelRoot.SetActive(isChoicePending);
+                isManuallyHidden = false;
             }
+
+            ApplyPanelVisibility(isChoicePending);
 
             ClearSpawnedCards();
             UpdateConfirmInteractable();
@@ -134,6 +148,31 @@ namespace DDD.TNFY.TCG.Core
             }
 
             Debug.Log($"[CardPoolChoicePanel] Refreshed with {options.Count} offered card(s), isDraftChoice={isDraftChoice}.");
+        }
+
+        private void ApplyPanelVisibility(bool isChoicePending)
+        {
+            if (panelRoot != null)
+            {
+                panelRoot.SetActive(isChoicePending && !isManuallyHidden);
+            }
+
+            if (hideShowButton != null)
+            {
+                hideShowButton.gameObject.SetActive(isChoicePending);
+            }
+
+            if (hideShowButtonImage != null)
+            {
+                hideShowButtonImage.sprite = isManuallyHidden ? hideShowButtonHiddenSprite : hideShowButtonShownSprite;
+            }
+        }
+
+        private void HandleHideShowClicked()
+        {
+            isManuallyHidden = !isManuallyHidden;
+            Debug.Log($"[CardPoolChoicePanel] Hide/show toggled: isManuallyHidden={isManuallyHidden}.");
+            ApplyPanelVisibility(shownOptions != null);
         }
 
         private void HandleCardClicked(UI.ChoiceCardSelectable clicked)

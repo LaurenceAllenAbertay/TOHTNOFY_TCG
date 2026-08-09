@@ -73,6 +73,21 @@ namespace DDD.TNFY.TCG.Core
             return false;
         }
 
+        public int GetStatusStackCount(StatusEffectType type)
+        {
+            int count = 0;
+
+            foreach (ActiveStatusEffect status in Statuses)
+            {
+                if (status.Type == type)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         public void GrantKeyword(Keyword keyword)
         {
             GrantedKeywords |= keyword;

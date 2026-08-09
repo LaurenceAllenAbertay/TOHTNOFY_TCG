@@ -287,7 +287,14 @@ namespace DDD.TNFY.TCG.Core
         public void EnterMulliganPhase()
         {
             state.CurrentPhase = TurnPhase.Mulligan;
-            DrawInitialHand(state.ActivePlayer);
+
+            state.PlayerA.HasCompletedMulligan = false;
+            state.PlayerB.HasCompletedMulligan = false;
+
+            Debug.Log("[PhaseManager] Mulligan started. Both players are mulliganing simultaneously.");
+
+            DrawInitialHand(PlayerSide.PlayerA);
+            DrawInitialHand(PlayerSide.PlayerB);
         }
 
         public void DrawInitialHand(PlayerSide side)
@@ -348,18 +355,28 @@ namespace DDD.TNFY.TCG.Core
 
         public void ResolveMulliganAndAdvance(PlayerSide side, List<CardData> cardsToMulligan)
         {
-            ResolveMulligan(side, cardsToMulligan);
+            Player player = state.GetPlayer(side);
 
-            if (side == state.FirstPlayer)
+            if (player.HasCompletedMulligan)
             {
-                state.ActivePlayer = state.FirstPlayer.Opposite();
-                EnterMulliganPhase();
+                Debug.Log($"[PhaseManager] ResolveMulliganAndAdvance IGNORED: {side} has already completed their mulligan.");
+                return;
             }
-            else
+
+            ResolveMulligan(side, cardsToMulligan);
+            player.HasCompletedMulligan = true;
+
+            Debug.Log($"[PhaseManager] {side}'s mulligan is complete.");
+
+            if (!state.PlayerA.HasCompletedMulligan || !state.PlayerB.HasCompletedMulligan)
             {
-                state.ActivePlayer = state.FirstPlayer;
-                EnterDrawPhase();
+                Debug.Log("[PhaseManager] Waiting on the other player to finish their mulligan.");
+                return;
             }
+
+            Debug.Log("[PhaseManager] Mulligan complete for both players.");
+
+            EnterDrawPhase();
         }
 
         public void EnterDrawPhase()
@@ -1043,10 +1060,22 @@ namespace DDD.TNFY.TCG.Core
                 Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Piercing) is blocked by {defender.SourceCard.CardName}'s Taunt — resolving as a normal attack instead.");
             }
 
-            if (defender != null && movement.TrySlippyDodge(defender))
+            if (defender != null)
             {
-                Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} dodged out of slot {targetSlot} via Slippy — attack now resolves against an empty slot.");
-                defender = null;
+                int attackerSlotBeforeDodge = attacker.SlotIndex;
+
+                if (movement.TrySlippyDodge(defender))
+                {
+                    if (attacker.SlotIndex != attackerSlotBeforeDodge && attacker.SlotIndex == defender.SlotIndex)
+                    {
+                        Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Relentless) followed {defender.SourceCard.CardName}'s Slippy dodge into slot {attacker.SlotIndex} — attack still lands.");
+                    }
+                    else
+                    {
+                        Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} dodged out of slot {targetSlot} via Slippy — attack now resolves against an empty slot.");
+                        defender = null;
+                    }
+                }
             }
 
             bool killedDefender = false;
@@ -1513,15 +1542,7 @@ namespace DDD.TNFY.TCG.Core
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
                 if (unit == null) continue;
 
-                int decayStacks = 0;
-
-                foreach (ActiveStatusEffect status in unit.Statuses)
-                {
-                    if (status.Type == StatusEffectType.Decaying)
-                    {
-                        decayStacks++;
-                    }
-                }
+                int decayStacks = unit.GetStatusStackCount(StatusEffectType.Decaying);
 
                 if (decayStacks == 0) continue;
 
@@ -1718,9 +1739,32 @@ namespace DDD.TNFY.TCG.Core
             EnterDrawPhase();
         }
 
+        private EffectTarget ResolveItemEffectTarget(CardEffect effect, EffectTarget target)
+        {
+            if (effect == null || target.Kind != EffectTargetKind.None || EffectTargeting.RequiresClick(effect.targetType))
+            {
+                return target;
+            }
+
+            switch (effect.targetType)
+            {
+                case TargetType.AllyLeader:
+                case TargetType.EnemyLeader:
+                case TargetType.LowestHealthEnemy:
+                case TargetType.RandomUnitEitherSide:
+                    return EffectTargeting.ResolveImmediateTarget(effect.targetType, null, state.ActivePlayer, state);
+
+                default:
+                    return target;
+            }
+        }
+
         public bool TryPlayItem(ItemCardData card, EffectTarget target)
         {
-            if (!CanPlayItem(card, target)) return false;
+            CardEffect effect = card.PrimaryEffect;
+            EffectTarget effectiveTarget = ResolveItemEffectTarget(effect, target);
+
+            if (!CanPlayItem(card, effectiveTarget)) return false;
 
             CancelPendingTargetedEffectIfNonMandatory();
 
@@ -1739,8 +1783,6 @@ namespace DDD.TNFY.TCG.Core
 
             bool isDoubled = active.HasNextItemDoubled;
             active.HasNextItemDoubled = false;
-
-            CardEffect effect = card.PrimaryEffect;
 
             if (EffectTargeting.IsGroupTarget(effect.targetType))
             {
@@ -1786,7 +1828,7 @@ namespace DDD.TNFY.TCG.Core
                 return true;
             }
 
-            EffectContext context = new EffectContext(state, state.ActivePlayer, null, target);
+            EffectContext context = new EffectContext(state, state.ActivePlayer, null, effectiveTarget);
             EffectExecutor.Execute(effect, context, this);
 
             if (isDoubled)

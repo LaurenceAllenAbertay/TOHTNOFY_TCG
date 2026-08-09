@@ -63,17 +63,23 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            if (state.CurrentPhase != TurnPhase.Draft || state.GetPlayer(aiSide).PendingDraftOptions == null)
+            if (state.CurrentPhase == TurnPhase.Draft && state.GetPlayer(aiSide).PendingDraftOptions != null)
             {
+                if (runningTurnRoutine == null)
+                {
+                    runningTurnRoutine = StartCoroutine(RunDraftPick());
+                }
+
                 return;
             }
 
-            if (runningTurnRoutine != null)
+            if (state.CurrentPhase == TurnPhase.Mulligan && !state.GetPlayer(aiSide).HasCompletedMulligan)
             {
-                return;
+                if (runningTurnRoutine == null)
+                {
+                    runningTurnRoutine = StartCoroutine(RunMulliganRoutine());
+                }
             }
-
-            runningTurnRoutine = StartCoroutine(RunDraftPick());
         }
 
         private IEnumerator RunDraftPick()
@@ -87,6 +93,18 @@ namespace DDD.TNFY.TCG.Core
                 CardData chosen = ChooseBestCardChoiceOption(aiPlayer.PendingDraftOptions);
                 bool resolved = phases.TryResolvePendingDraftChoice(aiSide, chosen);
                 Debug.Log($"[AIController] Draft pick resolved={resolved} for {chosen?.CardName} (stage={aiPlayer.CurrentDraftStage}).");
+            }
+
+            runningTurnRoutine = null;
+        }
+
+        private IEnumerator RunMulliganRoutine()
+        {
+            yield return new WaitForSeconds(actionDelaySeconds);
+
+            if (state.CurrentPhase == TurnPhase.Mulligan && !state.GetPlayer(aiSide).HasCompletedMulligan)
+            {
+                RunMulligan();
             }
 
             runningTurnRoutine = null;
@@ -120,10 +138,6 @@ namespace DDD.TNFY.TCG.Core
 
             switch (phase)
             {
-                case TurnPhase.Mulligan:
-                    RunMulligan();
-                    break;
-
                 case TurnPhase.Action:
                     yield return RunActionPhase();
                     break;

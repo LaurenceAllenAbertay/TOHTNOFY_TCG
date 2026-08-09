@@ -56,7 +56,13 @@ namespace DDD.TNFY.TCG.UI
                 return turnTimer.GetDraftRemainingSeconds(localSide);
             }
 
-            if (phase == TurnPhase.Mulligan || phase == TurnPhase.Action)
+            if (phase == TurnPhase.Mulligan)
+            {
+                PlayerSide localSide = networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
+                return turnTimer.GetMulliganRemainingSeconds(localSide);
+            }
+
+            if (phase == TurnPhase.Action)
             {
                 return turnTimer.GetTurnRemainingSeconds();
             }

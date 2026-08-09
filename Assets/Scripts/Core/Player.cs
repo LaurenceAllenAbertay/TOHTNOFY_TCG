@@ -19,6 +19,7 @@ namespace DDD.TNFY.TCG.Core
 
         public List<CardData> PendingDraftOptions { get; set; }
         public DraftStage? CurrentDraftStage { get; set; }
+        public bool HasCompletedMulligan { get; set; }
 
         public int CurrentMana { get; set; }
         public int MaxManaThisGame { get; set; }

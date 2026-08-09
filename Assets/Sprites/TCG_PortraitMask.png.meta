@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: db79fe71a0614654bb6320f1d01bdee6
+guid: 64e6619a79f6f5140a31acd04f166b78
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -214285924989609185
-    second: TCG_FullCard_0
+      213: 8846667847080806600
+    second: TCG_PortraitMask_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -72,11 +72,11 @@ TextureImporter:
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-    maxTextureSize: 4096
+    maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 2
-    compressionQuality: 100
+    textureCompression: 1
+    compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_FullCard_0
+      name: TCG_PortraitMask_0
       rect:
         serializedVersion: 2
-        x: 6
-        y: 9
-        width: 522
-        height: 617
+        x: 21
+        y: 242
+        width: 490
+        height: 373
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: f1bd0a82614b60df0800000000000000
-      internalID: -214285924989609185
+      spriteID: 8c80f17098da5ca70800000000000000
+      internalID: 8846667847080806600
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_FullCard_0: -214285924989609185
+      TCG_PortraitMask_0: 8846667847080806600
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

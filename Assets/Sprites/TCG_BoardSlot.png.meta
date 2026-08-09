@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: db79fe71a0614654bb6320f1d01bdee6
+guid: c95175c0e6e48284c9d3b7e51cf41724
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -214285924989609185
-    second: TCG_FullCard_0
+      213: 978883485469964609
+    second: TCG_BoardSlot_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -72,11 +72,11 @@ TextureImporter:
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-    maxTextureSize: 4096
+    maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 2
-    compressionQuality: 100
+    textureCompression: 1
+    compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_FullCard_0
+      name: TCG_BoardSlot_0
       rect:
         serializedVersion: 2
-        x: 6
-        y: 9
-        width: 522
-        height: 617
+        x: 4
+        y: 22
+        width: 519
+        height: 605
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: f1bd0a82614b60df0800000000000000
-      internalID: -214285924989609185
+      spriteID: 149feebf751b59d00800000000000000
+      internalID: 978883485469964609
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_FullCard_0: -214285924989609185
+      TCG_BoardSlot_0: 978883485469964609
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

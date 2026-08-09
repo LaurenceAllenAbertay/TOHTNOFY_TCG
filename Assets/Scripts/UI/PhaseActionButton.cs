@@ -14,7 +14,10 @@ namespace DDD.TNFY.TCG.UI
 
         private TurnPhase? shownPhase;
         private bool? shownHasPendingTarget;
+        private PlayerSide? shownActivePlayer;
         private NetworkedMatchSync networkSync;
+
+        private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
         {
@@ -37,22 +40,25 @@ namespace DDD.TNFY.TCG.UI
             }
 
             TurnPhase currentPhase = gameManager.State.CurrentPhase;
+            PlayerSide currentActivePlayer = gameManager.State.ActivePlayer;
             bool hasPendingTarget = gameManager.Phases.HasBlockingPendingTargetedEffect();
 
-            if (shownPhase == currentPhase && shownHasPendingTarget == hasPendingTarget)
+            if (shownPhase == currentPhase && shownHasPendingTarget == hasPendingTarget && shownActivePlayer == currentActivePlayer)
             {
                 return;
             }
 
-            Refresh(currentPhase, hasPendingTarget);
+            Refresh(currentPhase, currentActivePlayer, hasPendingTarget);
             shownPhase = currentPhase;
             shownHasPendingTarget = hasPendingTarget;
+            shownActivePlayer = currentActivePlayer;
         }
 
-        private void Refresh(TurnPhase phase, bool hasPendingTarget)
+        private void Refresh(TurnPhase phase, PlayerSide activePlayer, bool hasPendingTarget)
         {
             bool isRelevantPhase = phase == TurnPhase.Action;
-            bool isInteractable = isRelevantPhase && !hasPendingTarget;
+            bool isMyTurn = activePlayer == LocalSide;
+            bool isInteractable = isRelevantPhase && isMyTurn && !hasPendingTarget;
 
             if (button != null)
             {
@@ -74,6 +80,12 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
+            if (!isMyTurn)
+            {
+                label.text = "Opponent's Turn";
+                return;
+            }
+
             label.text = hasPendingTarget ? "Choose Target..." : "End Turn";
         }
 
@@ -84,7 +96,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            if (gameManager.State.CurrentPhase != TurnPhase.Action)
+            if (gameManager.State.CurrentPhase != TurnPhase.Action || gameManager.State.ActivePlayer != LocalSide)
             {
                 return;
             }

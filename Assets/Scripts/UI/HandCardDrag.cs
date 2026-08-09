@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using DDD.TNFY.TCG.Core;
 using DDD.TNFY.TCG.Cards;
@@ -28,6 +29,7 @@ namespace DDD.TNFY.TCG.UI
         private List<BoardSlotDropTarget> cachedSlotDropTargets;
         private List<LeaderDropTarget> cachedLeaderDropTargets;
         private NetworkedMatchSync networkSync;
+        private InputAction cancelDragAction;
 
         public bool IsDraggingUnitCard => handCardView != null && handCardView.Card is UnitCardData;
         public bool IsDraggingItemCard => handCardView != null && handCardView.Card is ItemCardData;
@@ -56,6 +58,39 @@ namespace DDD.TNFY.TCG.UI
             {
                 dragCanvas = boardView.GetComponentInParent<Canvas>();
             }
+
+            cancelDragAction = InputSystem.actions != null ? InputSystem.actions.FindAction("UI/RightClick") : null;
+
+            if (cancelDragAction == null)
+            {
+                Debug.LogWarning("[HandCardDrag] Could not resolve 'UI/RightClick' from InputSystem.actions - right-click-to-cancel will not work. Check the project-wide Input Actions asset for a RightClick action under the UI map.");
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (cancelDragAction != null)
+            {
+                cancelDragAction.performed += HandleCancelDragInput;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (cancelDragAction != null)
+            {
+                cancelDragAction.performed -= HandleCancelDragInput;
+            }
+        }
+
+        private void HandleCancelDragInput(InputAction.CallbackContext context)
+        {
+            if (!isDragging)
+            {
+                return;
+            }
+
+            CancelDrag();
         }
 
         private List<BoardSlotDropTarget> GetAllSlotDropTargets()
@@ -215,6 +250,25 @@ namespace DDD.TNFY.TCG.UI
             {
                 UpdateReorderPreview(eventData);
             }
+        }
+
+        private void CancelDrag()
+        {
+            Debug.Log($"[HandCardDrag] CancelDrag: right-click detected mid-drag for {handCardView.Card?.CardName} - returning it to hand.");
+
+            if (dragGhost != null)
+            {
+                Destroy(dragGhost);
+                dragGhost = null;
+                dragGhostRect = null;
+            }
+
+            transform.SetSiblingIndex(originalSiblingIndex);
+            handCardView.SetVisible(true);
+
+            UpdateHighlights(false);
+            isInsideBoardArea = false;
+            isDragging = false;
         }
 
         public void OnEndDrag(PointerEventData eventData)

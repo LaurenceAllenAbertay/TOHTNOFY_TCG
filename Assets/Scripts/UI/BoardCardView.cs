@@ -23,6 +23,7 @@ namespace DDD.TNFY.TCG.UI
         {
             public StatusEffectType statusType;
             public GameObject icon;
+            public TextMeshProUGUI stackCountText;
         }
 
         private static class AnimState
@@ -443,6 +444,20 @@ namespace DDD.TNFY.TCG.UI
 
                 bool hasStatus = Unit.HasStatus(entry.statusType);
                 entry.icon.SetActive(hasStatus);
+
+                if (entry.stackCountText != null)
+                {
+                    if (hasStatus)
+                    {
+                        int stackCount = Unit.GetStatusStackCount(entry.statusType);
+                        entry.stackCountText.text = stackCount.ToString();
+                        entry.stackCountText.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        entry.stackCountText.gameObject.SetActive(false);
+                    }
+                }
             }
         }
 

@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: 6244474fe64e8a54db5078aecc26c3ba
+guid: 51204e8956c3af64c9897354fae75062
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8739239006608702380
-    second: TCG_CardImageMask_0
+      213: 6234284279260274179
+    second: 211059-200_0
+  - first:
+      213: -1403162392025052599
+    second: 211059-200_1
+  - first:
+      213: 3932769553540129773
+    second: 211059-200_2
+  - first:
+      213: -3158857430692875533
+    second: 211059-200_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +122,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: TCG_CardImageMask_0
+      name: 211059-200_0
       rect:
         serializedVersion: 2
-        x: 21
-        y: 242
-        width: 490
-        height: 373
+        x: 3
+        y: 99
+        width: 88
+        height: 92
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +137,74 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: cab3624f293084970800000000000000
-      internalID: 8739239006608702380
+      spriteID: 30e5c167580a48650800000000000000
+      internalID: 6234284279260274179
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 211059-200_1
+      rect:
+        serializedVersion: 2
+        x: 78
+        y: 84
+        width: 44
+        height: 45
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 94ac82d1d37f68ce0800000000000000
+      internalID: -1403162392025052599
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 211059-200_2
+      rect:
+        serializedVersion: 2
+        x: 109
+        y: 99
+        width: 88
+        height: 92
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: de32b3e7211049630800000000000000
+      internalID: 3932769553540129773
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 211059-200_3
+      rect:
+        serializedVersion: 2
+        x: 50
+        y: 9
+        width: 100
+        height: 75
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3f2b27337eb7924d0800000000000000
+      internalID: -3158857430692875533
       vertices: []
       indices: 
       edges: []
@@ -148,7 +223,10 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      TCG_CardImageMask_0: 8739239006608702380
+      211059-200_0: 6234284279260274179
+      211059-200_1: -1403162392025052599
+      211059-200_2: 3932769553540129773
+      211059-200_3: -3158857430692875533
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

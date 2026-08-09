@@ -17,7 +17,7 @@ MonoBehaviour:
   manaCost: 3
   rarity: 2
   cardArt: {fileID: 0}
-  abilityText: Grants Double Attack.
+  abilityText: Grants Double Attack for the next attack.
   effects:
   - trigger: 0
     action: 6
@@ -27,7 +27,6 @@ MonoBehaviour:
     mandatoryTarget: 1
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0

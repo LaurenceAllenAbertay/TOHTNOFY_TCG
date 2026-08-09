@@ -12,11 +12,17 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private Transform cardContainer;
         [SerializeField] private UI.HandCardView mulliganCardPrefab;
         [SerializeField] private Button confirmButton;
+        [SerializeField] private Button hideShowButton;
+        [SerializeField] private Sprite hideShowButtonShownSprite;
+        [SerializeField] private Sprite hideShowButtonHiddenSprite;
+
+        private Image hideShowButtonImage;
+        private bool isManuallyHidden;
 
         private readonly List<UI.MulliganCardSelectable> spawnedCards = new List<UI.MulliganCardSelectable>();
         private readonly List<int> spawnedCardHandIndices = new List<int>();
         private TurnPhase? shownPhase;
-        private PlayerSide? shownSide;
+        private bool shownIsMulligan;
         private NetworkedMatchSync networkSync;
 
         private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
@@ -26,6 +32,12 @@ namespace DDD.TNFY.TCG.Core
             if (confirmButton != null)
             {
                 confirmButton.onClick.AddListener(HandleConfirm);
+            }
+
+            if (hideShowButton != null)
+            {
+                hideShowButton.onClick.AddListener(HandleHideShowClicked);
+                hideShowButtonImage = hideShowButton.GetComponent<Image>();
             }
 
             if (gameManager != null)
@@ -42,33 +54,36 @@ namespace DDD.TNFY.TCG.Core
             }
 
             TurnPhase currentPhase = gameManager.State.CurrentPhase;
-            PlayerSide currentSide = gameManager.State.ActivePlayer;
+            Player localPlayer = gameManager.State.GetPlayer(LocalSide);
+            bool isMulligan = currentPhase == TurnPhase.Mulligan && !localPlayer.HasCompletedMulligan;
 
-            bool stateChanged = shownPhase != currentPhase || shownSide != currentSide;
+            bool stateChanged = shownPhase != currentPhase || shownIsMulligan != isMulligan;
 
             if (!stateChanged)
             {
                 return;
             }
 
-            Debug.Log($"[MulliganPanel] Update detected state change: ({shownPhase}, {shownSide}) -> ({currentPhase}, {currentSide}). LocalSide={LocalSide}.");
+            Debug.Log($"[MulliganPanel] Update detected state change: phase {shownPhase} -> {currentPhase}, isMulligan {shownIsMulligan} -> {isMulligan}. LocalSide={LocalSide}.");
 
-            Refresh(currentPhase, currentSide);
+            Refresh(currentPhase, isMulligan);
 
             shownPhase = currentPhase;
-            shownSide = currentSide;
+            shownIsMulligan = isMulligan;
         }
 
-        private void Refresh(TurnPhase phase, PlayerSide side)
+        private void Refresh(TurnPhase phase, bool isMulligan)
         {
-            bool isMulligan = phase == TurnPhase.Mulligan && side == LocalSide;
+            PlayerSide side = LocalSide;
 
-            Debug.Log($"[MulliganPanel] Refresh: phase={phase}, side={side}, LocalSide={LocalSide} -> isMulligan={isMulligan}.");
+            Debug.Log($"[MulliganPanel] Refresh: phase={phase}, LocalSide={side} -> isMulligan={isMulligan}.");
 
-            if (panelRoot != null)
+            if (!isMulligan)
             {
-                panelRoot.SetActive(isMulligan);
+                isManuallyHidden = false;
             }
+
+            ApplyPanelVisibility(isMulligan);
 
             ClearSpawnedCards();
 
@@ -102,6 +117,31 @@ namespace DDD.TNFY.TCG.Core
                     spawnedCardHandIndices.Add(handIndex);
                 }
             }
+        }
+
+        private void ApplyPanelVisibility(bool isMulligan)
+        {
+            if (panelRoot != null)
+            {
+                panelRoot.SetActive(isMulligan && !isManuallyHidden);
+            }
+
+            if (hideShowButton != null)
+            {
+                hideShowButton.gameObject.SetActive(isMulligan);
+            }
+
+            if (hideShowButtonImage != null)
+            {
+                hideShowButtonImage.sprite = isManuallyHidden ? hideShowButtonHiddenSprite : hideShowButtonShownSprite;
+            }
+        }
+
+        private void HandleHideShowClicked()
+        {
+            isManuallyHidden = !isManuallyHidden;
+            Debug.Log($"[MulliganPanel] Hide/show toggled: isManuallyHidden={isManuallyHidden}.");
+            ApplyPanelVisibility(shownIsMulligan);
         }
 
         private void ClearSpawnedCards()
@@ -141,7 +181,7 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            networkSync.RequestUpdateMulliganSelection(gameManager.State.ActivePlayer, ComputeSelectedIndices());
+            networkSync.RequestUpdateMulliganSelection(LocalSide, ComputeSelectedIndices());
         }
 
         private void HandleConfirm()
@@ -151,7 +191,7 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            PlayerSide side = gameManager.State.ActivePlayer;
+            PlayerSide side = LocalSide;
             List<int> selectedIndices = ComputeSelectedIndices();
 
             if (networkSync != null)

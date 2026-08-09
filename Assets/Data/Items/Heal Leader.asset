@@ -24,7 +24,7 @@ MonoBehaviour:
     targetType: 5
     amount: 6
     oncePerTurn: 0
-    mandatoryTarget: 1
+    mandatoryTarget: 0
     relevantCard: {fileID: 0}
     keyword: 0
     cardCategory: 0

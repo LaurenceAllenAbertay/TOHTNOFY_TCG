@@ -67,6 +67,7 @@ namespace DDD.TNFY.TCG.Core
             public bool hasDraftStage;
             public int draftStage;
             public CardRefDto[] pendingDraftOptions;
+            public bool hasCompletedMulligan;
             public CardRefDto[] deck;
             public CardRefDto[] hand;
             public CardRefDto[] gameStartBonusCards;
@@ -96,6 +97,8 @@ namespace DDD.TNFY.TCG.Core
             public int[] currentlyAttackingUnitRef;
             public float playerADraftRemaining;
             public float playerBDraftRemaining;
+            public float playerAMulliganRemaining;
+            public float playerBMulliganRemaining;
             public float turnRemaining;
             public BoardUnitDto[] boardA;
             public BoardUnitDto[] boardB;
@@ -230,6 +233,8 @@ namespace DDD.TNFY.TCG.Core
         {
             GameState state = gameManager.State;
 
+            turnTimer?.RefreshDeadlines();
+
             MatchStateDto dto = new MatchStateDto
             {
                 currentPhase = (int)state.CurrentPhase,
@@ -253,6 +258,8 @@ namespace DDD.TNFY.TCG.Core
                 currentlyAttackingUnitRef = EncodeUnitRef(state.CurrentlyAttackingUnit),
                 playerADraftRemaining = turnTimer != null ? (turnTimer.GetDraftRemainingSeconds(PlayerSide.PlayerA) ?? -1f) : -1f,
                 playerBDraftRemaining = turnTimer != null ? (turnTimer.GetDraftRemainingSeconds(PlayerSide.PlayerB) ?? -1f) : -1f,
+                playerAMulliganRemaining = turnTimer != null ? (turnTimer.GetMulliganRemainingSeconds(PlayerSide.PlayerA) ?? -1f) : -1f,
+                playerBMulliganRemaining = turnTimer != null ? (turnTimer.GetMulliganRemainingSeconds(PlayerSide.PlayerB) ?? -1f) : -1f,
                 turnRemaining = turnTimer != null ? (turnTimer.GetTurnRemainingSeconds() ?? -1f) : -1f,
                 boardA = BuildBoardUnits(state, PlayerSide.PlayerA),
                 boardB = BuildBoardUnits(state, PlayerSide.PlayerB),
@@ -262,6 +269,7 @@ namespace DDD.TNFY.TCG.Core
 
             string json = JsonUtility.ToJson(dto);
             Debug.Log($"[NetworkedMatchSync] Broadcasting state - phase={state.CurrentPhase}, PlayerA draftStage={state.PlayerA.CurrentDraftStage}, PlayerB draftStage={state.PlayerB.CurrentDraftStage}.");
+            Debug.Log($"[NetworkedMatchSync] Broadcasting turnRemaining={dto.turnRemaining}, activePlayer={state.ActivePlayer}.");
             photonView.RPC(nameof(ReceiveState), RpcTarget.Others, json);
         }
 
@@ -311,7 +319,8 @@ namespace DDD.TNFY.TCG.Core
 
             if (turnTimer != null && !PhotonNetwork.IsMasterClient)
             {
-                turnTimer.ApplySyncedRemaining(dto.playerADraftRemaining, dto.playerBDraftRemaining, dto.turnRemaining);
+                Debug.Log($"[NetworkedMatchSync] Applying synced turnRemaining={dto.turnRemaining} on non-master client.");
+                turnTimer.ApplySyncedRemaining(dto.playerADraftRemaining, dto.playerBDraftRemaining, dto.playerAMulliganRemaining, dto.playerBMulliganRemaining, dto.turnRemaining);
             }
 
             state.FirstPlayer = (PlayerSide)dto.firstPlayer;
@@ -328,7 +337,7 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
             {
-                gameManager.Phases.TryResolvePendingDraftChoice(side, chosenCard);
+                ResolveDraftChoice(side, chosenCard);
                 return;
             }
 
@@ -357,8 +366,14 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            bool resolved = gameManager.Phases.TryResolvePendingDraftChoice(requestedSide, match);
-            Debug.Log($"[NetworkedMatchSync] ReceiveDraftChoiceRequest resolved={resolved} for {requestedSide}, '{cardId}'.");
+            ResolveDraftChoice(requestedSide, match);
+        }
+
+        private void ResolveDraftChoice(PlayerSide side, CardData chosenCard)
+        {
+            bool resolved = gameManager.Phases.TryResolvePendingDraftChoice(side, chosenCard);
+            Debug.Log($"[NetworkedMatchSync] ResolveDraftChoice resolved={resolved} for {side}, '{chosenCard.CardId}' - broadcasting (in case only one side has finished picking so far).");
+            BroadcastStateIfMaster();
         }
 
         public void RequestMulliganChoice(PlayerSide side, List<int> handIndicesToMulligan)
@@ -385,9 +400,9 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            if (gameManager.State.CurrentPhase != TurnPhase.Mulligan || gameManager.State.ActivePlayer != requestedSide)
+            if (gameManager.State.CurrentPhase != TurnPhase.Mulligan || gameManager.State.GetPlayer(requestedSide).HasCompletedMulligan)
             {
-                Debug.LogWarning($"[NetworkedMatchSync] ReceiveMulliganChoiceRequest REJECTED: not currently {requestedSide}'s mulligan (phase={gameManager.State.CurrentPhase}, active={gameManager.State.ActivePlayer}).");
+                Debug.LogWarning($"[NetworkedMatchSync] ReceiveMulliganChoiceRequest REJECTED: not currently accepting a mulligan for {requestedSide} (phase={gameManager.State.CurrentPhase}, alreadyCompleted={gameManager.State.GetPlayer(requestedSide).HasCompletedMulligan}).");
                 return;
             }
 
@@ -899,6 +914,9 @@ namespace DDD.TNFY.TCG.Core
             }
 
             gameManager.Phases.ResolveMulliganAndAdvance(side, cardsToMulligan);
+
+            Debug.Log($"[NetworkedMatchSync] ResolveMulliganByIndices: broadcasting after resolving {side}'s mulligan (in case only one side has finished so far).");
+            BroadcastStateIfMaster();
         }
 
         public void RequestUpdateMulliganSelection(PlayerSide side, List<int> handIndices)
@@ -946,6 +964,7 @@ namespace DDD.TNFY.TCG.Core
                 hasDraftStage = player.CurrentDraftStage.HasValue,
                 draftStage = player.CurrentDraftStage.HasValue ? (int)player.CurrentDraftStage.Value : -1,
                 pendingDraftOptions = player.PendingDraftOptions != null ? BuildCardRefs(player.PendingDraftOptions) : new CardRefDto[0],
+                hasCompletedMulligan = player.HasCompletedMulligan,
                 deck = BuildCardRefs(player.Deck),
                 hand = BuildCardRefs(player.Hand),
                 gameStartBonusCards = BuildCardRefs(player.GameStartBonusCards)
@@ -1051,6 +1070,7 @@ namespace DDD.TNFY.TCG.Core
             player.PendingDraftOptions = (dto.pendingDraftOptions != null && dto.pendingDraftOptions.Length > 0)
                 ? new List<CardData>(Array.ConvertAll(dto.pendingDraftOptions, ResolveCard))
                 : null;
+            player.HasCompletedMulligan = dto.hasCompletedMulligan;
 
             player.Deck.Clear();
             foreach (CardRefDto cardDto in dto.deck)

@@ -27,7 +27,7 @@ namespace DDD.TNFY.TCG.Core
 
         public PlayerSide FirstPlayer { get; set; } = PlayerSide.PlayerA;
 
-        private TurnPhase currentPhase = TurnPhase.Mulligan;
+        private TurnPhase currentPhase = TurnPhase.None;
         public TurnPhase CurrentPhase
         {
             get => currentPhase;

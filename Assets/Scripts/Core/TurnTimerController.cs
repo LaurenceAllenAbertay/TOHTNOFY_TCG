@@ -10,6 +10,7 @@ namespace DDD.TNFY.TCG.Core
     public class TurnTimerController : MonoBehaviour
     {
         [SerializeField] private float timerDurationSeconds = 60f;
+        [SerializeField] private float draftTimerDurationSeconds = 120f;
         [SerializeField] private int maxPendingSelectionIterations = 20;
         [SerializeField] private int maxDraftAutoFillIterations = 40;
 
@@ -17,10 +18,14 @@ namespace DDD.TNFY.TCG.Core
 
         private float? playerADraftDeadline;
         private float? playerBDraftDeadline;
+        private float? playerAMulliganDeadline;
+        private float? playerBMulliganDeadline;
         private float? turnDeadline;
 
         private DraftStage? lastSeenPlayerADraftStage;
         private DraftStage? lastSeenPlayerBDraftStage;
+        private bool lastSeenPlayerAMulliganActive;
+        private bool lastSeenPlayerBMulliganActive;
         private TurnPhase? lastSeenTurnPhase;
         private PlayerSide? lastSeenTurnActivePlayer;
 
@@ -49,6 +54,24 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
+            RefreshDeadlines();
+
+            if (gameManager.State.IsGameOver)
+            {
+                return;
+            }
+
+            CheckExpiry();
+            RefreshDeadlines();
+        }
+
+        public void RefreshDeadlines()
+        {
+            if (gameManager == null || gameManager.State == null)
+            {
+                return;
+            }
+
             if (gameManager.State.IsGameOver)
             {
                 ClearAllDeadlines();
@@ -56,14 +79,16 @@ namespace DDD.TNFY.TCG.Core
             }
 
             DetectDraftChanges();
+            DetectMulliganChanges();
             DetectTurnChanges();
-            CheckExpiry();
         }
 
         private void ClearAllDeadlines()
         {
             playerADraftDeadline = null;
             playerBDraftDeadline = null;
+            playerAMulliganDeadline = null;
+            playerBMulliganDeadline = null;
             turnDeadline = null;
         }
 
@@ -76,8 +101,8 @@ namespace DDD.TNFY.TCG.Core
 
             if (playerADraftStarting)
             {
-                playerADraftDeadline = Time.time + timerDurationSeconds;
-                Debug.Log($"[TurnTimerController] PlayerA's draft has begun - starting a single {timerDurationSeconds}s timer for the whole draft phase.");
+                playerADraftDeadline = Time.time + draftTimerDurationSeconds;
+                Debug.Log($"[TurnTimerController] PlayerA's draft has begun - starting a single {draftTimerDurationSeconds}s timer for the whole draft phase.");
             }
             else if (playerADraftEnding)
             {
@@ -91,8 +116,8 @@ namespace DDD.TNFY.TCG.Core
 
             if (playerBDraftStarting)
             {
-                playerBDraftDeadline = Time.time + timerDurationSeconds;
-                Debug.Log($"[TurnTimerController] PlayerB's draft has begun - starting a single {timerDurationSeconds}s timer for the whole draft phase.");
+                playerBDraftDeadline = Time.time + draftTimerDurationSeconds;
+                Debug.Log($"[TurnTimerController] PlayerB's draft has begun - starting a single {draftTimerDurationSeconds}s timer for the whole draft phase.");
             }
             else if (playerBDraftEnding)
             {
@@ -102,11 +127,49 @@ namespace DDD.TNFY.TCG.Core
             lastSeenPlayerBDraftStage = state.PlayerB.CurrentDraftStage;
         }
 
+        private void DetectMulliganChanges()
+        {
+            GameState state = gameManager.State;
+
+            bool playerAMulliganActive = state.CurrentPhase == TurnPhase.Mulligan && !state.PlayerA.HasCompletedMulligan;
+            bool playerAMulliganStarting = playerAMulliganActive && !lastSeenPlayerAMulliganActive;
+            bool playerAMulliganEnding = !playerAMulliganActive && lastSeenPlayerAMulliganActive;
+
+            if (playerAMulliganStarting)
+            {
+                playerAMulliganDeadline = Time.time + timerDurationSeconds;
+                liveMulliganSelection[PlayerSide.PlayerA] = new List<int>();
+                Debug.Log($"[TurnTimerController] PlayerA's mulligan has begun - starting a {timerDurationSeconds}s timer.");
+            }
+            else if (playerAMulliganEnding)
+            {
+                playerAMulliganDeadline = null;
+            }
+
+            lastSeenPlayerAMulliganActive = playerAMulliganActive;
+
+            bool playerBMulliganActive = state.CurrentPhase == TurnPhase.Mulligan && !state.PlayerB.HasCompletedMulligan;
+            bool playerBMulliganStarting = playerBMulliganActive && !lastSeenPlayerBMulliganActive;
+            bool playerBMulliganEnding = !playerBMulliganActive && lastSeenPlayerBMulliganActive;
+
+            if (playerBMulliganStarting)
+            {
+                playerBMulliganDeadline = Time.time + timerDurationSeconds;
+                liveMulliganSelection[PlayerSide.PlayerB] = new List<int>();
+                Debug.Log($"[TurnTimerController] PlayerB's mulligan has begun - starting a {timerDurationSeconds}s timer.");
+            }
+            else if (playerBMulliganEnding)
+            {
+                playerBMulliganDeadline = null;
+            }
+
+            lastSeenPlayerBMulliganActive = playerBMulliganActive;
+        }
+
         private void DetectTurnChanges()
         {
             GameState state = gameManager.State;
-            bool isTurnTimedPhase = state.CurrentPhase == TurnPhase.Mulligan
-                || state.CurrentPhase == TurnPhase.Action;
+            bool isTurnTimedPhase = state.CurrentPhase == TurnPhase.Action;
 
             bool changed = lastSeenTurnPhase != state.CurrentPhase || lastSeenTurnActivePlayer != state.ActivePlayer;
 
@@ -125,11 +188,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             turnDeadline = Time.time + timerDurationSeconds;
-
-            if (state.CurrentPhase == TurnPhase.Mulligan)
-            {
-                liveMulliganSelection[state.ActivePlayer] = new List<int>();
-            }
         }
 
         private void CheckExpiry()
@@ -146,10 +204,24 @@ namespace DDD.TNFY.TCG.Core
                 ResolveDraftTimeout(PlayerSide.PlayerB);
             }
 
+            if (playerAMulliganDeadline.HasValue && Time.time >= playerAMulliganDeadline.Value)
+            {
+                playerAMulliganDeadline = null;
+                ResolveMulliganTimeout(PlayerSide.PlayerA);
+            }
+
+            if (playerBMulliganDeadline.HasValue && Time.time >= playerBMulliganDeadline.Value)
+            {
+                playerBMulliganDeadline = null;
+                ResolveMulliganTimeout(PlayerSide.PlayerB);
+            }
+
             if (turnDeadline.HasValue && Time.time >= turnDeadline.Value)
             {
                 turnDeadline = null;
+                Debug.Log("[TurnTimerController] Turn timer expired - resolving timeout.");
                 ResolveTurnTimeout();
+                Debug.Log($"[TurnTimerController] After timeout resolution: CurrentPhase={gameManager.State.CurrentPhase}, ActivePlayer={gameManager.State.ActivePlayer}, turnDeadline={(turnDeadline.HasValue ? (turnDeadline.Value - Time.time).ToString("F1") : "null")}.");
             }
         }
 
@@ -182,18 +254,14 @@ namespace DDD.TNFY.TCG.Core
         {
             switch (gameManager.State.CurrentPhase)
             {
-                case TurnPhase.Mulligan:
-                    ResolveMulliganTimeout();
-                    break;
                 case TurnPhase.Action:
                     ResolvePendingSelectionsThenAdvance();
                     break;
             }
         }
 
-        private void ResolveMulliganTimeout()
+        private void ResolveMulliganTimeout(PlayerSide side)
         {
-            PlayerSide side = gameManager.State.ActivePlayer;
             List<int> selection = GetLiveMulliganSelection(side);
             Player player = gameManager.State.GetPlayer(side);
             List<CardData> cardsToMulligan = new List<CardData>();
@@ -311,15 +379,23 @@ namespace DDD.TNFY.TCG.Core
             return deadline.HasValue ? Mathf.Max(0f, deadline.Value - Time.time) : (float?)null;
         }
 
+        public float? GetMulliganRemainingSeconds(PlayerSide side)
+        {
+            float? deadline = side == PlayerSide.PlayerA ? playerAMulliganDeadline : playerBMulliganDeadline;
+            return deadline.HasValue ? Mathf.Max(0f, deadline.Value - Time.time) : (float?)null;
+        }
+
         public float? GetTurnRemainingSeconds()
         {
             return turnDeadline.HasValue ? Mathf.Max(0f, turnDeadline.Value - Time.time) : (float?)null;
         }
 
-        public void ApplySyncedRemaining(float playerARemaining, float playerBRemaining, float turnRemaining)
+        public void ApplySyncedRemaining(float playerADraftRemaining, float playerBDraftRemaining, float playerAMulliganRemaining, float playerBMulliganRemaining, float turnRemaining)
         {
-            playerADraftDeadline = playerARemaining >= 0f ? (float?)(Time.time + playerARemaining) : null;
-            playerBDraftDeadline = playerBRemaining >= 0f ? (float?)(Time.time + playerBRemaining) : null;
+            playerADraftDeadline = playerADraftRemaining >= 0f ? (float?)(Time.time + playerADraftRemaining) : null;
+            playerBDraftDeadline = playerBDraftRemaining >= 0f ? (float?)(Time.time + playerBDraftRemaining) : null;
+            playerAMulliganDeadline = playerAMulliganRemaining >= 0f ? (float?)(Time.time + playerAMulliganRemaining) : null;
+            playerBMulliganDeadline = playerBMulliganRemaining >= 0f ? (float?)(Time.time + playerBMulliganRemaining) : null;
             turnDeadline = turnRemaining >= 0f ? (float?)(Time.time + turnRemaining) : null;
         }
 

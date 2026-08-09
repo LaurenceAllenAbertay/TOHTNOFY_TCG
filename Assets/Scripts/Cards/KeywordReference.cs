@@ -17,7 +17,7 @@ namespace DDD.TNFY.TCG.Cards
             { Keyword.Retaliate, "If this unit survives a hit, it attacks the attacking unit." },
             { Keyword.Teleport, "This unit can move to any open slot." },
             { Keyword.Absorb, "Can be placed on an allied unit, replacing it and gaining its stats." },
-            { Keyword.Slippy, "When attacked, this unit tries to move left, then right, before taking the hit." },
+            { Keyword.Slippy, "Before the opposing unit attacks, this unit tries to move left, then right, out of the way." },
             { Keyword.Relentless, "When the opposing unit moves, this unit moves to stay opposite them, if able." },
         };
 
