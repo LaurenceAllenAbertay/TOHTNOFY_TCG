@@ -15,9 +15,8 @@ MonoBehaviour:
   leaderId: lorns
   leaderName: Lorns
   maxHealth: 25
-  portrait: {fileID: 5369949370364991188, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
+  portrait: {fileID: 21300000, guid: fadd47206bccf744ea262117e2787944, type: 3}
   abilityText: Units in your leftmost and rightmost board slots gain +2 attack.
-  firstUnitCostDiscount: 0
   itemDrawIntervalTurns: 0
   moveManaCost: 0
   moveTemporaryAttackBonus: 0

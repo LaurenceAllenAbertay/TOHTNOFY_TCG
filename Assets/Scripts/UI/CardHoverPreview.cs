@@ -72,14 +72,14 @@ namespace DDD.TNFY.TCG.UI
             instance.BeginShow(unit.SourceCard, unit.Owner, state, unit, screenPosition, useLiveCost: true);
         }
 
-        public static void Show(LeaderData leader, Vector3 screenPosition)
+        public static void Show(LeaderData leader, Player player, Vector3 screenPosition)
         {
             if (instance == null || leader == null)
             {
                 return;
             }
 
-            instance.BeginShowLeader(leader, screenPosition);
+            instance.BeginShowLeader(leader, player, screenPosition);
         }
 
         public static void Hide()
@@ -108,7 +108,7 @@ namespace DDD.TNFY.TCG.UI
             pendingShowCoroutine = StartCoroutine(ShowAfterDelay(card, side, state, liveUnit, screenPosition, useLiveCost));
         }
 
-        private void BeginShowLeader(LeaderData leader, Vector3 screenPosition)
+        private void BeginShowLeader(LeaderData leader, Player player, Vector3 screenPosition)
         {
             CancelPendingHide();
             CancelPendingShow();
@@ -117,11 +117,11 @@ namespace DDD.TNFY.TCG.UI
 
             if (alreadyVisible)
             {
-                DisplayLeader(leader, screenPosition);
+                DisplayLeader(leader, player, screenPosition);
                 return;
             }
 
-            pendingShowCoroutine = StartCoroutine(ShowLeaderAfterDelay(leader, screenPosition));
+            pendingShowCoroutine = StartCoroutine(ShowLeaderAfterDelay(leader, player, screenPosition));
         }
 
         private void BeginHide()
@@ -167,11 +167,11 @@ namespace DDD.TNFY.TCG.UI
             DisplayCard(card, side, state, liveUnit, screenPosition, useLiveCost);
         }
 
-        private System.Collections.IEnumerator ShowLeaderAfterDelay(LeaderData leader, Vector3 screenPosition)
+        private System.Collections.IEnumerator ShowLeaderAfterDelay(LeaderData leader, Player player, Vector3 screenPosition)
         {
             yield return new WaitForSeconds(hoverDelaySeconds);
             pendingShowCoroutine = null;
-            DisplayLeader(leader, screenPosition);
+            DisplayLeader(leader, player, screenPosition);
         }
 
         private void DisplayCard(CardData card, PlayerSide? side, GameState state, BoardUnit liveUnit, Vector3 screenPosition, bool useLiveCost)
@@ -514,7 +514,7 @@ namespace DDD.TNFY.TCG.UI
             return CardDisplayFormatter.GetHealthText(unitCard);
         }
 
-        private void DisplayLeader(LeaderData leader, Vector3 screenPosition)
+        private void DisplayLeader(LeaderData leader, Player player, Vector3 screenPosition)
         {
             if (root != null)
             {
@@ -554,7 +554,32 @@ namespace DDD.TNFY.TCG.UI
                 healthText.text = leader.MaxHealth.ToString();
             }
 
+            PopulateLeaderExtraInfo(player);
+        }
+
+        private void PopulateLeaderExtraInfo(Player player)
+        {
             ClearExtraInfo();
+
+            if (extraInfoContainer == null || infoPanelPrefab == null || player == null)
+            {
+                return;
+            }
+
+            foreach (StatusEffectType statusType in StatusEffectReference.GetAllValues())
+            {
+                if (!player.HasStatus(statusType))
+                {
+                    continue;
+                }
+
+                if (!StatusEffectReference.TryGetDescription(statusType, out string statusDescription))
+                {
+                    continue;
+                }
+
+                SpawnInfoPanel(statusType.ToString(), statusDescription);
+            }
         }
 
         private void PositionPreview(Vector3 screenPosition)

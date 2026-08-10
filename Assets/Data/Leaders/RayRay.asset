@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leaderId: rayray
   leaderName: RayRay
-  maxHealth: 30
+  maxHealth: 25
   portrait: {fileID: 302086664905093045, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
   abilityText: Start with 2 Gain Mana cards.
   itemDrawIntervalTurns: 0

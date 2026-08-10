@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 3fea778c7dbfbba44b4727d9ec8d75c2
+guid: 4dd028fe2deae244aa0be20382d3aebd
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1407675731901370799
-    second: b7952bd90c1b2b8bee9de35e0687c29e_0
+      213: 679346639676492632
+    second: TCG_LeaderCard_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: b7952bd90c1b2b8bee9de35e0687c29e_0
+      name: TCG_LeaderCard_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1920
-        height: 1092
+        x: 4
+        y: 22
+        width: 519
+        height: 605
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: fa15be6be91198310800000000000000
-      internalID: 1407675731901370799
+      spriteID: 85bc5416b268d6900800000000000000
+      internalID: 679346639676492632
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      b7952bd90c1b2b8bee9de35e0687c29e_0: 1407675731901370799
+      TCG_LeaderCard_0: 679346639676492632
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

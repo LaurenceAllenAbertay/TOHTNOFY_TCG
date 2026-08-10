@@ -881,6 +881,29 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
+        public void RequestSurrender()
+        {
+            if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
+            {
+                gameManager.Phases.DeclareSurrender(LocalSide);
+                Debug.Log($"[NetworkedMatchSync] Surrender resolved locally for {LocalSide}.");
+                BroadcastStateIfMaster();
+                return;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] Requesting Surrender for {LocalSide}.");
+            photonView.RPC(nameof(ReceiveSurrenderRequest), RpcTarget.MasterClient);
+        }
+
+        [PunRPC]
+        private void ReceiveSurrenderRequest(PhotonMessageInfo info)
+        {
+            PlayerSide surrenderingSide = SideForActorNumber(info.Sender.ActorNumber);
+            gameManager.Phases.DeclareSurrender(surrenderingSide);
+            Debug.Log($"[NetworkedMatchSync] ReceiveSurrenderRequest resolved for {surrenderingSide}.");
+            BroadcastStateIfMaster();
+        }
+
         [PunRPC]
         private void ReceiveAttackWithUnitRequest(int slotIndex, PhotonMessageInfo info)
         {
@@ -947,6 +970,8 @@ namespace DDD.TNFY.TCG.Core
 
         private PlayerStateDto BuildPlayerDto(Player player)
         {
+            Debug.Log($"[NetworkedMatchSync] BuildPlayerDto: side={player.Side}, leaderHealth={player.LeaderHealth}, maxLeaderHealth={player.MaxLeaderHealth}.");
+
             return new PlayerStateDto
             {
                 leaderId = player.Leader != null ? player.Leader.LeaderId : string.Empty,
@@ -1054,6 +1079,8 @@ namespace DDD.TNFY.TCG.Core
 
         private void ApplyPlayerState(Player player, PlayerStateDto dto)
         {
+            Debug.Log($"[NetworkedMatchSync] ApplyPlayerState: side={player.Side}, beforeLeaderHealth={player.LeaderHealth}, dto.leaderHealth={dto.leaderHealth}, dto.maxLeaderHealth={dto.maxLeaderHealth}.");
+
             player.Leader = ResolveLeader(dto.leaderId);
             player.LeaderHealth = dto.leaderHealth;
             player.MaxLeaderHealth = dto.maxLeaderHealth;

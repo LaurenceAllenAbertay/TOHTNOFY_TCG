@@ -19,6 +19,14 @@ namespace DDD.TNFY.TCG.DeckBuilding
             public Image selectedIndicator;
         }
 
+        [System.Serializable]
+        private struct LeaderSelectButton
+        {
+            public LeaderData leader;
+            public Button button;
+            public Image selectedIndicator;
+        }
+
         [Header("Data")]
         [SerializeField] private CardDatabase cardDatabase;
 
@@ -31,6 +39,9 @@ namespace DDD.TNFY.TCG.DeckBuilding
         [SerializeField] private DeckBuilderCardEntry collectionCardPrefab;
         [SerializeField] private TMP_InputField searchInput;
         [SerializeField] private TMP_Dropdown sortByDropdown;
+
+        [Header("Leader Selection")]
+        [SerializeField] private List<LeaderSelectButton> leaderSelectButtons = new List<LeaderSelectButton>();
 
         [Header("Type Filter")]
         [SerializeField] private Button typeFilterAnyButton;
@@ -80,6 +91,19 @@ namespace DDD.TNFY.TCG.DeckBuilding
                 sortByDropdown.ClearOptions();
                 sortByDropdown.AddOptions(new List<string> { "Mana Cost", "Name", "Rarity" });
                 sortByDropdown.onValueChanged.AddListener(HandleSortChanged);
+            }
+
+            for (int i = 0; i < leaderSelectButtons.Count; i++)
+            {
+                LeaderSelectButton entry = leaderSelectButtons[i];
+
+                if (entry.button == null || entry.leader == null)
+                {
+                    continue;
+                }
+
+                LeaderData capturedLeader = entry.leader;
+                entry.button.onClick.AddListener(() => HandleLeaderClicked(capturedLeader));
             }
 
             if (typeFilterAnyButton != null)
@@ -190,7 +214,43 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             activeDeckIndex = Mathf.Clamp(DeckStorage.GetActiveDeckIndex(), 0, savedDecks.Count - 1);
+
+            EnsureAllDecksHaveALeader();
+
             Debug.Log("[DeckBuilderPanel] LoadDecks() finished filling slots.");
+        }
+
+        private void EnsureAllDecksHaveALeader()
+        {
+            string defaultLeaderId = GetDefaultLeaderId();
+
+            if (string.IsNullOrEmpty(defaultLeaderId))
+            {
+                Debug.LogWarning("[DeckBuilderPanel] EnsureAllDecksHaveALeader() - no leader buttons configured with a LeaderData, can't assign a default leader.");
+                return;
+            }
+
+            foreach (SavedDeck deck in savedDecks)
+            {
+                if (string.IsNullOrEmpty(deck.leaderId))
+                {
+                    Debug.Log($"[DeckBuilderPanel] '{deck.deckName}' had no leader - defaulting to leaderId='{defaultLeaderId}'.");
+                    deck.leaderId = defaultLeaderId;
+                }
+            }
+        }
+
+        private string GetDefaultLeaderId()
+        {
+            for (int i = 0; i < leaderSelectButtons.Count; i++)
+            {
+                if (leaderSelectButtons[i].leader != null)
+                {
+                    return leaderSelectButtons[i].leader.LeaderId;
+                }
+            }
+
+            return string.Empty;
         }
 
         private void PopulateDeckSlotDropdown()
@@ -201,8 +261,34 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             deckSlotDropdown.ClearOptions();
-            deckSlotDropdown.AddOptions(savedDecks.Select(deck => deck.deckName).ToList());
+            deckSlotDropdown.AddOptions(savedDecks.Select(GetDeckDisplayName).ToList());
             deckSlotDropdown.SetValueWithoutNotify(activeDeckIndex);
+        }
+
+        private string GetDeckDisplayName(SavedDeck deck)
+        {
+            if (deck == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(deck.leaderId) && cardDatabase != null && cardDatabase.TryGetLeader(deck.leaderId, out LeaderData leader) && leader != null)
+            {
+                return $"{leader.LeaderName}: {deck.deckName}";
+            }
+
+            return deck.deckName;
+        }
+
+        private void RefreshDeckSlotDropdownOptionText()
+        {
+            if (deckSlotDropdown == null || activeDeckIndex < 0 || activeDeckIndex >= deckSlotDropdown.options.Count)
+            {
+                return;
+            }
+
+            deckSlotDropdown.options[activeDeckIndex].text = GetDeckDisplayName(ActiveDeck);
+            deckSlotDropdown.RefreshShownValue();
         }
 
         private void RefreshAll()
@@ -213,6 +299,7 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             RefreshCollectionGrid();
+            RefreshLeaderSelection();
             RefreshDeckList();
         }
 
@@ -282,18 +369,14 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             RefreshCollectionGrid();
+            RefreshLeaderSelection();
             RefreshDeckList();
         }
 
         private void HandleDeckNameChanged(string newName)
         {
             ActiveDeck.deckName = string.IsNullOrWhiteSpace(newName) ? ActiveDeck.deckName : newName.Trim();
-
-            if (deckSlotDropdown != null)
-            {
-                deckSlotDropdown.options[activeDeckIndex].text = ActiveDeck.deckName;
-                deckSlotDropdown.RefreshShownValue();
-            }
+            RefreshDeckSlotDropdownOptionText();
         }
 
         private void HandleSaveDeck()
@@ -557,6 +640,38 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             spawnedDeckEntries.Clear();
+        }
+
+        private void RefreshLeaderSelection()
+        {
+            UpdateLeaderSelectionVisuals();
+        }
+
+        private void UpdateLeaderSelectionVisuals()
+        {
+            for (int i = 0; i < leaderSelectButtons.Count; i++)
+            {
+                LeaderSelectButton entry = leaderSelectButtons[i];
+
+                if (entry.selectedIndicator != null)
+                {
+                    entry.selectedIndicator.enabled = entry.leader != null && entry.leader.LeaderId == ActiveDeck.leaderId;
+                }
+            }
+        }
+
+        private void HandleLeaderClicked(LeaderData leader)
+        {
+            if (leader == null)
+            {
+                return;
+            }
+
+            ActiveDeck.leaderId = leader.LeaderId;
+            UpdateLeaderSelectionVisuals();
+            RefreshDeckSlotDropdownOptionText();
+
+            Debug.Log($"[DeckBuilderPanel] Selected leader '{leader.LeaderName}' for '{ActiveDeck.deckName}'.");
         }
     }
 }

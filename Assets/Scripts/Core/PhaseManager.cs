@@ -1542,7 +1542,15 @@ namespace DDD.TNFY.TCG.Core
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
                 if (unit == null) continue;
 
-                int decayStacks = unit.GetStatusStackCount(StatusEffectType.Decaying);
+                int decayStacks = 0;
+
+                foreach (ActiveStatusEffect status in unit.Statuses)
+                {
+                    if (status.Type == StatusEffectType.Decaying)
+                    {
+                        decayStacks++;
+                    }
+                }
 
                 if (decayStacks == 0) continue;
 
@@ -2268,6 +2276,20 @@ namespace DDD.TNFY.TCG.Core
             player.Hand[handIndex] = randomizedClone;
 
             Debug.Log($"[PhaseManager] {unitCard.CardName} randomized on draw: Cost={randomizedClone.ManaCost}, Attack={randomizedClone.Attack}, Health={randomizedClone.Health}");
+        }
+
+        public void DeclareSurrender(PlayerSide surrenderingSide)
+        {
+            if (state.IsGameOver)
+            {
+                return;
+            }
+
+            state.IsGameOver = true;
+            state.Winner = surrenderingSide.Opposite();
+
+            Debug.Log($"[PhaseManager] {surrenderingSide} surrendered. Winner: {state.Winner}.");
+            state.RaiseGameOver();
         }
 
         private void CheckWinCondition()

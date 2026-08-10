@@ -57,9 +57,10 @@ namespace DDD.TNFY.TCG.DeckBuilding
             return fallback;
         }
 
-        public static bool TryReadDeck(Player photonPlayer, CardDatabase database, out List<CardData> resolvedCards)
+        public static bool TryReadDeck(Player photonPlayer, CardDatabase database, out List<CardData> resolvedCards, out LeaderData resolvedLeader)
         {
             resolvedCards = null;
+            resolvedLeader = null;
 
             if (photonPlayer == null || !photonPlayer.CustomProperties.ContainsKey(DeckPropertyKey))
             {
@@ -81,6 +82,12 @@ namespace DDD.TNFY.TCG.DeckBuilding
             }
 
             resolvedCards = DeckStorage.ResolveCards(deck, database);
+
+            if (!string.IsNullOrEmpty(deck.leaderId) && database != null)
+            {
+                database.TryGetLeader(deck.leaderId, out resolvedLeader);
+            }
+
             return true;
         }
     }

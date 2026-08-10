@@ -118,5 +118,27 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
             return ResolveCards(decks[activeIndex], database);
         }
+
+        public static bool TryLoadActiveDeckLeader(CardDatabase database, out LeaderData leader)
+        {
+            leader = null;
+
+            List<SavedDeck> decks = LoadAll(database);
+            int activeIndex = GetActiveDeckIndex();
+
+            if (activeIndex < 0 || activeIndex >= decks.Count || database == null)
+            {
+                return false;
+            }
+
+            string leaderId = decks[activeIndex].leaderId;
+
+            if (string.IsNullOrEmpty(leaderId))
+            {
+                return false;
+            }
+
+            return database.TryGetLeader(leaderId, out leader);
+        }
     }
 }

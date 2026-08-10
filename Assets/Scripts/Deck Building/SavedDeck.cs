@@ -14,6 +14,7 @@ namespace DDD.TNFY.TCG.DeckBuilding
     public class SavedDeck
     {
         public string deckName = "New Deck";
+        public string leaderId = "";
         public List<SavedDeckCardEntry> cards = new List<SavedDeckCardEntry>();
     }
 

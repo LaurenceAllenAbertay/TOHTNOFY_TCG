@@ -17,13 +17,16 @@ namespace DDD.TNFY.TCG.Cards
         [SerializeField] private int maxCopiesPerCard = 2;
         [SerializeField] private int targetDeckSize = 33;
         [SerializeField] private List<DefaultDeckCardEntry> defaultDeck = new List<DefaultDeckCardEntry>();
+        [SerializeField] private List<LeaderData> allLeaders = new List<LeaderData>();
 
         private Dictionary<string, CardData> lookup;
+        private Dictionary<string, LeaderData> leaderLookup;
 
         public IReadOnlyList<CardData> AllCards => allCards;
         public int MaxCopiesPerCard => maxCopiesPerCard;
         public int TargetDeckSize => targetDeckSize;
         public IReadOnlyList<DefaultDeckCardEntry> DefaultDeck => defaultDeck;
+        public IReadOnlyList<LeaderData> AllLeaders => allLeaders;
 
         public bool TryGetCard(string cardId, out CardData card)
         {
@@ -33,6 +36,22 @@ namespace DDD.TNFY.TCG.Cards
             }
 
             return lookup.TryGetValue(cardId, out card);
+        }
+
+        public bool TryGetLeader(string leaderId, out LeaderData leader)
+        {
+            if (leaderLookup == null)
+            {
+                BuildLeaderLookup();
+            }
+
+            if (string.IsNullOrEmpty(leaderId))
+            {
+                leader = null;
+                return false;
+            }
+
+            return leaderLookup.TryGetValue(leaderId, out leader);
         }
 
         private void BuildLookup()
@@ -50,9 +69,25 @@ namespace DDD.TNFY.TCG.Cards
             }
         }
 
+        private void BuildLeaderLookup()
+        {
+            leaderLookup = new Dictionary<string, LeaderData>();
+
+            foreach (LeaderData leader in allLeaders)
+            {
+                if (leader == null)
+                {
+                    continue;
+                }
+
+                leaderLookup[leader.LeaderId] = leader;
+            }
+        }
+
         private void OnValidate()
         {
             lookup = null;
+            leaderLookup = null;
         }
     }
 }

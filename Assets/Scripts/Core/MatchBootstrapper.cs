@@ -10,19 +10,17 @@ namespace DDD.TNFY.TCG.Core
     public class MatchBootstrapper : MonoBehaviour
     {
         private static readonly List<CardData> EmptyCardList = new List<CardData>();
+        private static readonly List<LeaderData> EmptyLeaderList = new List<LeaderData>();
 
         [Header("Card Pool Setup")]
         [SerializeField] private CardDatabase cardDatabase;
         [SerializeField] private DraftSettings draftSettings = new DraftSettings();
 
-        [Header("Leader Setup")]
-        [SerializeField] private List<LeaderData> leaderPool = new List<LeaderData>();
-
         [Header("Game Mode")]
         [SerializeField] private GameMode fallbackGameMode = GameMode.Draft;
 
         public IReadOnlyList<CardData> CardPool => cardDatabase != null ? cardDatabase.AllCards : EmptyCardList;
-        public IReadOnlyList<LeaderData> LeaderPool => leaderPool;
+        public IReadOnlyList<LeaderData> LeaderPool => cardDatabase != null ? cardDatabase.AllLeaders : EmptyLeaderList;
 
         private GameManager manager;
 
@@ -39,7 +37,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            AssignRandomLeaders();
             AssignRandomFirstPlayer();
 
             GameMode effectiveMode = ConstructedMatchSync.ReadSelectedMode(fallbackGameMode);
@@ -51,10 +48,12 @@ namespace DDD.TNFY.TCG.Core
             }
             else if (effectiveMode == GameMode.RandomDeck)
             {
+                AssignRandomLeaders();
                 StartRandomDeckMatch();
             }
             else
             {
+                AssignRandomLeaders();
                 manager.Phases.StartDraft(new List<CardData>(CardPool), draftSettings);
             }
         }
@@ -70,15 +69,17 @@ namespace DDD.TNFY.TCG.Core
                     PlayerSide side = NetworkedMatchSync.SideForActorNumber(photonPlayer.ActorNumber);
                     Player player = manager.State.GetPlayer(side);
 
-                    if (ConstructedMatchSync.TryReadDeck(photonPlayer, cardDatabase, out List<CardData> syncedDeck))
+                    if (ConstructedMatchSync.TryReadDeck(photonPlayer, cardDatabase, out List<CardData> syncedDeck, out LeaderData syncedLeader))
                     {
                         player.Deck.AddRange(syncedDeck);
+                        player.Leader = syncedLeader != null ? syncedLeader : PickRandomLeader();
                         appliedAnyRemoteDeck = true;
-                        Debug.Log($"[MatchBootstrapper] Loaded {syncedDeck.Count}-card Constructed deck for {side} from actor {photonPlayer.ActorNumber}.");
+                        Debug.Log($"[MatchBootstrapper] Loaded {syncedDeck.Count}-card Constructed deck and leader '{(player.Leader != null ? player.Leader.LeaderName : "none")}' for {side} from actor {photonPlayer.ActorNumber}.");
                     }
                     else
                     {
-                        Debug.LogWarning($"[MatchBootstrapper] No Constructed deck found for actor {photonPlayer.ActorNumber} ({side}) - that player will have an empty deck.");
+                        player.Leader = PickRandomLeader();
+                        Debug.LogWarning($"[MatchBootstrapper] No Constructed deck found for actor {photonPlayer.ActorNumber} ({side}) - that player will have an empty deck and a random leader.");
                     }
                 }
             }
@@ -90,6 +91,12 @@ namespace DDD.TNFY.TCG.Core
 
                 manager.State.PlayerA.Deck.AddRange(localDeck);
                 manager.State.PlayerB.Deck.AddRange(new List<CardData>(localDeck));
+
+                DeckStorage.TryLoadActiveDeckLeader(cardDatabase, out LeaderData localLeader);
+                manager.State.PlayerA.Leader = localLeader != null ? localLeader : PickRandomLeader();
+                manager.State.PlayerB.Leader = PickRandomLeader();
+
+                Debug.Log($"[MatchBootstrapper] Local testing leaders - PlayerA='{(manager.State.PlayerA.Leader != null ? manager.State.PlayerA.Leader.LeaderName : "none")}', PlayerB='{(manager.State.PlayerB.Leader != null ? manager.State.PlayerB.Leader.LeaderName : "none")}'.");
             }
 
             ListShuffler.Shuffle(manager.State.PlayerA.Deck);
@@ -149,13 +156,23 @@ namespace DDD.TNFY.TCG.Core
 
         private void AssignRandomLeaders()
         {
-            if (leaderPool.Count == 0)
+            if (LeaderPool.Count == 0)
             {
                 return;
             }
 
-            manager.State.PlayerA.Leader = leaderPool[Random.Range(0, leaderPool.Count)];
-            manager.State.PlayerB.Leader = leaderPool[Random.Range(0, leaderPool.Count)];
+            manager.State.PlayerA.Leader = PickRandomLeader();
+            manager.State.PlayerB.Leader = PickRandomLeader();
+        }
+
+        private LeaderData PickRandomLeader()
+        {
+            if (LeaderPool.Count == 0)
+            {
+                return null;
+            }
+
+            return LeaderPool[Random.Range(0, LeaderPool.Count)];
         }
     }
 }

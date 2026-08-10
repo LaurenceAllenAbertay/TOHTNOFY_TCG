@@ -113,12 +113,11 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            RectTransform cardLayerRect = cardRect.parent as RectTransform;
-            RectTransform slotRowRect = slotRect.parent as RectTransform;
+            Debug.Log($"[BoardView] SyncCardPositionToSlot: slot='{slotContainer.name}' slotWorldPos={slotRect.position} cardWorldPosBefore={cardRect.position}");
 
-            Debug.Log($"[BoardView] SyncCardPositionToSlot: slot='{slotContainer.name}' slotAnchoredPos={slotRect.anchoredPosition} | slotRow='{(slotRowRect != null ? slotRowRect.name : "null")}' anchorMin={slotRowRect?.anchorMin} anchorMax={slotRowRect?.anchorMax} sizeDelta={slotRowRect?.sizeDelta} rowAnchoredPos={slotRowRect?.anchoredPosition} | cardLayer='{(cardLayerRect != null ? cardLayerRect.name : "null")}' anchorMin={cardLayerRect?.anchorMin} anchorMax={cardLayerRect?.anchorMax} sizeDelta={cardLayerRect?.sizeDelta} layerAnchoredPos={cardLayerRect?.anchoredPosition}");
+            cardRect.position = slotRect.position;
 
-            cardRect.anchoredPosition = slotRect.anchoredPosition;
+            Debug.Log($"[BoardView] SyncCardPositionToSlot: cardWorldPosAfter={cardRect.position}");
         }
     }
 }

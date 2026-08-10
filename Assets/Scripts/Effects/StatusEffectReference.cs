@@ -11,7 +11,7 @@ namespace DDD.TNFY.TCG.Effects
             { StatusEffectType.Decaying, "This unit takes 1 damage per stack at the start of its owner's turn." },
             { StatusEffectType.DelayedKill, "This unit will be destroyed next round." },
             { StatusEffectType.DoubleAttackNextAttack, "This unit attacks twice on its next attack." },
-            { StatusEffectType.Shield, "Blocks the next instance of damage to this unit, then breaks." },
+            { StatusEffectType.Shield, "Blocks the next instance of damage, then breaks." },
             { StatusEffectType.OpponentManaReduction, "Reduces this player's mana by a set amount at the start of their next turn." }
         };
 

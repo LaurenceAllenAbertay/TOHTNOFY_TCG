@@ -21,8 +21,21 @@ namespace DDD.TNFY.TCG.Core
 
         public event Action<bool, bool> RematchVoteChanged;
 
+        private GameManager gameManager;
+
+        private void Awake()
+        {
+            gameManager = GetComponent<GameManager>();
+        }
+
         public override void OnPlayerLeftRoom(Photon.Realtime.Player otherPlayer)
         {
+            if (gameManager != null && gameManager.State != null && gameManager.State.IsGameOver)
+            {
+                Debug.Log($"[MatchLifecycleController] {otherPlayer.NickName} left the room, but the match already ended (Winner={gameManager.State.Winner}) - leaving WinLoseScreen in control of navigation.");
+                return;
+            }
+
             Debug.Log($"[MatchLifecycleController] {otherPlayer.NickName} left the room - ending the match.");
             ReturnToMainMenu();
         }
@@ -42,7 +55,7 @@ namespace DDD.TNFY.TCG.Core
 
             isReturningToMenu = true;
 
-            Debug.Log("[MatchLifecycleController] Returning to the main menu.");
+            Debug.Log($"[MatchLifecycleController] Returning to the main menu - loading scene '{mainMenuSceneName}'.");
 
             if (PhotonNetwork.InRoom)
             {

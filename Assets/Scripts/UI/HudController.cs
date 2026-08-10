@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using Photon.Pun;
 using DDD.TNFY.TCG.Core;
 
 namespace DDD.TNFY.TCG.UI
@@ -15,6 +16,10 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI playerALeaderHealthText;
         [SerializeField] private TextMeshProUGUI playerBLeaderHealthText;
 
+        [Header("Player Nicknames")]
+        [SerializeField] private TextMeshProUGUI playerANicknameText;
+        [SerializeField] private TextMeshProUGUI playerBNicknameText;
+
         [Header("Turn Info")]
         [SerializeField] private TextMeshProUGUI turnText;
         [SerializeField] private TextMeshProUGUI phaseText;
@@ -23,6 +28,9 @@ namespace DDD.TNFY.TCG.UI
         private Color originalPlayerALeaderHealthColor;
         private Color originalPlayerBLeaderHealthColor;
         private NetworkedMatchSync networkSync;
+
+        private int lastLoggedBottomHealth = int.MinValue;
+        private int lastLoggedTopHealth = int.MinValue;
 
         private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
@@ -73,14 +81,36 @@ namespace DDD.TNFY.TCG.UI
 
             if (playerALeaderHealthText != null)
             {
+                if (bottomSeatPlayer.LeaderHealth != lastLoggedBottomHealth)
+                {
+                    Debug.Log($"[HudController] Bottom seat (playerALeaderHealthText) now showing side={bottomSeatPlayer.Side}, LeaderHealth={bottomSeatPlayer.LeaderHealth} (LocalSide={LocalSide}).");
+                    lastLoggedBottomHealth = bottomSeatPlayer.LeaderHealth;
+                }
+
                 playerALeaderHealthText.text = bottomSeatPlayer.LeaderHealth.ToString();
                 playerALeaderHealthText.color = CardDisplayFormatter.GetHealthColor(bottomSeatPlayer.LeaderHealth, bottomSeatPlayer.MaxLeaderHealth, originalPlayerALeaderHealthColor);
             }
 
             if (playerBLeaderHealthText != null)
             {
+                if (topSeatPlayer.LeaderHealth != lastLoggedTopHealth)
+                {
+                    Debug.Log($"[HudController] Top seat (playerBLeaderHealthText) now showing side={topSeatPlayer.Side}, LeaderHealth={topSeatPlayer.LeaderHealth} (LocalSide={LocalSide}).");
+                    lastLoggedTopHealth = topSeatPlayer.LeaderHealth;
+                }
+
                 playerBLeaderHealthText.text = topSeatPlayer.LeaderHealth.ToString();
                 playerBLeaderHealthText.color = CardDisplayFormatter.GetHealthColor(topSeatPlayer.LeaderHealth, topSeatPlayer.MaxLeaderHealth, originalPlayerBLeaderHealthColor);
+            }
+
+            if (playerANicknameText != null)
+            {
+                playerANicknameText.text = GetNicknameForSide(bottomSeatPlayer.Side);
+            }
+
+            if (playerBNicknameText != null)
+            {
+                playerBNicknameText.text = GetNicknameForSide(topSeatPlayer.Side);
             }
 
             if (turnText != null)
@@ -97,6 +127,24 @@ namespace DDD.TNFY.TCG.UI
             {
                 activePlayerText.text = state.ActivePlayer == LocalSide ? "Active: You" : "Active: Opponent";
             }
+        }
+
+        private static string GetNicknameForSide(PlayerSide side)
+        {
+            if (!PhotonNetwork.InRoom)
+            {
+                return side == PlayerSide.PlayerA ? "Player A" : "Player B";
+            }
+
+            foreach (Photon.Realtime.Player photonPlayer in PhotonNetwork.PlayerList)
+            {
+                if (NetworkedMatchSync.SideForActorNumber(photonPlayer.ActorNumber) == side)
+                {
+                    return photonPlayer.NickName;
+                }
+            }
+
+            return side == PlayerSide.PlayerA ? "Player A" : "Player B";
         }
     }
 }

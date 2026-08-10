@@ -15,7 +15,7 @@ MonoBehaviour:
   leaderId: cody
   leaderName: Cody
   maxHealth: 30
-  portrait: {fileID: 6927482114311448525, guid: 45bb3bb914892a64db3c2c70a7eb94d0, type: 3}
+  portrait: {fileID: 21300000, guid: a86fcdf2e239b9e49b2c3263f6e33669, type: 3}
   abilityText: Moving your units costs 1 mana and grants +1 temporary attack.
   itemDrawIntervalTurns: 0
   moveManaCost: 1

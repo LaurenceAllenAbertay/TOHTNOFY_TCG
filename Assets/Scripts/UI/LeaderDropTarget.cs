@@ -1,16 +1,26 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using DDD.TNFY.TCG.Core;
 using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.Effects;
 using UnityEngine.UI;
 
 namespace DDD.TNFY.TCG.UI
 {
     public class LeaderDropTarget : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPointerExitHandler
     {
+        [System.Serializable]
+        private struct StatusIcon
+        {
+            public StatusEffectType statusType;
+            public GameObject icon;
+        }
+
         [SerializeField] private PlayerSide side;
         [SerializeField] private Image artImage;
         [SerializeField] private Image highlightImage;
+        [SerializeField] private List<StatusIcon> statusIcons = new List<StatusIcon>();
 
         private GameManager gameManager;
         private NetworkedMatchSync networkSync;
@@ -31,19 +41,40 @@ namespace DDD.TNFY.TCG.UI
 
         private void Update()
         {
-            if (gameManager == null || gameManager.State == null || artImage == null)
+            if (gameManager == null || gameManager.State == null)
             {
                 return;
             }
 
-            LeaderData leader = gameManager.State.GetPlayer(Side).Leader;
+            Player player = gameManager.State.GetPlayer(Side);
 
-            if (leader == null)
+            if (player == null)
             {
                 return;
             }
 
-            artImage.sprite = leader.Portrait;
+            if (artImage != null && player.Leader != null)
+            {
+                artImage.sprite = player.Leader.Portrait;
+            }
+
+            RefreshStatusIcons(player);
+        }
+
+        private void RefreshStatusIcons(Player player)
+        {
+            for (int i = 0; i < statusIcons.Count; i++)
+            {
+                StatusIcon entry = statusIcons[i];
+
+                if (entry.icon == null)
+                {
+                    continue;
+                }
+
+                bool hasStatus = player.HasStatus(entry.statusType);
+                entry.icon.SetActive(hasStatus);
+            }
         }
 
         public void SetHighlighted(bool highlighted)
@@ -75,14 +106,14 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            LeaderData leader = gameManager.State.GetPlayer(Side).Leader;
+            Player player = gameManager.State.GetPlayer(Side);
 
-            if (leader == null)
+            if (player == null || player.Leader == null)
             {
                 return;
             }
 
-            CardHoverPreview.Show(leader, transform.position);
+            CardHoverPreview.Show(player.Leader, player, transform.position);
         }
 
         public void OnPointerExit(PointerEventData eventData)
