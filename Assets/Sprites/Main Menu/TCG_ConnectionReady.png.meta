@@ -1,0 +1,1014 @@
+fileFormatVersion: 2
+guid: 80484340e34028046b36c7d392e1da16
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1379719380946738856
+    second: TCG_ConnectionReady_0
+  - first:
+      213: 8655285052090650069
+    second: TCG_ConnectionReady_1
+  - first:
+      213: 9082012150662484760
+    second: TCG_ConnectionReady_2
+  - first:
+      213: 3572312564731787365
+    second: TCG_ConnectionReady_3
+  - first:
+      213: -8102756338827217558
+    second: TCG_ConnectionReady_4
+  - first:
+      213: 5306303034759478559
+    second: TCG_ConnectionReady_5
+  - first:
+      213: -6244313409487411270
+    second: TCG_ConnectionReady_6
+  - first:
+      213: -7415723636440955705
+    second: TCG_ConnectionReady_7
+  - first:
+      213: -7015844765813196880
+    second: TCG_ConnectionReady_8
+  - first:
+      213: -8649353231500232091
+    second: TCG_ConnectionReady_9
+  - first:
+      213: 6783628863325365481
+    second: TCG_ConnectionReady_10
+  - first:
+      213: -639741057738666305
+    second: TCG_ConnectionReady_11
+  - first:
+      213: -3760656647147096939
+    second: TCG_ConnectionReady_12
+  - first:
+      213: -9126533675817278136
+    second: TCG_ConnectionReady_13
+  - first:
+      213: 6383251602436170021
+    second: TCG_ConnectionReady_14
+  - first:
+      213: -6801770306424380197
+    second: TCG_ConnectionReady_15
+  - first:
+      213: 1574290084498332396
+    second: TCG_ConnectionReady_16
+  - first:
+      213: -1948907485850483642
+    second: TCG_ConnectionReady_17
+  - first:
+      213: -7680121892428178075
+    second: TCG_ConnectionReady_18
+  - first:
+      213: -3947232556359107779
+    second: TCG_ConnectionReady_19
+  - first:
+      213: -1015452384119291536
+    second: TCG_ConnectionReady_20
+  - first:
+      213: 8705900352588807267
+    second: TCG_ConnectionReady_21
+  - first:
+      213: 8663918858832374404
+    second: TCG_ConnectionReady_22
+  - first:
+      213: 5220035372462112853
+    second: TCG_ConnectionReady_23
+  - first:
+      213: 950229446095362067
+    second: TCG_ConnectionReady_24
+  - first:
+      213: -5662693766588841025
+    second: TCG_ConnectionReady_25
+  - first:
+      213: 8776565888750071673
+    second: TCG_ConnectionReady_26
+  - first:
+      213: 5198238429372730311
+    second: TCG_ConnectionReady_27
+  - first:
+      213: -8319347804544529807
+    second: TCG_ConnectionReady_28
+  - first:
+      213: -1953439789193997150
+    second: TCG_ConnectionReady_29
+  - first:
+      213: 5952022415194148728
+    second: TCG_ConnectionReady_30
+  - first:
+      213: 8948112231427852337
+    second: TCG_ConnectionReady_31
+  - first:
+      213: -8412368914116939224
+    second: TCG_ConnectionReady_32
+  - first:
+      213: 4982174266593656584
+    second: TCG_ConnectionReady_33
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_0
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 389
+        width: 2292
+        height: 886
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 851a2f878804adce0800000000000000
+      internalID: -1379719380946738856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_1
+      rect:
+        serializedVersion: 2
+        x: 812
+        y: 1261
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5dd8c9fa5efbd1870800000000000000
+      internalID: 8655285052090650069
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_2
+      rect:
+        serializedVersion: 2
+        x: 848
+        y: 1262
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 813d406bee9c90e70800000000000000
+      internalID: 9082012150662484760
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_3
+      rect:
+        serializedVersion: 2
+        x: 1310
+        y: 1263
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 568b087c957639130800000000000000
+      internalID: 3572312564731787365
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_4
+      rect:
+        serializedVersion: 2
+        x: 1473
+        y: 1261
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a65b8a24a0a3d8f80800000000000000
+      internalID: -8102756338827217558
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_5
+      rect:
+        serializedVersion: 2
+        x: 1501
+        y: 1253
+        width: 17
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f1d7a610f76c3a940800000000000000
+      internalID: 5306303034759478559
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_6
+      rect:
+        serializedVersion: 2
+        x: 1632
+        y: 1260
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ab76b41b90eb759a0800000000000000
+      internalID: -6244313409487411270
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_7
+      rect:
+        serializedVersion: 2
+        x: 1643
+        y: 1256
+        width: 6
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7c4087194ae061990800000000000000
+      internalID: -7415723636440955705
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_8
+      rect:
+        serializedVersion: 2
+        x: 1681
+        y: 1263
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0b7bb666b56b2ae90800000000000000
+      internalID: -7015844765813196880
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_9
+      rect:
+        serializedVersion: 2
+        x: 1682
+        y: 1258
+        width: 10
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 56a3d8bef0357f780800000000000000
+      internalID: -8649353231500232091
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_10
+      rect:
+        serializedVersion: 2
+        x: 1693
+        y: 1257
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9e4689e828a442e50800000000000000
+      internalID: 6783628863325365481
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_11
+      rect:
+        serializedVersion: 2
+        x: 1717
+        y: 1255
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fbe0141c5ee2f17f0800000000000000
+      internalID: -639741057738666305
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_12
+      rect:
+        serializedVersion: 2
+        x: 1750
+        y: 1258
+        width: 7
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 594f59844b67fcbc0800000000000000
+      internalID: -3760656647147096939
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_13
+      rect:
+        serializedVersion: 2
+        x: 1762
+        y: 1259
+        width: 12
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 845654ee9f9085180800000000000000
+      internalID: -9126533675817278136
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_14
+      rect:
+        serializedVersion: 2
+        x: 1774
+        y: 1254
+        width: 10
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 521a623338dd59850800000000000000
+      internalID: 6383251602436170021
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_15
+      rect:
+        serializedVersion: 2
+        x: 1798
+        y: 1257
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd466c191f14b91a0800000000000000
+      internalID: -6801770306424380197
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_16
+      rect:
+        serializedVersion: 2
+        x: 1805
+        y: 1258
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cea51fbad7009d510800000000000000
+      internalID: 1574290084498332396
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_17
+      rect:
+        serializedVersion: 2
+        x: 1827
+        y: 1257
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 64448c5a7f614f4e0800000000000000
+      internalID: -1948907485850483642
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_18
+      rect:
+        serializedVersion: 2
+        x: 25
+        y: 948
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 56d1e1274d9ba6590800000000000000
+      internalID: -7680121892428178075
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_19
+      rect:
+        serializedVersion: 2
+        x: 22
+        y: 940
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d3bbb5047ec9839c0800000000000000
+      internalID: -3947232556359107779
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_20
+      rect:
+        serializedVersion: 2
+        x: 22
+        y: 929
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0710f3ecf6368e1f0800000000000000
+      internalID: -1015452384119291536
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_21
+      rect:
+        serializedVersion: 2
+        x: 22
+        y: 902
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36cf00eae3291d870800000000000000
+      internalID: 8705900352588807267
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_22
+      rect:
+        serializedVersion: 2
+        x: 23
+        y: 896
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 48ae2877c4c6c3870800000000000000
+      internalID: 8663918858832374404
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_23
+      rect:
+        serializedVersion: 2
+        x: 2292
+        y: 890
+        width: 11
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 550049aa38a417840800000000000000
+      internalID: 5220035372462112853
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_24
+      rect:
+        serializedVersion: 2
+        x: 26
+        y: 868
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 31851ad85a4ef2d00800000000000000
+      internalID: 950229446095362067
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_25
+      rect:
+        serializedVersion: 2
+        x: 2301
+        y: 854
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb347a285021a61b0800000000000000
+      internalID: -5662693766588841025
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_26
+      rect:
+        serializedVersion: 2
+        x: 2305
+        y: 806
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97f22c2fc20acc970800000000000000
+      internalID: 8776565888750071673
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_27
+      rect:
+        serializedVersion: 2
+        x: 2301
+        y: 770
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cbcb806f4ad32840800000000000000
+      internalID: 5198238429372730311
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_28
+      rect:
+        serializedVersion: 2
+        x: 1773
+        y: 398
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17a8233ef3dbb8c80800000000000000
+      internalID: -8319347804544529807
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_29
+      rect:
+        serializedVersion: 2
+        x: 1800
+        y: 399
+        width: 11
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a45afa8cdcf3e4e0800000000000000
+      internalID: -1953439789193997150
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_30
+      rect:
+        serializedVersion: 2
+        x: 1844
+        y: 398
+        width: 10
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 87f4fc8f9d4d99250800000000000000
+      internalID: 5952022415194148728
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_31
+      rect:
+        serializedVersion: 2
+        x: 1858
+        y: 398
+        width: 19
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 138c5945aa41e2c70800000000000000
+      internalID: 8948112231427852337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_32
+      rect:
+        serializedVersion: 2
+        x: 1920
+        y: 398
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 82275821b03414b80800000000000000
+      internalID: -8412368914116939224
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TCG_ConnectionReady_33
+      rect:
+        serializedVersion: 2
+        x: 1941
+        y: 392
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 80f3869491d342540800000000000000
+      internalID: 4982174266593656584
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      TCG_ConnectionReady_0: -1379719380946738856
+      TCG_ConnectionReady_1: 8655285052090650069
+      TCG_ConnectionReady_10: 6783628863325365481
+      TCG_ConnectionReady_11: -639741057738666305
+      TCG_ConnectionReady_12: -3760656647147096939
+      TCG_ConnectionReady_13: -9126533675817278136
+      TCG_ConnectionReady_14: 6383251602436170021
+      TCG_ConnectionReady_15: -6801770306424380197
+      TCG_ConnectionReady_16: 1574290084498332396
+      TCG_ConnectionReady_17: -1948907485850483642
+      TCG_ConnectionReady_18: -7680121892428178075
+      TCG_ConnectionReady_19: -3947232556359107779
+      TCG_ConnectionReady_2: 9082012150662484760
+      TCG_ConnectionReady_20: -1015452384119291536
+      TCG_ConnectionReady_21: 8705900352588807267
+      TCG_ConnectionReady_22: 8663918858832374404
+      TCG_ConnectionReady_23: 5220035372462112853
+      TCG_ConnectionReady_24: 950229446095362067
+      TCG_ConnectionReady_25: -5662693766588841025
+      TCG_ConnectionReady_26: 8776565888750071673
+      TCG_ConnectionReady_27: 5198238429372730311
+      TCG_ConnectionReady_28: -8319347804544529807
+      TCG_ConnectionReady_29: -1953439789193997150
+      TCG_ConnectionReady_3: 3572312564731787365
+      TCG_ConnectionReady_30: 5952022415194148728
+      TCG_ConnectionReady_31: 8948112231427852337
+      TCG_ConnectionReady_32: -8412368914116939224
+      TCG_ConnectionReady_33: 4982174266593656584
+      TCG_ConnectionReady_4: -8102756338827217558
+      TCG_ConnectionReady_5: 5306303034759478559
+      TCG_ConnectionReady_6: -6244313409487411270
+      TCG_ConnectionReady_7: -7415723636440955705
+      TCG_ConnectionReady_8: -7015844765813196880
+      TCG_ConnectionReady_9: -8649353231500232091
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

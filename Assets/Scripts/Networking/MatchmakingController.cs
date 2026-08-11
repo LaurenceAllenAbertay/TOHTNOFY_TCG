@@ -1,8 +1,8 @@
-using System.Collections.Generic;
 using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.DeckBuilding;
@@ -17,27 +17,31 @@ namespace DDD.TNFY.TCG.Networking
         private const byte MaxPlayersPerRoom = 2;
         private const string GameModeRoomPropertyKey = "gm";
 
-        private static readonly GameMode[] DropdownModeOrder =
-        {
-            GameMode.Draft,
-            GameMode.RandomDeck,
-            GameMode.Constructed
-        };
+        [Header("Nickname Prompt")]
+        [SerializeField] private GameObject nicknamePanel;
+        [SerializeField, FormerlySerializedAs("nameInputField")] private TMP_InputField nicknameInputField;
+        [SerializeField] private Button confirmNicknameButton;
+        [SerializeField] private Button changeNicknameButton;
 
-        private static readonly List<string> DropdownModeLabels = new List<string>
-        {
-            "Draft",
-            "Random Deck",
-            "Constructed"
-        };
+        [Header("Main Menu")]
+        [SerializeField] private TextMeshProUGUI welcomeText;
+        [SerializeField] private Button quitButton;
 
-        [SerializeField] private TMP_InputField nameInputField;
-        [SerializeField] private Button findMatchButton;
+        [Header("Game Mode Panel")]
+        [SerializeField] private GameObject gameModePanel;
+        [SerializeField] private Button draftModeButton;
+        [SerializeField] private Button randomDeckModeButton;
+        [SerializeField] private Button constructedModeButton;
+
+        [Header("Matchmaking")]
+        [SerializeField, FormerlySerializedAs("findMatchButton")] private Button playButton;
         [SerializeField] private Button cancelMatchmakingButton;
         [SerializeField] private TextMeshProUGUI statusText;
+        [SerializeField] private Image connectionStatusIcon;
+        [SerializeField] private Sprite connectingIconSprite;
+        [SerializeField] private Sprite readyIconSprite;
         [SerializeField] private string gameSceneName = "Game";
         [SerializeField] private CardDatabase cardDatabase;
-        [SerializeField] private TMP_Dropdown gameModeDropdown;
 
         private bool cancelRequested;
         private GameMode pendingGameMode;
@@ -45,8 +49,9 @@ namespace DDD.TNFY.TCG.Networking
         private void Awake()
         {
             PhotonNetwork.AutomaticallySyncScene = true;
-            findMatchButton.interactable = false;
-            findMatchButton.onClick.AddListener(HandleFindMatchClicked);
+
+            playButton.interactable = false;
+            playButton.onClick.AddListener(HandlePlayClicked);
 
             if (cancelMatchmakingButton != null)
             {
@@ -54,26 +59,41 @@ namespace DDD.TNFY.TCG.Networking
                 cancelMatchmakingButton.onClick.AddListener(HandleCancelMatchmakingClicked);
             }
 
-            if (PlayerPrefs.HasKey(NicknamePrefsKey))
+            if (gameModePanel != null)
             {
-                nameInputField.text = PlayerPrefs.GetString(NicknamePrefsKey);
+                gameModePanel.SetActive(false);
             }
 
-            if (gameModeDropdown != null)
+            draftModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.Draft));
+            randomDeckModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.RandomDeck));
+            constructedModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.Constructed));
+
+            confirmNicknameButton.onClick.AddListener(HandleConfirmNicknameClicked);
+            changeNicknameButton.onClick.AddListener(HandleChangeNicknameClicked);
+            quitButton.onClick.AddListener(HandleQuitClicked);
+
+            if (HasSavedNickname())
             {
-                gameModeDropdown.ClearOptions();
-                gameModeDropdown.AddOptions(DropdownModeLabels);
+                nicknameInputField.text = PlayerPrefs.GetString(NicknamePrefsKey);
+                PhotonNetwork.NickName = nicknameInputField.text;
+                UpdateWelcomeText(nicknameInputField.text);
+                nicknamePanel.SetActive(false);
+            }
+            else
+            {
+                Debug.Log("[MatchmakingController] No saved nickname found - showing the nickname prompt.");
+                nicknamePanel.SetActive(true);
             }
         }
 
         private void Start()
         {
-            SetStatus("Connecting...");
+            SetConnectionStatusIcon(connectingIconSprite);
 
             if (PhotonNetwork.IsConnectedAndReady)
             {
-                findMatchButton.interactable = true;
-                SetStatus("Ready.");
+                UpdatePlayButtonInteractable();
+                SetConnectionStatusIcon(readyIconSprite);
             }
             else
             {
@@ -84,42 +104,52 @@ namespace DDD.TNFY.TCG.Networking
         public override void OnConnectedToMaster()
         {
             Debug.Log("[MatchmakingController] OnConnectedToMaster.");
-            findMatchButton.interactable = true;
-            SetStatus("Ready.");
+            UpdatePlayButtonInteractable();
+            SetConnectionStatusIcon(readyIconSprite);
         }
 
         public override void OnDisconnected(DisconnectCause cause)
         {
             Debug.LogWarning($"[MatchmakingController] OnDisconnected - cause: {cause}");
-            findMatchButton.interactable = false;
+            playButton.interactable = false;
             SetStatus($"Disconnected ({cause}). Reconnecting...");
             PhotonNetwork.ConnectUsingSettings();
         }
 
-        private void HandleFindMatchClicked()
+        private void HandlePlayClicked()
         {
-            GameMode selectedMode = ReadSelectedModeFromDropdown();
+            Debug.Log("[MatchmakingController] HandlePlayClicked() - opening game mode panel.");
+            gameModePanel.SetActive(true);
+        }
 
-            Debug.Log($"[MatchmakingController] HandleFindMatchClicked() - selectedMode={selectedMode}, gameModeDropdown.value={(gameModeDropdown != null ? gameModeDropdown.value.ToString() : "null dropdown ref")}.");
+        private void HandleGameModeSelected(GameMode selectedMode)
+        {
+            Debug.Log($"[MatchmakingController] HandleGameModeSelected() - selectedMode={selectedMode}.");
 
             if (selectedMode == GameMode.Constructed && !ActiveDeckIsQueueReady())
             {
                 return;
             }
 
-            string chosenName = string.IsNullOrWhiteSpace(nameInputField.text)
-                ? "Player" + Random.Range(1000, 9999)
-                : nameInputField.text.Trim();
+            gameModePanel.SetActive(false);
 
-            PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
+            string chosenName = PlayerPrefs.GetString(NicknamePrefsKey, string.Empty);
+
+            if (string.IsNullOrWhiteSpace(chosenName))
+            {
+                chosenName = "Player" + Random.Range(1000, 9999);
+                PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
+                PlayerPrefs.Save();
+            }
+
             PhotonNetwork.NickName = chosenName;
 
             ConstructedMatchSync.PublishSelection(selectedMode, cardDatabase);
 
             cancelRequested = false;
             pendingGameMode = selectedMode;
-            findMatchButton.interactable = false;
-            nameInputField.interactable = false;
+            playButton.interactable = false;
+            changeNicknameButton.interactable = false;
             SetStatus("Searching for an opponent...");
 
             if (cancelMatchmakingButton != null)
@@ -137,22 +167,58 @@ namespace DDD.TNFY.TCG.Networking
                 roomOptions: roomOptions);
         }
 
-        private GameMode ReadSelectedModeFromDropdown()
+        private void HandleConfirmNicknameClicked()
         {
-            if (gameModeDropdown == null)
+            string chosenName = string.IsNullOrWhiteSpace(nicknameInputField.text)
+                ? "Player" + Random.Range(1000, 9999)
+                : nicknameInputField.text.Trim();
+
+            Debug.Log($"[MatchmakingController] HandleConfirmNicknameClicked() - saving nickname '{chosenName}'.");
+
+            PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
+            PlayerPrefs.Save();
+            PhotonNetwork.NickName = chosenName;
+            nicknameInputField.text = chosenName;
+            UpdateWelcomeText(chosenName);
+
+            nicknamePanel.SetActive(false);
+            UpdatePlayButtonInteractable();
+        }
+
+        private void HandleChangeNicknameClicked()
+        {
+            Debug.Log("[MatchmakingController] HandleChangeNicknameClicked() - reopening nickname panel.");
+            nicknameInputField.text = PlayerPrefs.GetString(NicknamePrefsKey, string.Empty);
+            nicknamePanel.SetActive(true);
+        }
+
+        private bool HasSavedNickname()
+        {
+            return PlayerPrefs.HasKey(NicknamePrefsKey) && !string.IsNullOrWhiteSpace(PlayerPrefs.GetString(NicknamePrefsKey));
+        }
+
+        private void UpdateWelcomeText(string nicknameToShow)
+        {
+            if (welcomeText != null)
             {
-                return GameMode.Draft;
+                welcomeText.text = $"Welcome, {nicknameToShow}!";
             }
+        }
 
-            int index = gameModeDropdown.value;
+        private void HandleQuitClicked()
+        {
+            Debug.Log("[MatchmakingController] HandleQuitClicked().");
 
-            if (index < 0 || index >= DropdownModeOrder.Length)
-            {
-                Debug.LogWarning($"[MatchmakingController] gameModeDropdown.value ({index}) is out of range for DropdownModeOrder - defaulting to Draft.");
-                return GameMode.Draft;
-            }
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
 
-            return DropdownModeOrder[index];
+        private void UpdatePlayButtonInteractable()
+        {
+            playButton.interactable = PhotonNetwork.IsConnectedAndReady && HasSavedNickname();
         }
 
         private RoomOptions BuildRoomOptions(GameMode mode)
@@ -281,22 +347,42 @@ namespace DDD.TNFY.TCG.Networking
         private void ResetToReadyState()
         {
             cancelRequested = false;
-            nameInputField.interactable = true;
-            findMatchButton.interactable = true;
+            changeNicknameButton.interactable = true;
+            UpdatePlayButtonInteractable();
 
             if (cancelMatchmakingButton != null)
             {
                 cancelMatchmakingButton.gameObject.SetActive(false);
             }
 
-            SetStatus("Ready.");
+            SetConnectionStatusIcon(readyIconSprite);
         }
 
         private void SetStatus(string message)
         {
+            if (connectionStatusIcon != null)
+            {
+                connectionStatusIcon.gameObject.SetActive(false);
+            }
+
             if (statusText != null)
             {
+                statusText.gameObject.SetActive(true);
                 statusText.text = message;
+            }
+        }
+
+        private void SetConnectionStatusIcon(Sprite icon)
+        {
+            if (statusText != null)
+            {
+                statusText.gameObject.SetActive(false);
+            }
+
+            if (connectionStatusIcon != null)
+            {
+                connectionStatusIcon.sprite = icon;
+                connectionStatusIcon.gameObject.SetActive(true);
             }
         }
     }

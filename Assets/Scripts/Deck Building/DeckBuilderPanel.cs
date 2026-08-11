@@ -25,6 +25,7 @@ namespace DDD.TNFY.TCG.DeckBuilding
             public LeaderData leader;
             public Button button;
             public Image selectedIndicator;
+            public LeaderPreviewHover previewHover;
         }
 
         [Header("Data")]
@@ -104,6 +105,11 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
                 LeaderData capturedLeader = entry.leader;
                 entry.button.onClick.AddListener(() => HandleLeaderClicked(capturedLeader));
+
+                if (entry.previewHover != null)
+                {
+                    entry.previewHover.SetLeader(entry.leader);
+                }
             }
 
             if (typeFilterAnyButton != null)
