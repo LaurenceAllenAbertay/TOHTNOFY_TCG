@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Heal Leader
   m_EditorClassIdentifier: 
   cardId: healleader
-  cardName: Heal Leader
+  cardName: The Coffee Maker
   manaCost: 3
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 0cbdc70946053a7479964d012b3a7ba4, type: 3}
   abilityText: Heal your leader 6 health.
   effects:
   - trigger: 0

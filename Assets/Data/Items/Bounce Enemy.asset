@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Bounce Enemy
   m_EditorClassIdentifier: 
   cardId: bounceenemy
-  cardName: Bounce Enemy
+  cardName: Queen Bouncelia's Feet
   manaCost: 3
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 2efd0979e57725b42b357f2f401080f5, type: 3}
   abilityText: Bounce an enemy unit.
   effects:
   - trigger: 0
@@ -27,7 +27,6 @@ MonoBehaviour:
     mandatoryTarget: 0
     relevantCard: {fileID: 0}
     keyword: 0
-    targetsOwnHand: 0
     cardCategory: 0
     randomizeMin: 0
     randomizeMax: 0
