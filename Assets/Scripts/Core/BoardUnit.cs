@@ -102,5 +102,28 @@ namespace DDD.TNFY.TCG.Core
             CurrentHealth = sourceCard.Health;
             PlacedThisTurn = true;
         }
+
+        public BoardUnit Clone()
+        {
+            BoardUnit clone = new BoardUnit(SourceCard, Owner, SlotIndex)
+            {
+                BonusAttack = BonusAttack,
+                MaxHealth = MaxHealth,
+                CurrentHealth = CurrentHealth,
+                LastSyncedAuraHealthBonus = LastSyncedAuraHealthBonus,
+                PlacedThisTurn = PlacedThisTurn,
+                HasMovedThisTurn = HasMovedThisTurn,
+                HasAttackedThisTurn = HasAttackedThisTurn,
+                HasUsedGrantedEnemyMoveThisTurn = HasUsedGrantedEnemyMoveThisTurn,
+                GrantedKeywords = GrantedKeywords
+            };
+
+            foreach (ActiveStatusEffect status in Statuses)
+            {
+                clone.Statuses.Add(status.Clone());
+            }
+
+            return clone;
+        }
     }
 }

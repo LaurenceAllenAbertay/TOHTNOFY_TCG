@@ -16,5 +16,10 @@ namespace DDD.TNFY.TCG.Effects
             Magnitude = magnitude;
             SourceOwner = sourceOwner;
         }
+
+        public ActiveStatusEffect Clone()
+        {
+            return new ActiveStatusEffect(Type, RemainingTriggers, Magnitude, SourceOwner);
+        }
     }
 }

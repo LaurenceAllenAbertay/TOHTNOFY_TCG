@@ -2,6 +2,8 @@ using UnityEngine;
 using TMPro;
 using Photon.Pun;
 using DDD.TNFY.TCG.Core;
+using DDD.TNFY.TCG.DeckBuilding;
+using DDD.TNFY.TCG.Networking;
 
 namespace DDD.TNFY.TCG.UI
 {
@@ -131,17 +133,28 @@ namespace DDD.TNFY.TCG.UI
 
         private static string GetNicknameForSide(PlayerSide side)
         {
-            if (!PhotonNetwork.InRoom)
+            if (PhotonNetwork.InRoom)
             {
+                foreach (Photon.Realtime.Player photonPlayer in PhotonNetwork.PlayerList)
+                {
+                    if (NetworkedMatchSync.SideForActorNumber(photonPlayer.ActorNumber) == side)
+                    {
+                        return photonPlayer.NickName;
+                    }
+                }
+
                 return side == PlayerSide.PlayerA ? "Player A" : "Player B";
             }
 
-            foreach (Photon.Realtime.Player photonPlayer in PhotonNetwork.PlayerList)
+            if (ConstructedMatchSync.ReadSelectedMode(GameMode.Draft) == GameMode.VsAI)
             {
-                if (NetworkedMatchSync.SideForActorNumber(photonPlayer.ActorNumber) == side)
+                if (side == PlayerSide.PlayerB)
                 {
-                    return photonPlayer.NickName;
+                    return "AI";
                 }
+
+                string savedNickname = PlayerPrefs.GetString(MatchmakingController.NicknamePrefsKey, string.Empty);
+                return string.IsNullOrWhiteSpace(savedNickname) ? "Player A" : savedNickname;
             }
 
             return side == PlayerSide.PlayerA ? "Player A" : "Player B";

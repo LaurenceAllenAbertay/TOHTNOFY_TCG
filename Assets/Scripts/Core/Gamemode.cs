@@ -4,6 +4,7 @@ namespace DDD.TNFY.TCG.Core
     {
         Draft,
         RandomDeck,
-        Constructed
+        Constructed,
+        VsAI
     }
 }

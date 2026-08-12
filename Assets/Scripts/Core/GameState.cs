@@ -95,6 +95,34 @@ namespace DDD.TNFY.TCG.Core
             GameOver?.Invoke();
         }
 
+        public event Action<CardData, PlayerSide, int, int> UnitPlayAnimationRequested;
+
+        public void RaiseUnitPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, int slotIndex)
+        {
+            UnitPlayAnimationRequested?.Invoke(card, playingSide, handIndex, slotIndex);
+        }
+
+        public event Action<PlayerSide, int, int> UnitPlayAnimationFinished;
+
+        public void RaiseUnitPlayAnimationFinished(PlayerSide playingSide, int handIndex, int slotIndex)
+        {
+            UnitPlayAnimationFinished?.Invoke(playingSide, handIndex, slotIndex);
+        }
+
+        public event Action<CardData, PlayerSide, int> ItemPlayAnimationRequested;
+
+        public void RaiseItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex)
+        {
+            ItemPlayAnimationRequested?.Invoke(card, playingSide, handIndex);
+        }
+
+        public event Action<PlayerSide, int> ItemPlayAnimationFinished;
+
+        public void RaiseItemPlayAnimationFinished(PlayerSide playingSide, int handIndex)
+        {
+            ItemPlayAnimationFinished?.Invoke(playingSide, handIndex);
+        }
+
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }
@@ -153,6 +181,55 @@ namespace DDD.TNFY.TCG.Core
 
             bool cameFromTurnStart = PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
             return !cameFromTurnStart;
+        }
+
+        public GameState Clone()
+        {
+            GameState clone = new GameState();
+            Dictionary<BoardUnit, BoardUnit> unitMap = new Dictionary<BoardUnit, BoardUnit>();
+
+            clone.Board.CopyFrom(Board, unitMap);
+            clone.PlayerA.CopyFrom(PlayerA);
+            clone.PlayerB.CopyFrom(PlayerB);
+
+            clone.activePlayer = activePlayer;
+            clone.currentPhase = currentPhase;
+
+            clone.FirstPlayer = FirstPlayer;
+            clone.TurnNumber = TurnNumber;
+            clone.HasUsedMoveThisTurn = HasUsedMoveThisTurn;
+            clone.IsGameOver = IsGameOver;
+            clone.Winner = Winner;
+
+            clone.HasPendingFreeMove = HasPendingFreeMove;
+            clone.PendingFreeMoveExcludedUnit = MapUnit(PendingFreeMoveExcludedUnit, unitMap);
+
+            clone.HasPendingEnemyMoveGrantOnPlay = HasPendingEnemyMoveGrantOnPlay;
+            clone.PendingEnemyMoveGrantTarget = MapUnit(PendingEnemyMoveGrantTarget, unitMap);
+
+            clone.PendingTargetedEffect = PendingTargetedEffect;
+            clone.PendingTargetedEffectSource = MapUnit(PendingTargetedEffectSource, unitMap);
+            clone.PendingTargetedEffectTrigger = PendingTargetedEffectTrigger;
+
+            clone.PendingCardChoiceOptions = PendingCardChoiceOptions != null ? new List<CardData>(PendingCardChoiceOptions) : null;
+            clone.PendingCardChoiceSource = MapUnit(PendingCardChoiceSource, unitMap);
+
+            clone.IsResolvingTurnStartEffects = IsResolvingTurnStartEffects;
+            clone.TurnStartScanSlot = TurnStartScanSlot;
+
+            clone.currentlyAttackingUnit = MapUnit(currentlyAttackingUnit, unitMap);
+
+            return clone;
+        }
+
+        private static BoardUnit MapUnit(BoardUnit original, Dictionary<BoardUnit, BoardUnit> unitMap)
+        {
+            if (original == null)
+            {
+                return null;
+            }
+
+            return unitMap.TryGetValue(original, out BoardUnit mapped) ? mapped : null;
         }
     }
 }

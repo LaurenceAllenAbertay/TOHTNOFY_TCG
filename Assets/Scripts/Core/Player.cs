@@ -108,5 +108,45 @@ namespace DDD.TNFY.TCG.Core
             Hand.Add(card);
             return true;
         }
+
+        public void CopyFrom(Player source)
+        {
+            Deck.Clear();
+            Deck.AddRange(source.Deck);
+
+            Hand.Clear();
+            Hand.AddRange(source.Hand);
+
+            GameStartBonusCards.Clear();
+            GameStartBonusCards.AddRange(source.GameStartBonusCards);
+
+            Leader = source.Leader;
+            PendingDraftOptions = source.PendingDraftOptions != null ? new List<CardData>(source.PendingDraftOptions) : null;
+            CurrentDraftStage = source.CurrentDraftStage;
+            HasCompletedMulligan = source.HasCompletedMulligan;
+
+            CurrentMana = source.CurrentMana;
+            MaxManaThisGame = source.MaxManaThisGame;
+            MaxLeaderHealth = source.MaxLeaderHealth;
+            LeaderHealth = source.LeaderHealth;
+            PendingManaReduction = source.PendingManaReduction;
+            HasReachedMaxMana = source.HasReachedMaxMana;
+            HasNextItemDoubled = source.HasNextItemDoubled;
+            OwnTurnCount = source.OwnTurnCount;
+            FatigueDamageTaken = source.FatigueDamageTaken;
+            AlliedUnitsDied = source.AlliedUnitsDied;
+
+            Statuses.Clear();
+            foreach (ActiveStatusEffect status in source.Statuses)
+            {
+                Statuses.Add(status.Clone());
+            }
+
+            TriggeredOncePerTurnEffects.Clear();
+            foreach (CardEffect effect in source.TriggeredOncePerTurnEffects)
+            {
+                TriggeredOncePerTurnEffects.Add(effect);
+            }
+        }
     }
 }

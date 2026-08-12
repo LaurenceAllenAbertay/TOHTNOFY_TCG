@@ -114,7 +114,7 @@ namespace DDD.TNFY.TCG.Core
             return count;
         }
 
-        private static bool MatchesDraftStage(CardRarity rarity, DraftStage stage)
+        public static bool MatchesDraftStage(CardRarity rarity, DraftStage stage)
         {
             switch (stage)
             {

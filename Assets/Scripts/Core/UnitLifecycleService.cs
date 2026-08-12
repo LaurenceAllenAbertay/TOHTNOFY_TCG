@@ -194,22 +194,21 @@ namespace DDD.TNFY.TCG.Core
         {
             Player owner = state.GetPlayer(unit.Owner);
 
-            int auraAttackBonus = AuraCalculator.GetAttackBonus(unit, state);
-            int effectiveMaxHealth = AuraCalculator.GetEffectiveMaxHealth(unit, state);
-            int auraHealthBonus = effectiveMaxHealth - unit.MaxHealth;
+            int effectiveMaxHealth = unit.GetEffectiveMaxHealth(state);
+            int damageTaken = effectiveMaxHealth - unit.CurrentHealth;
 
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
 
-            int permanentAttack = unit.SourceCard.Attack + unit.BonusAttack + auraAttackBonus;
-            int permanentHealth = effectiveMaxHealth;
-            bool hasPermanentStatChange = unit.BonusAttack != 0 || auraAttackBonus != 0 || unit.MaxHealth != unit.SourceCard.Health || auraHealthBonus != 0;
-            bool isDamaged = unit.CurrentHealth != effectiveMaxHealth;
+            int permanentAttack = unit.SourceCard.Attack + unit.BonusAttack;
+            int permanentHealth = unit.MaxHealth;
+            bool hasPermanentStatChange = unit.BonusAttack != 0 || unit.MaxHealth != unit.SourceCard.Health;
+            bool isDamaged = damageTaken != 0;
 
             CardData cardForHand = unit.SourceCard;
 
             if (hasPermanentStatChange || isDamaged)
             {
-                int currentHealthForHand = System.Math.Max(1, unit.CurrentHealth);
+                int currentHealthForHand = System.Math.Max(1, permanentHealth - damageTaken);
                 cardForHand =
                     unit.SourceCard.CreateStatOverrideClone(permanentAttack, permanentHealth, currentHealthForHand);
             }

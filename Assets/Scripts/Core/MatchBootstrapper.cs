@@ -51,6 +51,10 @@ namespace DDD.TNFY.TCG.Core
                 AssignRandomLeaders();
                 StartRandomDeckMatch();
             }
+            else if (effectiveMode == GameMode.VsAI)
+            {
+                StartVsAIMatch();
+            }
             else
             {
                 AssignRandomLeaders();
@@ -92,7 +96,11 @@ namespace DDD.TNFY.TCG.Core
                 manager.State.PlayerA.Deck.AddRange(localDeck);
                 manager.State.PlayerB.Deck.AddRange(new List<CardData>(localDeck));
 
-                DeckStorage.TryLoadActiveDeckLeader(cardDatabase, out LeaderData localLeader);
+                Debug.Log($"[MatchBootstrapper] StartConstructedMatch: using cardDatabase={(cardDatabase != null ? cardDatabase.name : "NULL")}.");
+
+                bool foundLeader = DeckStorage.TryLoadActiveDeckLeader(cardDatabase, out LeaderData localLeader);
+                Debug.Log($"[MatchBootstrapper] StartConstructedMatch: TryLoadActiveDeckLeader returned foundLeader={foundLeader}, localLeader={(localLeader != null ? localLeader.LeaderName : "NULL")}.");
+
                 manager.State.PlayerA.Leader = localLeader != null ? localLeader : PickRandomLeader();
                 manager.State.PlayerB.Leader = PickRandomLeader();
 
@@ -146,6 +154,105 @@ namespace DDD.TNFY.TCG.Core
             }
 
             return pool.GetRange(0, targetSize);
+        }
+
+        private void StartVsAIMatch()
+        {
+            Debug.Log($"[MatchBootstrapper] StartVsAIMatch: using cardDatabase={(cardDatabase != null ? cardDatabase.name : "NULL")}.");
+
+            List<CardData> humanDeck = DeckStorage.LoadActiveDeckCards(cardDatabase);
+            manager.State.PlayerA.Deck.AddRange(humanDeck);
+
+            bool foundLeader = DeckStorage.TryLoadActiveDeckLeader(cardDatabase, out LeaderData humanLeader);
+            Debug.Log($"[MatchBootstrapper] StartVsAIMatch: TryLoadActiveDeckLeader returned foundLeader={foundLeader}, humanLeader={(humanLeader != null ? humanLeader.LeaderName : "NULL")}.");
+
+            manager.State.PlayerA.Leader = humanLeader != null ? humanLeader : PickRandomLeader();
+
+            List<CardData> aiDeck = BuildDraftLegalRandomDeck();
+            manager.State.PlayerB.Deck.AddRange(aiDeck);
+            manager.State.PlayerB.Leader = PickRandomLeader();
+
+            Debug.Log($"[MatchBootstrapper] Vs AI match - human loaded their {humanDeck.Count}-card Constructed deck with leader '{(manager.State.PlayerA.Leader != null ? manager.State.PlayerA.Leader.LeaderName : "none")}'; AI given a random {aiDeck.Count}-card draft-legal deck with leader '{(manager.State.PlayerB.Leader != null ? manager.State.PlayerB.Leader.LeaderName : "none")}'.");
+
+            ListShuffler.Shuffle(manager.State.PlayerA.Deck);
+            ListShuffler.Shuffle(manager.State.PlayerB.Deck);
+
+            manager.State.ActivePlayer = manager.State.FirstPlayer;
+
+            AIController aiController = GetComponent<AIController>();
+
+            if (aiController != null)
+            {
+                aiController.EnableAIControl(PlayerSide.PlayerB);
+            }
+            else
+            {
+                Debug.LogWarning("[MatchBootstrapper] Vs AI match started but no AIController component was found on this GameObject - PlayerB will not act.");
+            }
+
+            TurnTimerController turnTimer = GetComponent<TurnTimerController>();
+
+            if (turnTimer != null)
+            {
+                turnTimer.enabled = false;
+                Debug.Log($"[MatchBootstrapper] Vs AI match - disabled TurnTimerController on GameObject '{turnTimer.gameObject.name}' (instanceId={turnTimer.GetInstanceID()}, enabled now={turnTimer.enabled}). No draft/mulligan/turn timer against a solo AI opponent.");
+            }
+            else
+            {
+                Debug.LogWarning("[MatchBootstrapper] Vs AI match started but no TurnTimerController component was found on this GameObject.");
+            }
+
+            manager.Phases.StartMatch();
+        }
+
+        private List<CardData> BuildDraftLegalRandomDeck()
+        {
+            List<CardData> deck = new List<CardData>();
+
+            AddRandomPicksForStage(deck, DraftStage.Common, draftSettings.commonPicks, draftSettings.copiesPerCommonPick);
+            AddRandomPicksForStage(deck, DraftStage.Uncommon, draftSettings.uncommonPicks, draftSettings.copiesPerUncommonPick);
+            AddRandomPicksForStage(deck, DraftStage.Rare, draftSettings.rarePicks, draftSettings.copiesPerRarePick);
+            AddRandomPicksForStage(deck, DraftStage.EpicOrLegendary, draftSettings.epicOrLegendaryPicks, draftSettings.copiesPerEpicOrLegendaryPick);
+
+            return deck;
+        }
+
+        private void AddRandomPicksForStage(List<CardData> deck, DraftStage stage, int pickCount, int copiesPerPick)
+        {
+            for (int pick = 0; pick < pickCount; pick++)
+            {
+                List<CardData> eligible = new List<CardData>();
+
+                foreach (CardData card in CardPool)
+                {
+                    if (!PhaseManager.MatchesDraftStage(card.Rarity, stage))
+                    {
+                        continue;
+                    }
+
+                    int copiesAlready = deck.FindAll(c => c == card).Count;
+
+                    if (copiesAlready >= draftSettings.maxCopiesPerCard)
+                    {
+                        continue;
+                    }
+
+                    eligible.Add(card);
+                }
+
+                if (eligible.Count == 0)
+                {
+                    Debug.LogWarning($"[MatchBootstrapper] BuildDraftLegalRandomDeck: no eligible {stage} cards left for pick {pick + 1}/{pickCount} - skipping this pick.");
+                    continue;
+                }
+
+                CardData chosen = eligible[Random.Range(0, eligible.Count)];
+
+                for (int copy = 0; copy < copiesPerPick; copy++)
+                {
+                    deck.Add(chosen);
+                }
+            }
         }
 
         private void AssignRandomFirstPlayer()

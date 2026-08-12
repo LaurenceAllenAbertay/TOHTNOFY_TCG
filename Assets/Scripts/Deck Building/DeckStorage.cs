@@ -35,6 +35,16 @@ namespace DDD.TNFY.TCG.DeckBuilding
                 return deck;
             }
 
+            if (database.AllLeaders.Count > 0 && database.AllLeaders[0] != null)
+            {
+                deck.leaderId = database.AllLeaders[0].LeaderId;
+                Debug.Log($"[DeckStorage] CreateDefaultDeck() assigned default leader '{database.AllLeaders[0].LeaderName}' (leaderId='{deck.leaderId}').");
+            }
+            else
+            {
+                Debug.LogWarning("[DeckStorage] CreateDefaultDeck() - CardDatabase has no leaders configured, starter deck will have no leaderId.");
+            }
+
             Debug.Log($"[DeckStorage] CreateDefaultDeck() start. database.DefaultDeck.Count={database.DefaultDeck.Count}.");
 
             int index = 0;
@@ -126,19 +136,28 @@ namespace DDD.TNFY.TCG.DeckBuilding
             List<SavedDeck> decks = LoadAll(database);
             int activeIndex = GetActiveDeckIndex();
 
+            Debug.Log($"[DeckStorage] TryLoadActiveDeckLeader: activeIndex={activeIndex}, decks.Count={decks.Count}, database={(database != null ? database.name : "NULL")}.");
+
             if (activeIndex < 0 || activeIndex >= decks.Count || database == null)
             {
+                Debug.LogWarning($"[DeckStorage] TryLoadActiveDeckLeader FAIL: activeIndex out of range or database is null.");
                 return false;
             }
 
             string leaderId = decks[activeIndex].leaderId;
 
+            Debug.Log($"[DeckStorage] TryLoadActiveDeckLeader: deck '{decks[activeIndex].deckName}' (slot {activeIndex}) has leaderId='{leaderId}'.");
+
             if (string.IsNullOrEmpty(leaderId))
             {
+                Debug.LogWarning($"[DeckStorage] TryLoadActiveDeckLeader FAIL: deck '{decks[activeIndex].deckName}' has no leaderId saved.");
                 return false;
             }
 
-            return database.TryGetLeader(leaderId, out leader);
+            bool found = database.TryGetLeader(leaderId, out leader);
+            Debug.Log($"[DeckStorage] TryLoadActiveDeckLeader: database.TryGetLeader('{leaderId}') found={found}, leader={(leader != null ? leader.LeaderName : "NULL")} (database asset='{database.name}').");
+
+            return found;
         }
     }
 }

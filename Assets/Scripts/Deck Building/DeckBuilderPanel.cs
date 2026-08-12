@@ -221,6 +221,11 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
             activeDeckIndex = Mathf.Clamp(DeckStorage.GetActiveDeckIndex(), 0, savedDecks.Count - 1);
 
+            for (int i = 0; i < savedDecks.Count; i++)
+            {
+                Debug.Log($"[DeckBuilderPanel] LoadDecks: slot {i} '{savedDecks[i].deckName}' leaderId='{savedDecks[i].leaderId}' (cardDatabase={(cardDatabase != null ? cardDatabase.name : "NULL")}).");
+            }
+
             EnsureAllDecksHaveALeader();
 
             Debug.Log("[DeckBuilderPanel] LoadDecks() finished filling slots.");
@@ -232,9 +237,11 @@ namespace DDD.TNFY.TCG.DeckBuilding
 
             if (string.IsNullOrEmpty(defaultLeaderId))
             {
-                Debug.LogWarning("[DeckBuilderPanel] EnsureAllDecksHaveALeader() - no leader buttons configured with a LeaderData, can't assign a default leader.");
+                Debug.LogWarning("[DeckBuilderPanel] EnsureAllDecksHaveALeader() - no default leader available from the CardDatabase or leader buttons, can't assign one.");
                 return;
             }
+
+            bool anyChanged = false;
 
             foreach (SavedDeck deck in savedDecks)
             {
@@ -242,12 +249,24 @@ namespace DDD.TNFY.TCG.DeckBuilding
                 {
                     Debug.Log($"[DeckBuilderPanel] '{deck.deckName}' had no leader - defaulting to leaderId='{defaultLeaderId}'.");
                     deck.leaderId = defaultLeaderId;
+                    anyChanged = true;
                 }
+            }
+
+            if (anyChanged)
+            {
+                Debug.Log("[DeckBuilderPanel] EnsureAllDecksHaveALeader() patched one or more decks - saving immediately so the fix isn't lost if the player never opens this panel again.");
+                DeckStorage.SaveAll(savedDecks);
             }
         }
 
         private string GetDefaultLeaderId()
         {
+            if (cardDatabase != null && cardDatabase.AllLeaders.Count > 0 && cardDatabase.AllLeaders[0] != null)
+            {
+                return cardDatabase.AllLeaders[0].LeaderId;
+            }
+
             for (int i = 0; i < leaderSelectButtons.Count; i++)
             {
                 if (leaderSelectButtons[i].leader != null)

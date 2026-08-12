@@ -22,7 +22,7 @@ MonoBehaviour:
   - trigger: 0
     action: 3
     targetType: 5
-    amount: 2
+    amount: 1
     oncePerTurn: 0
     mandatoryTarget: 0
     relevantCard: {fileID: 0}

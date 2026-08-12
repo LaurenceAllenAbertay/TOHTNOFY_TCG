@@ -2,6 +2,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 using DDD.TNFY.TCG.Cards;
@@ -13,7 +14,7 @@ namespace DDD.TNFY.TCG.Networking
 {
     public class MatchmakingController : MonoBehaviourPunCallbacks
     {
-        private const string NicknamePrefsKey = "SavedPlayerNickname";
+        public const string NicknamePrefsKey = "SavedPlayerNickname";
         private const byte MaxPlayersPerRoom = 2;
         private const string GameModeRoomPropertyKey = "gm";
 
@@ -32,6 +33,7 @@ namespace DDD.TNFY.TCG.Networking
         [SerializeField] private Button draftModeButton;
         [SerializeField] private Button randomDeckModeButton;
         [SerializeField] private Button constructedModeButton;
+        [SerializeField] private Button vsAIButton;
 
         [Header("Matchmaking")]
         [SerializeField, FormerlySerializedAs("findMatchButton")] private Button playButton;
@@ -67,6 +69,7 @@ namespace DDD.TNFY.TCG.Networking
             draftModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.Draft));
             randomDeckModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.RandomDeck));
             constructedModeButton.onClick.AddListener(() => HandleGameModeSelected(GameMode.Constructed));
+            vsAIButton.onClick.AddListener(HandleVsAIClicked);
 
             confirmNicknameButton.onClick.AddListener(HandleConfirmNicknameClicked);
             changeNicknameButton.onClick.AddListener(HandleChangeNicknameClicked);
@@ -165,6 +168,36 @@ namespace DDD.TNFY.TCG.Networking
                 expectedCustomRoomProperties: roomOptions.CustomRoomProperties,
                 expectedMaxPlayers: MaxPlayersPerRoom,
                 roomOptions: roomOptions);
+        }
+
+        private void HandleVsAIClicked()
+        {
+            Debug.Log("[MatchmakingController] HandleVsAIClicked().");
+
+            if (!ActiveDeckIsQueueReady())
+            {
+                return;
+            }
+
+            gameModePanel.SetActive(false);
+
+            string chosenName = PlayerPrefs.GetString(NicknamePrefsKey, string.Empty);
+
+            if (string.IsNullOrWhiteSpace(chosenName))
+            {
+                chosenName = "Player" + Random.Range(1000, 9999);
+                PlayerPrefs.SetString(NicknamePrefsKey, chosenName);
+                PlayerPrefs.Save();
+            }
+
+            PhotonNetwork.NickName = chosenName;
+
+            ConstructedMatchSync.PublishSelection(GameMode.VsAI, cardDatabase);
+
+            SetStatus("Starting match against the AI...");
+
+            Debug.Log($"[MatchmakingController] Loading '{gameSceneName}' locally for a Vs AI match (no Photon room involved).");
+            SceneManager.LoadScene(gameSceneName);
         }
 
         private void HandleConfirmNicknameClicked()

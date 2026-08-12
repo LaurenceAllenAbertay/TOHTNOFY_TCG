@@ -35,6 +35,8 @@ namespace DDD.TNFY.TCG.Core
             { PlayerSide.PlayerB, new List<int>() }
         };
 
+        private bool hasLoggedFirstActiveUpdate;
+
         private void Awake()
         {
             gameManager = GetComponent<GameManager>();
@@ -42,6 +44,12 @@ namespace DDD.TNFY.TCG.Core
 
         private void Update()
         {
+            if (!hasLoggedFirstActiveUpdate)
+            {
+                hasLoggedFirstActiveUpdate = true;
+                Debug.Log($"[TurnTimerController] Update() is actively running on GameObject '{gameObject.name}' (instanceId={GetInstanceID()}, enabled={enabled}, gameManager={(gameManager != null ? gameManager.name : "NULL")}).");
+            }
+
             if (gameManager == null || gameManager.State == null)
             {
                 return;

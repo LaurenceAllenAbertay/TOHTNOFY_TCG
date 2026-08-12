@@ -17,7 +17,7 @@ MonoBehaviour:
   manaCost: 4
   rarity: 1
   cardArt: {fileID: 21300000, guid: 4a0d0d713e9b6b1458698600c4190b51, type: 3}
-  abilityText: 'On Play: Push each allied unit 1 slot further away from this unit.'
+  abilityText: 'On Play: Push each allied unit as far'
   effects:
   - trigger: 0
     action: 22

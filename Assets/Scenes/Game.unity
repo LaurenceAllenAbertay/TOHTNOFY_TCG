@@ -8561,10 +8561,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f15e3818f7e86642b2167bdf5409239, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isPlayerBAI: 1
+  aiControlEnabled: 0
   aiSide: 1
-  actionDelaySeconds: 0.4
-  mulliganMaxCostToKeep: 4
+  actionDelaySeconds: 2
+  mulliganMaxCostToKeep: 5
+  mctsMaxIterations: 400
+  mctsMaxSearchSeconds: 0.35
+  mctsMaxRolloutDepth: 12
+  mctsIterationsPerFrame: 25
 --- !u!114 &1715400187
 MonoBehaviour:
   m_ObjectHideFlags: 0
