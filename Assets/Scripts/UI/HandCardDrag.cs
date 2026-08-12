@@ -30,6 +30,7 @@ namespace DDD.TNFY.TCG.UI
         private List<LeaderDropTarget> cachedLeaderDropTargets;
         private NetworkedMatchSync networkSync;
         private InputAction cancelDragAction;
+        private bool cardPlaySucceededThisDrag;
 
         public bool IsDraggingUnitCard => handCardView != null && handCardView.Card is UnitCardData;
         public bool IsDraggingItemCard => handCardView != null && handCardView.Card is ItemCardData;
@@ -163,6 +164,11 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
+            if (CardPlayAnimationController.IsLocalPlayAnimationActive)
+            {
+                return false;
+            }
+
             return handCardView.Card is UnitCardData || handCardView.Card is ItemCardData;
         }
 
@@ -176,6 +182,7 @@ namespace DDD.TNFY.TCG.UI
             }
 
             isDragging = true;
+            cardPlaySucceededThisDrag = false;
             originalSiblingIndex = transform.GetSiblingIndex();
 
             dragGhost = Instantiate(gameObject, dragCanvas.transform);
@@ -288,13 +295,14 @@ namespace DDD.TNFY.TCG.UI
                     {
                         handView.CommitReorder();
                     }
+
+                    handCardView.SetVisible(true);
                 }
-                else
+                else if (!cardPlaySucceededThisDrag)
                 {
                     transform.SetSiblingIndex(originalSiblingIndex);
+                    handCardView.SetVisible(true);
                 }
-
-                handCardView.SetVisible(true);
             }
 
             UpdateHighlights(false);
@@ -475,9 +483,16 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
-            return networkSync != null
+            bool requested = networkSync != null
                 ? networkSync.RequestPlayUnit(handIndex, slotIndex)
                 : gameManager.Phases.TryPlayUnit(unitCard, slotIndex);
+
+            if (requested)
+            {
+                cardPlaySucceededThisDrag = true;
+            }
+
+            return requested;
         }
 
         private bool TryRequestPlayItem(ItemCardData itemCard, EffectTarget target)
@@ -489,9 +504,16 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
-            return networkSync != null
+            bool requested = networkSync != null
                 ? networkSync.RequestPlayItem(handIndex, target)
                 : gameManager.Phases.TryPlayItem(itemCard, target);
+
+            if (requested)
+            {
+                cardPlaySucceededThisDrag = true;
+            }
+
+            return requested;
         }
 
         private bool IsBoardTargeted(ItemCardData itemCard)

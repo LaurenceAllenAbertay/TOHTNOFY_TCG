@@ -500,7 +500,7 @@ namespace DDD.TNFY.TCG.Core
         {
             if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
             {
-                return ResolvePlayUnitByIndex(handIndex, slotIndex);
+                return BeginAnimatedPlayUnit(gameManager.State.ActivePlayer, handIndex, slotIndex);
             }
 
             Debug.Log($"[NetworkedMatchSync] Requesting PlayUnit: handIndex={handIndex}, slot={slotIndex}.");
@@ -508,38 +508,70 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
-        private bool ResolvePlayUnitByIndex(int handIndex, int slotIndex)
-        {
-            Player active = gameManager.State.GetActivePlayerData();
-
-            if (handIndex < 0 || handIndex >= active.Hand.Count || !(active.Hand[handIndex] is UnitCardData unitCard))
-            {
-                Debug.LogWarning($"[NetworkedMatchSync] ResolvePlayUnitByIndex: invalid handIndex {handIndex}.");
-                return false;
-            }
-
-            bool resolved = gameManager.Phases.TryPlayUnit(unitCard, slotIndex);
-            Debug.Log($"[NetworkedMatchSync] TryPlayUnit resolved={resolved} for handIndex={handIndex} -> slot {slotIndex}.");
-            BroadcastStateIfMaster();
-            return resolved;
-        }
-
         [PunRPC]
         private void ReceivePlayUnitRequest(int handIndex, int slotIndex, PhotonMessageInfo info)
         {
-            if (!ValidateSenderIsActivePlayer(info, out _))
+            if (!ValidateSenderIsActivePlayer(info, out PlayerSide senderSide))
             {
                 return;
             }
 
-            ResolvePlayUnitByIndex(handIndex, slotIndex);
+            BeginAnimatedPlayUnit(senderSide, handIndex, slotIndex);
+        }
+
+        private bool BeginAnimatedPlayUnit(PlayerSide side, int handIndex, int slotIndex)
+        {
+            Player player = gameManager.State.GetPlayer(side);
+
+            if (handIndex < 0 || handIndex >= player.Hand.Count || !(player.Hand[handIndex] is UnitCardData unitCard))
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] BeginAnimatedPlayUnit: invalid handIndex {handIndex}.");
+                return false;
+            }
+
+            if (!gameManager.Phases.CanPlayUnit(unitCard, slotIndex))
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] BeginAnimatedPlayUnit: CanPlayUnit rejected {unitCard.CardName} -> slot {slotIndex} for {side}.");
+                return false;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayUnit accepted: {unitCard.CardName} handIndex={handIndex} -> slot {slotIndex} for {side}. Broadcasting animation cue.");
+
+            if (PhotonNetwork.InRoom)
+            {
+                photonView.RPC(nameof(ReceivePlayUnitAnimation), RpcTarget.All, (int)side, handIndex, slotIndex);
+            }
+            else
+            {
+                ReceivePlayUnitAnimation((int)side, handIndex, slotIndex);
+            }
+
+            gameManager.Phases.ResolveUnitPlayAfterAnimation(unitCard, side, handIndex, slotIndex, BroadcastStateIfMaster);
+
+            return true;
+        }
+
+        [PunRPC]
+        private void ReceivePlayUnitAnimation(int sideRaw, int handIndex, int slotIndex)
+        {
+            PlayerSide side = (PlayerSide)sideRaw;
+            Player player = gameManager.State.GetPlayer(side);
+
+            if (handIndex < 0 || handIndex >= player.Hand.Count)
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] ReceivePlayUnitAnimation: invalid handIndex {handIndex} for {side}.");
+                return;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] ReceivePlayUnitAnimation: raising UnitPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}) -> slot {slotIndex}.");
+            gameManager.State.RaiseUnitPlayAnimationRequested(player.Hand[handIndex], side, handIndex, slotIndex);
         }
 
         public bool RequestPlayItem(int handIndex, EffectTarget target)
         {
             if (!PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient)
             {
-                return ResolvePlayItemByIndex(handIndex, target);
+                return BeginAnimatedPlayItem(gameManager.State.ActivePlayer, handIndex, target);
             }
 
             Debug.Log($"[NetworkedMatchSync] Requesting PlayItem: handIndex={handIndex}, target.Kind={target.Kind}.");
@@ -547,32 +579,66 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
-        private bool ResolvePlayItemByIndex(int handIndex, EffectTarget target)
-        {
-            Player active = gameManager.State.GetActivePlayerData();
-
-            if (handIndex < 0 || handIndex >= active.Hand.Count || !(active.Hand[handIndex] is ItemCardData itemCard))
-            {
-                Debug.LogWarning($"[NetworkedMatchSync] ResolvePlayItemByIndex: invalid handIndex {handIndex}.");
-                return false;
-            }
-
-            bool resolved = gameManager.Phases.TryPlayItem(itemCard, target);
-            Debug.Log($"[NetworkedMatchSync] TryPlayItem resolved={resolved} for handIndex={handIndex}, target.Kind={target.Kind}.");
-            BroadcastStateIfMaster();
-            return resolved;
-        }
-
         [PunRPC]
         private void ReceivePlayItemRequest(int handIndex, int[] targetData, PhotonMessageInfo info)
         {
-            if (!ValidateSenderIsActivePlayer(info, out _))
+            if (!ValidateSenderIsActivePlayer(info, out PlayerSide senderSide))
             {
                 return;
             }
 
             EffectTarget target = DecodeTarget(targetData, gameManager.State);
-            ResolvePlayItemByIndex(handIndex, target);
+            BeginAnimatedPlayItem(senderSide, handIndex, target);
+        }
+
+        private bool BeginAnimatedPlayItem(PlayerSide side, int handIndex, EffectTarget target)
+        {
+            Player player = gameManager.State.GetPlayer(side);
+
+            if (handIndex < 0 || handIndex >= player.Hand.Count || !(player.Hand[handIndex] is ItemCardData itemCard))
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] BeginAnimatedPlayItem: invalid handIndex {handIndex}.");
+                return false;
+            }
+
+            EffectTarget effectiveTarget = gameManager.Phases.ResolveItemEffectTarget(itemCard.PrimaryEffect, target);
+
+            if (!gameManager.Phases.CanPlayItem(itemCard, effectiveTarget))
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] BeginAnimatedPlayItem: CanPlayItem rejected {itemCard.CardName} for {side}, target.Kind={effectiveTarget.Kind}.");
+                return false;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayItem accepted: {itemCard.CardName} handIndex={handIndex} for {side}. Broadcasting animation cue.");
+
+            if (PhotonNetwork.InRoom)
+            {
+                photonView.RPC(nameof(ReceivePlayItemAnimation), RpcTarget.All, (int)side, handIndex);
+            }
+            else
+            {
+                ReceivePlayItemAnimation((int)side, handIndex);
+            }
+
+            gameManager.Phases.ResolveItemPlayAfterAnimation(itemCard, target, side, handIndex, BroadcastStateIfMaster);
+
+            return true;
+        }
+
+        [PunRPC]
+        private void ReceivePlayItemAnimation(int sideRaw, int handIndex)
+        {
+            PlayerSide side = (PlayerSide)sideRaw;
+            Player player = gameManager.State.GetPlayer(side);
+
+            if (handIndex < 0 || handIndex >= player.Hand.Count)
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] ReceivePlayItemAnimation: invalid handIndex {handIndex} for {side}.");
+                return;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] ReceivePlayItemAnimation: raising ItemPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}).");
+            gameManager.State.RaiseItemPlayAnimationRequested(player.Hand[handIndex], side, handIndex);
         }
 
         public void RequestResolveTargetedEffect(EffectTarget target)

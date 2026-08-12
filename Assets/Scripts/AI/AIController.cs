@@ -250,6 +250,26 @@ namespace DDD.TNFY.TCG.Core
                         yield return new WaitUntil(() => attackResolved);
                     }
                 }
+                else if (bestAction.Value.Kind == AITurnActionKind.PlayUnit)
+                {
+                    bool playResolved = false;
+                    applied = phases.TryPlayUnitAnimated(bestAction.Value.UnitCard, bestAction.Value.SlotIndex, () => playResolved = true);
+
+                    if (applied)
+                    {
+                        yield return new WaitUntil(() => playResolved);
+                    }
+                }
+                else if (bestAction.Value.Kind == AITurnActionKind.PlayItem)
+                {
+                    bool playResolved = false;
+                    applied = phases.TryPlayItemAnimated(bestAction.Value.ItemCard, bestAction.Value.Target, () => playResolved = true);
+
+                    if (applied)
+                    {
+                        yield return new WaitUntil(() => playResolved);
+                    }
+                }
                 else
                 {
                     applied = AITurnActionApplier.Apply(bestAction.Value, phases);

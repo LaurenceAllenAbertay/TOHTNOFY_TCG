@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
+using UnityEngine;
 
 namespace DDD.TNFY.TCG.Core
 {
@@ -80,11 +81,18 @@ namespace DDD.TNFY.TCG.Core
             {
                 foreach (EffectTarget candidate in EnumerateCandidateTargets(state, aiSide, state.PendingTargetedEffect.targetType))
                 {
+                    if (state.IsExcludedAsSelfTarget(candidate.Kind == EffectTargetKind.Unit ? candidate.Unit : null))
+                    {
+                        continue;
+                    }
+
                     if (EffectTargeting.IsValidTarget(state.PendingTargetedEffect.targetType, candidate, state))
                     {
                         actions.Add(AITurnAction.ResolveTargetedEffectWith(candidate));
                     }
                 }
+
+                Debug.Log($"[AITurnActionEnumerator] Pending targeted effect ({state.PendingTargetedEffect.action}, targetType={state.PendingTargetedEffect.targetType}) has {actions.Count} legal target(s) for {aiSide}.");
             }
         }
 

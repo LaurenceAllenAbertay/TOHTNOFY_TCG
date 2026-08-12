@@ -592,6 +592,79 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
+        private const float PlayAnimationTimeout = 6f;
+
+        public bool TryPlayUnitAnimated(UnitCardData card, int slotIndex, System.Action onFullyResolved = null)
+        {
+            if (!CanPlayUnit(card, slotIndex)) return false;
+
+            PlayerSide side = state.ActivePlayer;
+            int handIndex = state.GetPlayer(side).Hand.IndexOf(card);
+
+            if (coroutineRunner == null)
+            {
+                bool resolvedImmediately = TryPlayUnit(card, slotIndex);
+                onFullyResolved?.Invoke();
+                return resolvedImmediately;
+            }
+
+            Debug.Log($"[PhaseManager] TryPlayUnitAnimated: requesting animation for {card.CardName} ({side}) -> slot {slotIndex}, then waiting for it to finish before resolving.");
+            state.RaiseUnitPlayAnimationRequested(card, side, handIndex, slotIndex);
+            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, onFullyResolved));
+            return true;
+        }
+
+        public void ResolveUnitPlayAfterAnimation(UnitCardData card, PlayerSide side, int handIndex, int slotIndex, System.Action onFullyResolved = null)
+        {
+            if (coroutineRunner == null)
+            {
+                TryPlayUnit(card, slotIndex);
+                onFullyResolved?.Invoke();
+                return;
+            }
+
+            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, onFullyResolved));
+        }
+
+        private IEnumerator WaitForUnitPlayAnimationThenResolve(UnitCardData card, PlayerSide side, int handIndex, int slotIndex, System.Action onFullyResolved)
+        {
+            yield return WaitForUnitPlayAnimationFinished(side, handIndex, slotIndex);
+
+            bool resolved = TryPlayUnit(card, slotIndex);
+            Debug.Log($"[PhaseManager] TryPlayUnit resolved={resolved} for {card.CardName} -> slot {slotIndex} (post-animation).");
+            onFullyResolved?.Invoke();
+        }
+
+        private IEnumerator WaitForUnitPlayAnimationFinished(PlayerSide side, int handIndex, int slotIndex)
+        {
+            bool finished = false;
+
+            void OnFinished(PlayerSide finishedSide, int finishedHandIndex, int finishedSlotIndex)
+            {
+                if (finishedSide == side && finishedHandIndex == handIndex && finishedSlotIndex == slotIndex)
+                {
+                    finished = true;
+                }
+            }
+
+            state.UnitPlayAnimationFinished += OnFinished;
+
+            float elapsed = 0f;
+
+            while (!finished && elapsed < PlayAnimationTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            state.UnitPlayAnimationFinished -= OnFinished;
+
+            if (!finished)
+            {
+                Debug.LogWarning($"[PhaseManager] WaitForUnitPlayAnimationFinished: timed out after {elapsed:F2}s for {side} handIndex={handIndex} -> slot {slotIndex} - proceeding anyway.");
+            }
+        }
+
         private BoardUnit PlaceNewUnit(UnitCardData card, int slotIndex)
         {
             return lifecycle.PlaceNewUnit(card, slotIndex);
@@ -1747,7 +1820,7 @@ namespace DDD.TNFY.TCG.Core
             EnterDrawPhase();
         }
 
-        private EffectTarget ResolveItemEffectTarget(CardEffect effect, EffectTarget target)
+        public EffectTarget ResolveItemEffectTarget(CardEffect effect, EffectTarget target)
         {
             if (effect == null || target.Kind != EffectTargetKind.None || EffectTargeting.RequiresClick(effect.targetType))
             {
@@ -1880,6 +1953,79 @@ namespace DDD.TNFY.TCG.Core
             bool valid = EffectTargeting.IsValidTarget(effect.targetType, target, state);
             
             return valid;
+        }
+
+        public bool TryPlayItemAnimated(ItemCardData card, EffectTarget target, System.Action onFullyResolved = null)
+        {
+            EffectTarget effectiveTarget = ResolveItemEffectTarget(card.PrimaryEffect, target);
+
+            if (!CanPlayItem(card, effectiveTarget)) return false;
+
+            PlayerSide side = state.ActivePlayer;
+            int handIndex = state.GetPlayer(side).Hand.IndexOf(card);
+
+            if (coroutineRunner == null)
+            {
+                bool resolvedImmediately = TryPlayItem(card, target);
+                onFullyResolved?.Invoke();
+                return resolvedImmediately;
+            }
+
+            Debug.Log($"[PhaseManager] TryPlayItemAnimated: requesting animation for {card.CardName} ({side}), then waiting for it to finish before resolving.");
+            state.RaiseItemPlayAnimationRequested(card, side, handIndex);
+            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, onFullyResolved));
+            return true;
+        }
+
+        public void ResolveItemPlayAfterAnimation(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved = null)
+        {
+            if (coroutineRunner == null)
+            {
+                TryPlayItem(card, target);
+                onFullyResolved?.Invoke();
+                return;
+            }
+
+            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, onFullyResolved));
+        }
+
+        private IEnumerator WaitForItemPlayAnimationThenResolve(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved)
+        {
+            yield return WaitForItemPlayAnimationFinished(side, handIndex);
+
+            bool resolved = TryPlayItem(card, target);
+            Debug.Log($"[PhaseManager] TryPlayItem resolved={resolved} for {card.CardName} (post-animation).");
+            onFullyResolved?.Invoke();
+        }
+
+        private IEnumerator WaitForItemPlayAnimationFinished(PlayerSide side, int handIndex)
+        {
+            bool finished = false;
+
+            void OnFinished(PlayerSide finishedSide, int finishedHandIndex)
+            {
+                if (finishedSide == side && finishedHandIndex == handIndex)
+                {
+                    finished = true;
+                }
+            }
+
+            state.ItemPlayAnimationFinished += OnFinished;
+
+            float elapsed = 0f;
+
+            while (!finished && elapsed < PlayAnimationTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            state.ItemPlayAnimationFinished -= OnFinished;
+
+            if (!finished)
+            {
+                Debug.LogWarning($"[PhaseManager] WaitForItemPlayAnimationFinished: timed out after {elapsed:F2}s for {side} handIndex={handIndex} - proceeding anyway.");
+            }
         }
 
         private void TriggerOnPlay(BoardUnit unit)

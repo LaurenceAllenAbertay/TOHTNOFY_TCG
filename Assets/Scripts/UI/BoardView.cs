@@ -22,6 +22,20 @@ namespace DDD.TNFY.TCG.UI
         public IReadOnlyList<Transform> PlayerASlotContainers => playerASlotContainers;
         public IReadOnlyList<Transform> PlayerBSlotContainers => playerBSlotContainers;
 
+        public Transform GetSlotContainer(PlayerSide actualSide, int slotIndex)
+        {
+            PlayerSide seat = actualSide.ToActualSide(LocalSide);
+            Transform[] containers = seat == PlayerSide.PlayerA ? playerASlotContainers : playerBSlotContainers;
+
+            if (slotIndex < 0 || slotIndex >= containers.Length)
+            {
+                Debug.LogWarning($"[BoardView] GetSlotContainer: slotIndex {slotIndex} out of range for {actualSide}.");
+                return null;
+            }
+
+            return containers[slotIndex];
+        }
+
         private readonly BoardUnit[] shownPlayerAUnits = new BoardUnit[Board.SlotsPerSide];
         private readonly BoardUnit[] shownPlayerBUnits = new BoardUnit[Board.SlotsPerSide];
 
