@@ -7255,7 +7255,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.0000002682209}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -10, y: -0.0000005364418}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1338890832
@@ -8760,9 +8760,9 @@ MonoBehaviour:
   clonePrefab: {fileID: 4758169881461946567, guid: 0e4ef8bc1fd00ca4ca0fe13dda31c2af, type: 3}
   rightAnchor: {fileID: 1665391362}
   leftAnchor: {fileID: 738741268}
-  growDuration: 0.5
-  lingerDuration: 2
-  resolveDuration: 0.4
+  growDuration: 0.3
+  lingerDuration: 1.5
+  resolveDuration: 0.2
   maxScale: 3
 --- !u!1 &1750904537
 GameObject:
