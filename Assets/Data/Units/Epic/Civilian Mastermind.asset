@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Civilian Mastermind
   manaCost: 9
   rarity: 3
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 5351c16f73b75af4787c71cfadd7bf4b, type: 3}
   abilityText: "All allied units get +1/+1. \nOn Turn Start: Add a CMG Goon to your
     hand."
   effects:

@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The High Lord of Spice
   manaCost: 6
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 6de5bdf4af538c844aa79f68272d6d8d, type: 3}
   abilityText: 'On Play: Swap this unit''s slot with an ally unit''s slot.'
   effects:
   - trigger: 0

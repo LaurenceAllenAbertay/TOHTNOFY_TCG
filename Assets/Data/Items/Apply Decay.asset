@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Apply Decay
   m_EditorClassIdentifier: 
   cardId: applydecay
-  cardName: Apply Decay
+  cardName: Swamp Back
   manaCost: 2
   rarity: 1
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 3a6962b1850aae649a44ce659ee1dd32, type: 3}
   abilityText: Apply 2 stacks of Decay to a unit.
   effects:
   - trigger: 0

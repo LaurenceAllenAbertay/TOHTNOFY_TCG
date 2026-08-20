@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Iffiest Stiffy
   manaCost: 1
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 6469733f9d23edb4084be45ce9ac108a, type: 3}
   abilityText: Slippy
   effects: []
   attack: 2

@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Canary
   manaCost: 4
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 2b12b8966cf1ba941b6402684d9a2946, type: 3}
   abilityText: 'Bifurcated Attack
 
     Agile'

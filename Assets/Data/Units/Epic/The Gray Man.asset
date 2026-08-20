@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Gray Man
   manaCost: 7
   rarity: 3
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 5557fb98bc6ec364ca107e52df8d30bb, type: 3}
   abilityText: 'On Play: Apply Delayed Kill to the opposing unit.'
   effects:
   - trigger: 0

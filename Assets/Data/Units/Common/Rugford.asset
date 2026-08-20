@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Rugford
   manaCost: 1
   rarity: 0
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: b1d2bb9a05be0cb4caca1f24204e5da6, type: 3}
   abilityText: Relentless
   effects: []
   attack: 1

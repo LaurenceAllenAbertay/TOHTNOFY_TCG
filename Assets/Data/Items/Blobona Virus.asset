@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Blobona Virus
   manaCost: 4
   rarity: 3
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 1e8332b4c915b2e4c92a92038d90de11, type: 3}
   abilityText: Transform a unit into a Blobman.
   effects:
   - trigger: 0

@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Oblivion Disastermind
   manaCost: 4
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 05ffb8fda8cc75f45b1aaaf6dd244d9a, type: 3}
   abilityText: 'On Play: Silence all enemy units for 1 turn.'
   effects:
   - trigger: 0

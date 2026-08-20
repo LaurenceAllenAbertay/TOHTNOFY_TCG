@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Rim Bhurgar
   manaCost: 8
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 4cf1b44d558a39247b7f75e463dd4f71, type: 3}
   abilityText: 'Taunt
 
     On Turn Start: Deal 2 damage to a random unit.'

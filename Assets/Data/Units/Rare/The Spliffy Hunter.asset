@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: The Spliffy Hunter
   manaCost: 4
   rarity: 2
-  cardArt: {fileID: 0}
+  cardArt: {fileID: 21300000, guid: 5c2cb5f54ced2fc47afa1614516e556b, type: 3}
   abilityText: 'On Play: Deal 2 damage to the enemy unit with the lowest current
     health.'
   effects:
