@@ -36,6 +36,7 @@ namespace DDD.TNFY.TCG.Core
         };
 
         private bool hasLoggedFirstActiveUpdate;
+        private bool hasLoggedWaitingForUnresolvedActions;
 
         private void Awake()
         {
@@ -188,6 +189,7 @@ namespace DDD.TNFY.TCG.Core
 
             lastSeenTurnPhase = state.CurrentPhase;
             lastSeenTurnActivePlayer = state.ActivePlayer;
+            hasLoggedWaitingForUnresolvedActions = false;
 
             if (!isTurnTimedPhase)
             {
@@ -226,6 +228,18 @@ namespace DDD.TNFY.TCG.Core
 
             if (turnDeadline.HasValue && Time.time >= turnDeadline.Value)
             {
+                if (gameManager.Phases.HasUnresolvedActions)
+                {
+                    if (!hasLoggedWaitingForUnresolvedActions)
+                    {
+                        hasLoggedWaitingForUnresolvedActions = true;
+                        Debug.Log($"[TurnTimerController] Turn timer expired for {gameManager.State.ActivePlayer} while a play/attack is still resolving - waiting for it to finish before ending the turn.");
+                    }
+
+                    return;
+                }
+
+                hasLoggedWaitingForUnresolvedActions = false;
                 turnDeadline = null;
                 Debug.Log("[TurnTimerController] Turn timer expired - resolving timeout.");
                 ResolveTurnTimeout();
@@ -289,9 +303,10 @@ namespace DDD.TNFY.TCG.Core
         private void ResolvePendingSelectionsThenAdvance()
         {
             GameState state = gameManager.State;
+            PlayerSide timedOutPlayer = state.ActivePlayer;
             int iterations = 0;
 
-            while (gameManager.Phases.HasBlockingPendingTargetedEffect() && iterations < maxPendingSelectionIterations)
+            while (state.ActivePlayer == timedOutPlayer && gameManager.Phases.HasBlockingPendingTargetedEffect() && iterations < maxPendingSelectionIterations)
             {
                 iterations++;
 
@@ -306,6 +321,19 @@ namespace DDD.TNFY.TCG.Core
 
                 if (state.PendingTargetedEffect != null)
                 {
+                    if (state.PendingTargetedEffectTrigger == EffectTriggerType.OnPlay)
+                    {
+                        string pendingCardName = state.PendingTargetedEffectSource?.SourceCard?.CardName;
+
+                        if (gameManager.Phases.TryReturnPendingOnPlayCardToHand())
+                        {
+                            Debug.Log($"[TurnTimerController] Timeout: {timedOutPlayer} didn't choose a target for {pendingCardName} in time - returned it to hand.");
+                            continue;
+                        }
+
+                        Debug.LogWarning($"[TurnTimerController] Timeout: couldn't return {pendingCardName} to hand - falling back to a random target.");
+                    }
+
                     EffectTarget target = PickRandomValidTarget(state.PendingTargetedEffect.targetType, state);
 
                     if (target.Kind == EffectTargetKind.None)
@@ -325,6 +353,12 @@ namespace DDD.TNFY.TCG.Core
             if (iterations >= maxPendingSelectionIterations)
             {
                 Debug.LogWarning("[TurnTimerController] Timeout: hit max iterations while resolving pending selections - forcing phase advance regardless.");
+            }
+
+            if (state.ActivePlayer != timedOutPlayer)
+            {
+                Debug.Log($"[TurnTimerController] Timeout: {timedOutPlayer}'s queued end turn already ran while resolving their pending selections - not ending {state.ActivePlayer}'s new turn.");
+                return;
             }
 
             gameManager.Phases.CancelPendingTargetedEffectIfNonMandatory();

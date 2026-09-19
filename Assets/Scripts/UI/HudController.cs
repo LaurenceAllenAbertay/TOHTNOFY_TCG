@@ -77,7 +77,7 @@ namespace DDD.TNFY.TCG.UI
 
                 if (manaIsRelevant)
                 {
-                    manaText.text = $"Mana: {active.CurrentMana} / {active.MaxManaThisGame}";
+                    manaText.text = $"{active.CurrentMana} / {active.MaxManaThisGame}";
                 }
             }
 

@@ -17,6 +17,17 @@ namespace DDD.TNFY.TCG.Core
         private DraftSettings draftSettings;
         private readonly Dictionary<PlayerSide, int> draftPickIndexInStage = new Dictionary<PlayerSide, int>();
 
+        private int unresolvedActionCount;
+
+        public bool HasUnresolvedActions => unresolvedActionCount > 0;
+        public bool IsEndTurnQueued { get; private set; }
+
+        private BoardUnit lastPlayedUnit;
+        private UnitCardData lastPlayedCard;
+        private BoardUnit lastPlayedAbsorbedUnit;
+        private int lastPlayedManaSpent;
+        private int lastPlayedHealthPaid;
+
         public PhaseManager(GameState state, MonoBehaviour coroutineRunner)
         {
             this.state = state;
@@ -560,20 +571,65 @@ namespace DDD.TNFY.TCG.Core
             player.DrawRandomItemCard();
         }
 
+        private System.Action BeginUnresolvedAction(string description, System.Action onFullyResolved)
+        {
+            unresolvedActionCount++;
+            Debug.Log($"[PhaseManager] Unresolved action started: {description} (unresolvedActionCount={unresolvedActionCount}).");
+
+            bool completed = false;
+
+            return () =>
+            {
+                if (completed)
+                {
+                    Debug.LogWarning($"[PhaseManager] Unresolved action '{description}' reported completion twice - ignoring the duplicate.");
+                    return;
+                }
+
+                completed = true;
+                unresolvedActionCount = Mathf.Max(0, unresolvedActionCount - 1);
+                Debug.Log($"[PhaseManager] Unresolved action finished: {description} (unresolvedActionCount={unresolvedActionCount}, IsEndTurnQueued={IsEndTurnQueued}).");
+
+                onFullyResolved?.Invoke();
+                TryRunQueuedEndTurn();
+            };
+        }
+
+        private void TryRunQueuedEndTurn()
+        {
+            if (!IsEndTurnQueued || HasUnresolvedActions)
+            {
+                return;
+            }
+
+            if (state.IsGameOver || state.CurrentPhase != TurnPhase.Action)
+            {
+                Debug.Log($"[PhaseManager] Dropping queued end turn: IsGameOver={state.IsGameOver}, phase={state.CurrentPhase}.");
+                IsEndTurnQueued = false;
+                return;
+            }
+
+            Debug.Log($"[PhaseManager] Everything {state.ActivePlayer} played has resolved - running the queued end turn.");
+            EndActionPhase();
+        }
+
         public bool TryPlayUnit(UnitCardData card, int slotIndex)
         {
-            if (!CanPlayUnit(card, slotIndex)) return false;
+            if (!IsUnitPlayLegal(card, slotIndex)) return false;
 
             CancelPendingTargetedEffectIfNonMandatory();
 
             Player active = state.GetActivePlayerData();
             int effectiveCost = AuraCalculator.GetUnitCost(card, active);
             int manaShort = effectiveCost - active.CurrentMana;
+            int manaBeforePayment = active.CurrentMana;
+            int healthPaid = 0;
 
             if (manaShort > 0 && AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out int healthCost))
             {
                 Debug.Log($"[PhaseManager] {active.Side} converting {healthCost} health into {manaShort} mana to afford {card.CardName}.");
-                DamageLeader(active.Side, healthCost);
+                bool healthDamaged = DamageLeader(active.Side, healthCost);
+                healthPaid = healthDamaged ? healthCost : 0;
                 active.CurrentMana += manaShort;
             }
 
@@ -586,6 +642,12 @@ namespace DDD.TNFY.TCG.Core
             BoardUnit unit = occupyingUnit != null
                 ? AbsorbUnit(occupyingUnit, card, slotIndex)
                 : PlaceNewUnit(card, slotIndex);
+
+            lastPlayedUnit = unit;
+            lastPlayedCard = card;
+            lastPlayedAbsorbedUnit = occupyingUnit;
+            lastPlayedManaSpent = manaBeforePayment - active.CurrentMana;
+            lastPlayedHealthPaid = healthPaid;
 
             TriggerOnPlay(unit);
 
@@ -609,8 +671,9 @@ namespace DDD.TNFY.TCG.Core
             }
 
             Debug.Log($"[PhaseManager] TryPlayUnitAnimated: requesting animation for {card.CardName} ({side}) -> slot {slotIndex}, then waiting for it to finish before resolving.");
+            System.Action trackedCallback = BeginUnresolvedAction($"play {card.CardName} ({side}) -> slot {slotIndex}", onFullyResolved);
             state.RaiseUnitPlayAnimationRequested(card, side, handIndex, slotIndex);
-            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, onFullyResolved));
+            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, trackedCallback));
             return true;
         }
 
@@ -623,7 +686,8 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, onFullyResolved));
+            System.Action trackedCallback = BeginUnresolvedAction($"play {card.CardName} ({side}) -> slot {slotIndex}", onFullyResolved);
+            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, trackedCallback));
         }
 
         private IEnumerator WaitForUnitPlayAnimationThenResolve(UnitCardData card, PlayerSide side, int handIndex, int slotIndex, System.Action onFullyResolved)
@@ -631,7 +695,7 @@ namespace DDD.TNFY.TCG.Core
             yield return WaitForUnitPlayAnimationFinished(side, handIndex, slotIndex);
 
             bool resolved = TryPlayUnit(card, slotIndex);
-            Debug.Log($"[PhaseManager] TryPlayUnit resolved={resolved} for {card.CardName} -> slot {slotIndex} (post-animation).");
+            Debug.Log($"[PhaseManager] TryPlayUnit resolved={resolved} for {card.CardName} -> slot {slotIndex} (post-animation). ActivePlayer={state.ActivePlayer}, phase={state.CurrentPhase}, playingSide={side}.");
             onFullyResolved?.Invoke();
         }
 
@@ -691,6 +755,13 @@ namespace DDD.TNFY.TCG.Core
         }
 
         public bool CanPlayUnit(UnitCardData card, int slotIndex)
+        {
+            if (IsEndTurnQueued) return false;
+
+            return IsUnitPlayLegal(card, slotIndex);
+        }
+
+        private bool IsUnitPlayLegal(UnitCardData card, int slotIndex)
         {
             if (HasBlockingPendingTargetedEffect()) return false;
             if (state.CurrentPhase != TurnPhase.Action) return false;
@@ -789,6 +860,7 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanAttackWithUnit(int slotIndex)
         {
+            if (IsEndTurnQueued) return false;
             if (state.CurrentPhase != TurnPhase.Action) return false;
 
             BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
@@ -831,7 +903,8 @@ namespace DDD.TNFY.TCG.Core
                 return true;
             }
 
-            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus, onAttackFullyResolved));
+            System.Action trackedCallback = BeginUnresolvedAction($"attack by {attacker.SourceCard.CardName} ({attacker.Owner}, slot {slotIndex})", onAttackFullyResolved);
+            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, temporaryAttackBonus, trackedCallback));
             return true;
         }
 
@@ -1656,6 +1729,8 @@ namespace DDD.TNFY.TCG.Core
 
         public bool TryMoveUnit(int fromSlot, int toSlot)
         {
+            if (IsEndTurnQueued) return false;
+
             return movement.TryMoveUnit(fromSlot, toSlot);
         }
 
@@ -1686,6 +1761,8 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanMoveUnit(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost = false)
         {
+            if (IsEndTurnQueued) return false;
+
             return movement.CanMoveUnit(fromSlot, toSlot, ignoreMoveLimitAndCost);
         }
 
@@ -1726,13 +1803,33 @@ namespace DDD.TNFY.TCG.Core
 
         public void EndActionPhase()
         {
+            if (HasUnresolvedActions)
+            {
+                if (!IsEndTurnQueued)
+                {
+                    IsEndTurnQueued = true;
+                    Debug.Log($"[PhaseManager] EndActionPhase queued for {state.ActivePlayer}: {unresolvedActionCount} play/attack(s) still resolving. The turn will end once they finish.");
+                }
+
+                return;
+            }
+
             CancelPendingTargetedEffectIfNonMandatory();
 
             if (HasBlockingPendingTargetedEffect())
             {
+                if (IsEndTurnQueued)
+                {
+                    Debug.Log("[PhaseManager] Queued end turn is waiting on a target/card choice created by a resolved play - it will run as soon as that choice is made.");
+                    return;
+                }
+
                 Debug.LogWarning("[PhaseManager] EndActionPhase blocked: an On-Play effect is still awaiting a target.");
                 return;
             }
+
+            IsEndTurnQueued = false;
+            ClearLastPlayedRecord();
 
             if (state.HasPendingFreeMove)
             {
@@ -1845,7 +1942,7 @@ namespace DDD.TNFY.TCG.Core
             CardEffect effect = card.PrimaryEffect;
             EffectTarget effectiveTarget = ResolveItemEffectTarget(effect, target);
 
-            if (!CanPlayItem(card, effectiveTarget)) return false;
+            if (!IsItemPlayLegal(card, effectiveTarget)) return false;
 
             CancelPendingTargetedEffectIfNonMandatory();
 
@@ -1923,6 +2020,16 @@ namespace DDD.TNFY.TCG.Core
 
         public bool CanPlayItem(ItemCardData card, EffectTarget target)
         {
+            if (IsEndTurnQueued)
+            {
+                return false;
+            }
+
+            return IsItemPlayLegal(card, target);
+        }
+
+        private bool IsItemPlayLegal(ItemCardData card, EffectTarget target)
+        {
             if (HasBlockingPendingTargetedEffect())
             {
                 return false;
@@ -1951,7 +2058,7 @@ namespace DDD.TNFY.TCG.Core
             }
 
             bool valid = EffectTargeting.IsValidTarget(effect.targetType, target, state);
-            
+
             return valid;
         }
 
@@ -1972,8 +2079,9 @@ namespace DDD.TNFY.TCG.Core
             }
 
             Debug.Log($"[PhaseManager] TryPlayItemAnimated: requesting animation for {card.CardName} ({side}), then waiting for it to finish before resolving.");
+            System.Action trackedCallback = BeginUnresolvedAction($"play item {card.CardName} ({side})", onFullyResolved);
             state.RaiseItemPlayAnimationRequested(card, side, handIndex);
-            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, onFullyResolved));
+            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, trackedCallback));
             return true;
         }
 
@@ -1986,7 +2094,8 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, onFullyResolved));
+            System.Action trackedCallback = BeginUnresolvedAction($"play item {card.CardName} ({side})", onFullyResolved);
+            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, trackedCallback));
         }
 
         private IEnumerator WaitForItemPlayAnimationThenResolve(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved)
@@ -1994,7 +2103,7 @@ namespace DDD.TNFY.TCG.Core
             yield return WaitForItemPlayAnimationFinished(side, handIndex);
 
             bool resolved = TryPlayItem(card, target);
-            Debug.Log($"[PhaseManager] TryPlayItem resolved={resolved} for {card.CardName} (post-animation).");
+            Debug.Log($"[PhaseManager] TryPlayItem resolved={resolved} for {card.CardName} (post-animation). ActivePlayer={state.ActivePlayer}, phase={state.CurrentPhase}, playingSide={side}.");
             onFullyResolved?.Invoke();
         }
 
@@ -2174,10 +2283,13 @@ namespace DDD.TNFY.TCG.Core
                 }
 
                 Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {owner.Side}'s hand is full, {chosenCard.CardName}{(cameFromDeck ? " returned to deck" : " discarded")}.");
+                TryRunQueuedEndTurn();
                 return false;
             }
 
             Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s card choice resolved: {chosenCard.CardName} added to {owner.Side}'s hand.");
+
+            TryRunQueuedEndTurn();
 
             return true;
         }
@@ -2269,7 +2381,79 @@ namespace DDD.TNFY.TCG.Core
                 ContinueTurnStartScan(state.GetPlayer(sourceOwner), state.TurnStartScanSlot);
             }
 
+            TryRunQueuedEndTurn();
+
             return true;
+        }
+
+        public bool TryReturnPendingOnPlayCardToHand()
+        {
+            BoardUnit source = state.PendingTargetedEffectSource;
+
+            if (state.PendingTargetedEffect == null || source == null || state.PendingTargetedEffectTrigger != EffectTriggerType.OnPlay)
+            {
+                Debug.Log($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: no pending On-Play target (hasEffect={state.PendingTargetedEffect != null}, source={source?.SourceCard?.CardName}, trigger={state.PendingTargetedEffectTrigger}).");
+                return false;
+            }
+
+            if (source != lastPlayedUnit || lastPlayedCard == null)
+            {
+                Debug.LogWarning($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: {source.SourceCard.CardName} isn't the last unit played this turn (lastPlayedUnit={lastPlayedUnit?.SourceCard?.CardName}) - no payment record to undo.");
+                return false;
+            }
+
+            if (state.Board.GetUnit(source.Owner, source.SlotIndex) != source)
+            {
+                Debug.LogWarning($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: {source.SourceCard.CardName} is no longer on the board at slot {source.SlotIndex}.");
+                return false;
+            }
+
+            PlayerSide ownerSide = source.Owner;
+            int slotIndex = source.SlotIndex;
+            Player owner = state.GetPlayer(ownerSide);
+
+            state.PendingTargetedEffect = null;
+            state.PendingTargetedEffectSource = null;
+            state.PendingTargetedEffectTrigger = null;
+
+            state.Board.RemoveUnit(ownerSide, slotIndex);
+
+            if (lastPlayedAbsorbedUnit != null)
+            {
+                state.Board.PlaceUnit(ownerSide, slotIndex, lastPlayedAbsorbedUnit);
+                Debug.Log($"[PhaseManager] Restored {lastPlayedAbsorbedUnit.SourceCard.CardName} to {ownerSide} slot {slotIndex} (it had been absorbed by {lastPlayedCard.CardName}).");
+            }
+
+            owner.CurrentMana += lastPlayedManaSpent;
+
+            if (lastPlayedHealthPaid > 0)
+            {
+                HealLeader(ownerSide, lastPlayedHealthPaid);
+            }
+
+            bool returnedToHand = owner.TryAddCardToHand(lastPlayedCard);
+
+            Debug.Log($"[PhaseManager] Target not chosen in time - {lastPlayedCard.CardName} removed from {ownerSide} slot {slotIndex}. returnedToHand={returnedToHand}, refunded mana={lastPlayedManaSpent} (now {owner.CurrentMana}), refunded health={lastPlayedHealthPaid} (leader now {owner.LeaderHealth}). Effects that already fired from this play are NOT undone.");
+
+            if (!returnedToHand)
+            {
+                Debug.Log($"[PhaseManager] {lastPlayedCard.CardName} could not be returned - {ownerSide}'s hand is at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+            }
+
+            ClearLastPlayedRecord();
+            SyncQualifyingEnemyAuraHealth();
+            TryRunQueuedEndTurn();
+
+            return true;
+        }
+
+        private void ClearLastPlayedRecord()
+        {
+            lastPlayedUnit = null;
+            lastPlayedCard = null;
+            lastPlayedAbsorbedUnit = null;
+            lastPlayedManaSpent = 0;
+            lastPlayedHealthPaid = 0;
         }
 
         public bool HasBlockingPendingTargetedEffect()

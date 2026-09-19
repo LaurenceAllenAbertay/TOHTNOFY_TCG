@@ -2,7 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using Photon.Pun;
 using UnityEngine;
+using UnityEngine.Serialization;
 using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.Effects;
 
 namespace DDD.TNFY.TCG.Core
 {
@@ -11,14 +13,15 @@ namespace DDD.TNFY.TCG.Core
     {
         [SerializeField] private bool aiControlEnabled;
         [SerializeField] private PlayerSide aiSide = PlayerSide.PlayerB;
-        [SerializeField] private float actionDelaySeconds = 3f;
+        [FormerlySerializedAs("actionDelaySeconds")]
+        [SerializeField] private float thinkTimeSeconds = 4f;
+        [SerializeField] private float delayBetweenActionsSeconds = 0.2f;
         [SerializeField] private int mulliganMaxCostToKeep = 5;
 
         [Header("Monte Carlo Tree Search")]
-        [SerializeField] private int mctsMaxIterations = 400;
-        [SerializeField] private float mctsMaxSearchSeconds = 0.35f;
-        [SerializeField] private int mctsMaxRolloutDepth = 12;
-        [SerializeField] private int mctsIterationsPerFrame = 25;
+        [SerializeField] private int mctsMaxIterations = 20000;
+        [SerializeField] private int mctsMaxRolloutDepth = 30;
+        [SerializeField] private float mctsFrameBudgetMilliseconds = 6f;
 
         private GameManager gameManager;
         private GameState state;
@@ -74,8 +77,10 @@ namespace DDD.TNFY.TCG.Core
 
         private void RebuildPlanner()
         {
-            planner = new AIMonteCarloTurnPlanner(aiSide, mctsMaxIterations, mctsMaxSearchSeconds, mctsMaxRolloutDepth,
-                mctsIterationsPerFrame, new System.Random());
+            planner = new AIMonteCarloTurnPlanner(aiSide, mctsMaxIterations, mctsMaxRolloutDepth,
+                mctsFrameBudgetMilliseconds, new System.Random());
+
+            Debug.Log($"[AIController] Planner built for {aiSide}: thinks for {thinkTimeSeconds:F2}s before its first action each turn, then {delayBetweenActionsSeconds:F2}s between actions, maxIterations={mctsMaxIterations}, maxRolloutDepth={mctsMaxRolloutDepth}, frameBudget={mctsFrameBudgetMilliseconds:F2}ms.");
         }
 
         private void Update()
@@ -106,7 +111,7 @@ namespace DDD.TNFY.TCG.Core
 
         private IEnumerator RunDraftPick()
         {
-            yield return new WaitForSeconds(actionDelaySeconds);
+            yield return new WaitForSeconds(thinkTimeSeconds);
 
             Player aiPlayer = state.GetPlayer(aiSide);
 
@@ -122,7 +127,7 @@ namespace DDD.TNFY.TCG.Core
 
         private IEnumerator RunMulliganRoutine()
         {
-            yield return new WaitForSeconds(actionDelaySeconds);
+            yield return new WaitForSeconds(thinkTimeSeconds);
 
             if (state.CurrentPhase == TurnPhase.Mulligan && !state.GetPlayer(aiSide).HasCompletedMulligan)
             {
@@ -154,10 +159,6 @@ namespace DDD.TNFY.TCG.Core
 
         private IEnumerator HandlePhaseRoutine(TurnPhase phase)
         {
-            yield return new WaitForSeconds(actionDelaySeconds);
-
-            Debug.Log($"[AIController] Acting in phase {phase} for {aiSide}.");
-
             switch (phase)
             {
                 case TurnPhase.Action:
@@ -203,10 +204,53 @@ namespace DDD.TNFY.TCG.Core
             return best;
         }
 
+        private AITurnAction RemapTargetToLiveBoard(AITurnAction action)
+        {
+            EffectTarget plannedTarget = action.Target;
+
+            if (plannedTarget.Kind != EffectTargetKind.Unit || plannedTarget.Unit == null)
+            {
+                return action;
+            }
+
+            BoardUnit plannedUnit = plannedTarget.Unit;
+            BoardUnit liveUnit = state.Board.GetUnit(plannedUnit.Owner, plannedUnit.SlotIndex);
+            bool wasSimulationCopy = liveUnit != plannedUnit;
+
+            Debug.Log($"[AIController] Remapping {action.Kind} target: planned {plannedUnit.SourceCard.CardName} ({plannedUnit.Owner} slot {plannedUnit.SlotIndex}), wasSimulationCopy={wasSimulationCopy} -> live unit {(liveUnit != null ? liveUnit.SourceCard.CardName : "NONE")}.");
+
+            if (liveUnit == null)
+            {
+                Debug.LogWarning($"[AIController] No live unit at {plannedUnit.Owner} slot {plannedUnit.SlotIndex} to match the planned target - leaving the action as-is so PhaseManager rejects it.");
+                return action;
+            }
+
+            if (liveUnit.SourceCard.CardId != plannedUnit.SourceCard.CardId)
+            {
+                Debug.LogWarning($"[AIController] Live unit at {plannedUnit.Owner} slot {plannedUnit.SlotIndex} is {liveUnit.SourceCard.CardName}, but the AI planned against {plannedUnit.SourceCard.CardName} - targeting the live unit anyway.");
+            }
+
+            EffectTarget liveTarget = EffectTarget.ForUnit(liveUnit);
+
+            switch (action.Kind)
+            {
+                case AITurnActionKind.PlayItem:
+                    return AITurnAction.PlayItemAt(action.ItemCard, liveTarget);
+
+                case AITurnActionKind.ResolveTargetedEffect:
+                    return AITurnAction.ResolveTargetedEffectWith(liveTarget);
+
+                default:
+                    Debug.LogWarning($"[AIController] {action.Kind} carries a unit target but has no remap case - applying unchanged.");
+                    return action;
+            }
+        }
+
         private IEnumerator RunActionPhase()
         {
             const int maxSafetyIterations = 60;
             int safetyIterations = 0;
+            bool isFirstActionThisTurn = true;
 
             while (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide && !state.IsGameOver)
             {
@@ -219,8 +263,29 @@ namespace DDD.TNFY.TCG.Core
                     break;
                 }
 
+                float pauseSeconds = Mathf.Max(0f, isFirstActionThisTurn ? thinkTimeSeconds : delayBetweenActionsSeconds);
+                float thinkStarted = Time.realtimeSinceStartup;
+
                 AITurnAction? bestAction = null;
-                yield return planner.FindBestActionCoroutine(state, result => bestAction = result);
+                yield return planner.FindBestActionCoroutine(state, pauseSeconds, result => bestAction = result);
+
+                isFirstActionThisTurn = false;
+
+                float thinkSeconds = Time.realtimeSinceStartup - thinkStarted;
+                float remainingPause = pauseSeconds - thinkSeconds;
+
+                Debug.Log($"[AIController] Thought for {thinkSeconds:F2}s of the {pauseSeconds:F2}s {(safetyIterations == 1 ? "turn-start think time" : "between-actions delay")} - waiting the remaining {Mathf.Max(0f, remainingPause):F2}s before acting.");
+
+                if (remainingPause > 0f)
+                {
+                    yield return new WaitForSecondsRealtime(remainingPause);
+                }
+
+                if (state.CurrentPhase != TurnPhase.Action || state.ActivePlayer != aiSide || state.IsGameOver)
+                {
+                    Debug.LogWarning("[AIController] The live state left the AI's action phase while it was thinking - discarding the planned action.");
+                    break;
+                }
 
                 if (bestAction == null)
                 {
@@ -237,6 +302,8 @@ namespace DDD.TNFY.TCG.Core
                 }
 
                 Debug.Log($"[AIController] MCTS planner chose {bestAction.Value}.");
+
+                bestAction = RemapTargetToLiveBoard(bestAction.Value);
 
                 bool applied;
 
@@ -280,8 +347,6 @@ namespace DDD.TNFY.TCG.Core
                     Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state - stopping to avoid a stuck turn.");
                     break;
                 }
-
-                yield return new WaitForSeconds(actionDelaySeconds);
             }
         }
     }

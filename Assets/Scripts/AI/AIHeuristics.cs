@@ -22,6 +22,8 @@ namespace DDD.TNFY.TCG.Core
         public const float WinScore = 1000000f;
         public const float LossScore = -1000000f;
 
+        private const float ManaCostValueWeight = 0.5f;
+
         public static float EvaluateState(GameState state, PlayerSide aiSide)
         {
             if (state.IsGameOver)
@@ -50,7 +52,7 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (BoardUnit unit in state.Board.GetUnits(side))
             {
-                float unitValue = unit.GetCurrentAttack(state) + unit.CurrentHealth;
+                float unitValue = GetUnitValue(state, unit);
                 total += unitValue;
 
                 if (unit.HasKeyword(Keyword.Taunt, state))
@@ -67,6 +69,31 @@ namespace DDD.TNFY.TCG.Core
             return total;
         }
 
+        private static float GetUnitValue(GameState state, BoardUnit unit)
+        {
+            return unit.GetCurrentAttack(state) + unit.CurrentHealth + GetUnitManaCost(state, unit) * ManaCostValueWeight;
+        }
+
+        private static int GetUnitManaCost(GameState state, BoardUnit unit)
+        {
+            if (AIOpponentReplyModel.IsAbstractUnit(unit))
+            {
+                return AIOpponentReplyModel.EstimateManaCostForStats(unit.GetCurrentAttack(state), unit.GetEffectiveMaxHealth(state));
+            }
+
+            return unit.SourceCard.ManaCost;
+        }
+
+        private static bool IsBlockedByTaunt(GameState state, BoardUnit defender)
+        {
+            return defender != null && defender.HasKeyword(Keyword.Taunt, state);
+        }
+
+        private static bool HitsLeaderDirectly(GameState state, BoardUnit attacker, BoardUnit defender)
+        {
+            return attacker.HasKeyword(Keyword.Piercing, state) && !IsBlockedByTaunt(state, defender);
+        }
+
         private static bool IsHangingInLane(GameState state, BoardUnit unit)
         {
             BoardUnit opposing = state.Board.GetOpponentUnit(unit.Owner, unit.SlotIndex);
@@ -76,11 +103,8 @@ namespace DDD.TNFY.TCG.Core
                 return false;
             }
 
-            int opposingAttack = opposing.GetCurrentAttack(state);
-            int ourAttack = unit.GetCurrentAttack(state);
-
-            bool theyKillUs = opposingAttack >= unit.CurrentHealth;
-            bool weKillThem = ourAttack >= opposing.CurrentHealth;
+            bool theyKillUs = !HitsLeaderDirectly(state, opposing, unit) && opposing.GetCurrentAttack(state) >= unit.CurrentHealth;
+            bool weKillThem = !HitsLeaderDirectly(state, unit, opposing) && unit.GetCurrentAttack(state) >= opposing.CurrentHealth;
 
             return theyKillUs && !weKillThem;
         }
@@ -109,6 +133,9 @@ namespace DDD.TNFY.TCG.Core
                 case AITurnActionKind.ResolveCardChoice:
                     return action.ChosenCard != null ? action.ChosenCard.ManaCost * 10f : 0f;
 
+                case AITurnActionKind.PlaceAbstractUnit:
+                    return ScoreAbstractPlacement(state, aiSide, action);
+
                 case AITurnActionKind.EndPhase:
                     return 0f;
 
@@ -123,6 +150,7 @@ namespace DDD.TNFY.TCG.Core
             float score = cost * 10f;
 
             BoardUnit opposing = state.Board.GetOpponentUnit(aiSide, slot);
+            bool newUnitPiercesPast = unitCard.HasKeyword(Keyword.Piercing) && !IsBlockedByTaunt(state, opposing);
 
             if (opposing == null)
             {
@@ -131,16 +159,27 @@ namespace DDD.TNFY.TCG.Core
             else
             {
                 int opposingAttack = opposing.GetCurrentAttack(state);
-                bool weKillThem = unitCard.Attack >= opposing.CurrentHealth;
-                bool theyKillUs = opposingAttack >= unitCard.Health;
+                bool opposingPiercesPast = opposing.HasKeyword(Keyword.Piercing, state) && !unitCard.HasKeyword(Keyword.Taunt);
+                bool theyKillUs = !opposingPiercesPast && opposingAttack >= unitCard.Health;
+                bool weKillThem = !newUnitPiercesPast && unitCard.Attack >= opposing.CurrentHealth;
+                float killBonus = GetUnitManaCost(state, opposing) * ManaCostValueWeight;
 
-                if (weKillThem && !theyKillUs)
+                if (newUnitPiercesPast)
                 {
-                    score += 30f;
+                    score += unitCard.Attack * 2f;
+
+                    if (theyKillUs)
+                    {
+                        score -= 25f;
+                    }
+                }
+                else if (weKillThem && !theyKillUs)
+                {
+                    score += 30f + killBonus;
                 }
                 else if (weKillThem && theyKillUs)
                 {
-                    score += 8f;
+                    score += 8f + killBonus;
                 }
                 else if (!weKillThem && theyKillUs)
                 {
@@ -155,6 +194,39 @@ namespace DDD.TNFY.TCG.Core
             if (unitCard.HasKeyword(Keyword.Taunt))
             {
                 score += 4f;
+            }
+
+            return score;
+        }
+
+        private static float ScoreAbstractPlacement(GameState state, PlayerSide side, AITurnAction action)
+        {
+            if (!AIOpponentReplyModel.TryGetAbstractStats(state, side, action.SlotIndex, action.AbstractCategory,
+                    out int attack, out int _, out int manaCost))
+            {
+                return float.NegativeInfinity;
+            }
+
+            float score = manaCost * 10f;
+
+            switch (action.AbstractCategory)
+            {
+                case AIAbstractUnitCategory.OpenLane:
+                    score += attack * 2f;
+                    break;
+
+                case AIAbstractUnitCategory.Threat:
+                    score += 30f;
+                    break;
+
+                case AIAbstractUnitCategory.Chump:
+                    score -= 25f;
+                    break;
+
+                case AIAbstractUnitCategory.Wall:
+                    BoardUnit facing = state.Board.GetOpponentUnit(side, action.SlotIndex);
+                    score += attack - (facing != null ? facing.GetCurrentAttack(state) : 0);
+                    break;
             }
 
             return score;
@@ -220,12 +292,19 @@ namespace DDD.TNFY.TCG.Core
             }
 
             int opposingAttack = opposing.GetCurrentAttack(state);
+            bool theyKillUs = !HitsLeaderDirectly(state, opposing, unit) && opposingAttack >= unit.CurrentHealth;
+
+            if (HitsLeaderDirectly(state, unit, opposing))
+            {
+                return 20f + ourAttack - (theyKillUs ? 30f : 0f);
+            }
+
             bool weKillThem = ourAttack >= opposing.CurrentHealth;
-            bool theyKillUs = opposingAttack >= unit.CurrentHealth;
+            float killBonus = GetUnitManaCost(state, opposing) * ManaCostValueWeight;
 
             if (weKillThem && !theyKillUs)
             {
-                return 30f;
+                return 30f + killBonus;
             }
 
             if (theyKillUs && !weKillThem)
@@ -235,7 +314,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (weKillThem && theyKillUs)
             {
-                return 5f;
+                return 5f + killBonus;
             }
 
             return ourAttack - opposingAttack;

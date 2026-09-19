@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DDD.TNFY.TCG.Core;
+using UnityEngine;
 
 namespace DDD.TNFY.TCG.Effects
 {
@@ -170,6 +171,12 @@ namespace DDD.TNFY.TCG.Effects
 
         public static bool IsValidTarget(TargetType targetType, EffectTarget target, GameState state)
         {
+            if (target.Kind == EffectTargetKind.Unit && !IsUnitOnBoard(target.Unit, state))
+            {
+                Debug.LogWarning($"[EffectTargeting] IsValidTarget REJECTED: target unit {target.Unit?.SourceCard?.CardName} ({target.Unit?.Owner} slot {target.Unit?.SlotIndex}) is not on this GameState's board - it's a stale reference or belongs to a different GameState (e.g. an AI simulation copy).");
+                return false;
+            }
+
             switch (targetType)
             {
                 case TargetType.None:
@@ -243,6 +250,11 @@ namespace DDD.TNFY.TCG.Effects
                 default:
                     return false;
             }
+        }
+
+        private static bool IsUnitOnBoard(BoardUnit unit, GameState state)
+        {
+            return unit != null && state.Board.GetUnit(unit.Owner, unit.SlotIndex) == unit;
         }
     }
 }

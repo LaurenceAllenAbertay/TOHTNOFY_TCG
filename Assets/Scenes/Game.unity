@@ -5057,6 +5057,7 @@ MonoBehaviour:
   button: {fileID: 905247780}
   buttonImage: {fileID: 905247781}
   label: {fileID: 2075070686}
+  resolvingLabel: Resolving...
 --- !u!1 &910429249
 GameObject:
   m_ObjectHideFlags: 0
@@ -6381,7 +6382,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: Bobby H. Chicago
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
   m_sharedMaterial: {fileID: -3368111927216812797, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -6447,7 +6448,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 0
+  m_hasFontAssetChanged: 1
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1171966656
@@ -7731,8 +7732,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Lorns
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
-  m_sharedMaterial: {fileID: -3368111927216812797, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
+  m_sharedMaterial: {fileID: 7292362756992691179, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -8748,12 +8749,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   aiControlEnabled: 0
   aiSide: 1
-  actionDelaySeconds: 1
-  mulliganMaxCostToKeep: 5
-  mctsMaxIterations: 400
-  mctsMaxSearchSeconds: 0.35
-  mctsMaxRolloutDepth: 12
-  mctsIterationsPerFrame: 25
+  thinkTimeSeconds: 4
+  delayBetweenActionsSeconds: 0.6
+  mulliganMaxCostToKeep: 4
+  mctsMaxIterations: 20000
+  mctsMaxRolloutDepth: 30
+  mctsFrameBudgetMilliseconds: 6
 --- !u!114 &1715400187
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9097,8 +9098,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: PLAY PHASE
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
-  m_sharedMaterial: {fileID: -3368111927216812797, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
+  m_sharedMaterial: {fileID: 7292362756992691179, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -9359,8 +9360,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Brodie
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
-  m_sharedMaterial: {fileID: -3368111927216812797, guid: 635ab4c50fdad3146b59c72e67283285, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
+  m_sharedMaterial: {fileID: 7292362756992691179, guid: f409b4d4b6b4e4e4bb88ab641dcaf8d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

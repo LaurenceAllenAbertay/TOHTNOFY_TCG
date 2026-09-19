@@ -11,10 +11,13 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private Button button;
         [SerializeField] private Image buttonImage;
         [SerializeField] private TextMeshProUGUI label;
+        [SerializeField] private string resolvingLabel = "Resolving...";
 
         private TurnPhase? shownPhase;
         private bool? shownHasPendingTarget;
         private PlayerSide? shownActivePlayer;
+        private bool? shownEndTurnRequested;
+        private bool endTurnRequested;
         private NetworkedMatchSync networkSync;
 
         private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
@@ -43,22 +46,29 @@ namespace DDD.TNFY.TCG.UI
             PlayerSide currentActivePlayer = gameManager.State.ActivePlayer;
             bool hasPendingTarget = gameManager.Phases.HasBlockingPendingTargetedEffect();
 
-            if (shownPhase == currentPhase && shownHasPendingTarget == hasPendingTarget && shownActivePlayer == currentActivePlayer)
+            if (endTurnRequested && (currentPhase != TurnPhase.Action || currentActivePlayer != LocalSide))
+            {
+                Debug.Log($"[PhaseActionButton] {LocalSide}'s requested end turn has gone through (phase={currentPhase}, activePlayer={currentActivePlayer}) - clearing the '{resolvingLabel}' state.");
+                endTurnRequested = false;
+            }
+
+            if (shownPhase == currentPhase && shownHasPendingTarget == hasPendingTarget && shownActivePlayer == currentActivePlayer && shownEndTurnRequested == endTurnRequested)
             {
                 return;
             }
 
-            Refresh(currentPhase, currentActivePlayer, hasPendingTarget);
+            Refresh(currentPhase, currentActivePlayer, hasPendingTarget, endTurnRequested);
             shownPhase = currentPhase;
             shownHasPendingTarget = hasPendingTarget;
             shownActivePlayer = currentActivePlayer;
+            shownEndTurnRequested = endTurnRequested;
         }
 
-        private void Refresh(TurnPhase phase, PlayerSide activePlayer, bool hasPendingTarget)
+        private void Refresh(TurnPhase phase, PlayerSide activePlayer, bool hasPendingTarget, bool isEndTurnRequested)
         {
             bool isRelevantPhase = phase == TurnPhase.Action;
             bool isMyTurn = activePlayer == LocalSide;
-            bool isInteractable = isRelevantPhase && isMyTurn && !hasPendingTarget;
+            bool isInteractable = isRelevantPhase && isMyTurn && !hasPendingTarget && !isEndTurnRequested;
 
             if (button != null)
             {
@@ -86,7 +96,13 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            label.text = hasPendingTarget ? "Choose Target..." : "End Turn";
+            if (hasPendingTarget)
+            {
+                label.text = "Choose Target...";
+                return;
+            }
+
+            label.text = isEndTurnRequested ? resolvingLabel : "End Turn";
         }
 
         private void HandleClick()
@@ -100,6 +116,15 @@ namespace DDD.TNFY.TCG.UI
             {
                 return;
             }
+
+            if (endTurnRequested)
+            {
+                Debug.Log($"[PhaseActionButton] End Turn clicked again by {LocalSide} while already waiting - ignoring.");
+                return;
+            }
+
+            endTurnRequested = true;
+            Debug.Log($"[PhaseActionButton] End Turn clicked by {LocalSide} - requesting end of action phase. HasUnresolvedActions={gameManager.Phases.HasUnresolvedActions} (only meaningful on the master/offline).");
 
             if (networkSync != null)
             {

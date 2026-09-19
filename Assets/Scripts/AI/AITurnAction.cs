@@ -13,9 +13,10 @@ namespace DDD.TNFY.TCG.Core
         public int SlotIndex { get; }
         public int FromSlot { get; }
         public int ToSlot { get; }
+        public AIAbstractUnitCategory AbstractCategory { get; }
 
         private AITurnAction(AITurnActionKind kind, UnitCardData unitCard, ItemCardData itemCard, CardData chosenCard,
-            EffectTarget target, int slotIndex, int fromSlot, int toSlot)
+            EffectTarget target, int slotIndex, int fromSlot, int toSlot, AIAbstractUnitCategory abstractCategory = AIAbstractUnitCategory.Chump)
         {
             Kind = kind;
             UnitCard = unitCard;
@@ -25,6 +26,7 @@ namespace DDD.TNFY.TCG.Core
             SlotIndex = slotIndex;
             FromSlot = fromSlot;
             ToSlot = toSlot;
+            AbstractCategory = abstractCategory;
         }
 
         public static readonly AITurnAction EndPhaseAction =
@@ -60,6 +62,11 @@ namespace DDD.TNFY.TCG.Core
             return new AITurnAction(AITurnActionKind.ResolveTargetedEffect, null, null, null, target, -1, -1, -1);
         }
 
+        public static AITurnAction PlaceAbstractUnitAt(int slotIndex, AIAbstractUnitCategory category)
+        {
+            return new AITurnAction(AITurnActionKind.PlaceAbstractUnit, null, null, null, EffectTarget.None, slotIndex, -1, -1, category);
+        }
+
         public override string ToString()
         {
             switch (Kind)
@@ -76,6 +83,8 @@ namespace DDD.TNFY.TCG.Core
                     return $"ResolveCardChoice({ChosenCard?.CardName})";
                 case AITurnActionKind.ResolveTargetedEffect:
                     return $"ResolveTargetedEffect({Target.Kind})";
+                case AITurnActionKind.PlaceAbstractUnit:
+                    return $"PlaceAbstractUnit({AbstractCategory} -> slot {SlotIndex})";
                 default:
                     return "EndPhase";
             }

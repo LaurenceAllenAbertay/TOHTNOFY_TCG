@@ -412,8 +412,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Oblivion Disastermind
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 2d7506f46145bbe40a5ea1fe56da4837, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 2d7506f46145bbe40a5ea1fe56da4837, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 833b0dba8fb88e3418ac707e9e3900a0, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 833b0dba8fb88e3418ac707e9e3900a0, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -437,7 +437,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 10.9
+  m_fontSize: 10.6
   m_fontSizeBase: 40.3
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -548,8 +548,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 9
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -774,8 +774,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -910,8 +910,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 3
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1046,8 +1046,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: '?'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1071,7 +1071,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 42.75
+  m_fontSize: 44.75
   m_fontSizeBase: 40.3
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -1182,8 +1182,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: TOHTNOFY\nTRADING CARD GAME
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
-  m_sharedMaterial: {fileID: -8933287614307234025, guid: 6dcefd0427b4c444ba294656548b2317, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1207,7 +1207,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 7.2
+  m_fontSize: 7.4
   m_fontSizeBase: 40.3
   m_fontWeight: 400
   m_enableAutoSizing: 1

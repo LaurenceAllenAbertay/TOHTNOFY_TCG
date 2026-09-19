@@ -266,7 +266,6 @@ namespace DDD.TNFY.TCG.Effects
 
                 if (sourceUnit.IsSilenced)
                 {
-                    Debug.Log($"[AuraCalculator] {sourceUnit.SourceCard.CardName} is Silenced — skipping as an aura source.");
                     continue;
                 }
 
