@@ -315,12 +315,28 @@ namespace DDD.TNFY.TCG.Core
 
             for (int i = 0; i < drawCount; i++)
             {
-                CardData drawn = player.DrawCard();
-                if (drawn != null)
+                CardData drawn = player.DrawCard(out bool addedToHand);
+
+                if (drawn == null)
+                {
+                    continue;
+                }
+
+                if (addedToHand)
                 {
                     TriggerOnDraw(side, drawn);
                 }
+                else
+                {
+                    BurnUndrawableCard(drawn, side);
+                }
             }
+        }
+
+        private void BurnUndrawableCard(CardData card, PlayerSide side)
+        {
+            Debug.Log($"[PhaseManager] {card.CardName} left the deck but {side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max - the card is burned.");
+            state.RaiseCardBurnAnimationRequested(card, side);
         }
 
         public void ResolveMulligan(PlayerSide side, List<CardData> cardsToMulligan)
@@ -349,10 +365,20 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (player.Deck.Count == 0) break;
 
-                CardData drawn = player.DrawCard();
-                if (drawn != null)
+                CardData drawn = player.DrawCard(out bool addedToHand);
+
+                if (drawn == null)
+                {
+                    continue;
+                }
+
+                if (addedToHand)
                 {
                     TriggerOnDraw(side, drawn);
+                }
+                else
+                {
+                    BurnUndrawableCard(drawn, side);
                 }
             }
 
@@ -415,11 +441,18 @@ namespace DDD.TNFY.TCG.Core
 
             for (int i = 0; i < drawCount; i++)
             {
-                CardData drawn = active.DrawCard();
+                CardData drawn = active.DrawCard(out bool addedToHand);
 
                 if (drawn != null)
                 {
-                    TriggerOnDraw(state.ActivePlayer, drawn);
+                    if (addedToHand)
+                    {
+                        TriggerOnDraw(state.ActivePlayer, drawn);
+                    }
+                    else
+                    {
+                        BurnUndrawableCard(drawn, state.ActivePlayer);
+                    }
                 }
                 else if (active.Deck.Count == 0)
                 {
@@ -568,7 +601,12 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            player.DrawRandomItemCard();
+            CardData drawn = player.DrawRandomItemCard(out bool addedToHand);
+
+            if (drawn != null && !addedToHand)
+            {
+                BurnUndrawableCard(drawn, player.Side);
+            }
         }
 
         private System.Action BeginUnresolvedAction(string description, System.Action onFullyResolved)
@@ -2078,9 +2116,9 @@ namespace DDD.TNFY.TCG.Core
                 return resolvedImmediately;
             }
 
-            Debug.Log($"[PhaseManager] TryPlayItemAnimated: requesting animation for {card.CardName} ({side}), then waiting for it to finish before resolving.");
+            Debug.Log($"[PhaseManager] TryPlayItemAnimated: requesting animation for {card.CardName} ({side}) against target.Kind={effectiveTarget.Kind}, then waiting for it to finish before resolving.");
             System.Action trackedCallback = BeginUnresolvedAction($"play item {card.CardName} ({side})", onFullyResolved);
-            state.RaiseItemPlayAnimationRequested(card, side, handIndex);
+            state.RaiseItemPlayAnimationRequested(card, side, handIndex, effectiveTarget);
             coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, trackedCallback));
             return true;
         }
@@ -2277,14 +2315,9 @@ namespace DDD.TNFY.TCG.Core
 
             if (!added)
             {
-                if (cameFromDeck)
-                {
-                    owner.Deck.Add(chosenCard);
-                }
-
-                Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {owner.Side}'s hand is full, {chosenCard.CardName}{(cameFromDeck ? " returned to deck" : " discarded")}.");
+                BurnUndrawableCard(chosenCard, owner.Side);
                 TryRunQueuedEndTurn();
-                return false;
+                return true;
             }
 
             Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s card choice resolved: {chosenCard.CardName} added to {owner.Side}'s hand.");
@@ -2438,6 +2471,7 @@ namespace DDD.TNFY.TCG.Core
             if (!returnedToHand)
             {
                 Debug.Log($"[PhaseManager] {lastPlayedCard.CardName} could not be returned - {ownerSide}'s hand is at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                state.RaiseCardBurnAnimationRequested(lastPlayedCard, ownerSide);
             }
 
             ClearLastPlayedRecord();

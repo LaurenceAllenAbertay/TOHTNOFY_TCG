@@ -109,11 +109,11 @@ namespace DDD.TNFY.TCG.Core
             UnitPlayAnimationFinished?.Invoke(playingSide, handIndex, slotIndex);
         }
 
-        public event Action<CardData, PlayerSide, int> ItemPlayAnimationRequested;
+        public event Action<CardData, PlayerSide, int, EffectTarget> ItemPlayAnimationRequested;
 
-        public void RaiseItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex)
+        public void RaiseItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, EffectTarget target)
         {
-            ItemPlayAnimationRequested?.Invoke(card, playingSide, handIndex);
+            ItemPlayAnimationRequested?.Invoke(card, playingSide, handIndex, target);
         }
 
         public event Action<PlayerSide, int> ItemPlayAnimationFinished;
@@ -121,6 +121,13 @@ namespace DDD.TNFY.TCG.Core
         public void RaiseItemPlayAnimationFinished(PlayerSide playingSide, int handIndex)
         {
             ItemPlayAnimationFinished?.Invoke(playingSide, handIndex);
+        }
+
+        public event Action<CardData, PlayerSide> CardBurnAnimationRequested;
+
+        public void RaiseCardBurnAnimationRequested(CardData card, PlayerSide side)
+        {
+            CardBurnAnimationRequested?.Invoke(card, side);
         }
 
         public int TurnNumber { get; set; } = 1;

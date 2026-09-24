@@ -8,8 +8,7 @@ namespace DDD.TNFY.TCG.Core
     {
         public const int StartingLeaderHealth = 30;
         public const int MaxMana = 10;
-        public const int DrawStopThreshold = 10;
-        public const int AbsoluteMaxHandSize = 15;
+        public const int AbsoluteMaxHandSize = 10;
 
         public PlayerSide Side { get; }
         public List<CardData> Deck { get; } = new List<CardData>();
@@ -58,8 +57,10 @@ namespace DDD.TNFY.TCG.Core
             return false;
         }
 
-        public CardData DrawCard()
+        public CardData DrawCard(out bool addedToHand)
         {
+            addedToHand = false;
+
             if (Deck.Count == 0)
             {
                 return null;
@@ -68,16 +69,15 @@ namespace DDD.TNFY.TCG.Core
             CardData drawn = Deck[0];
             Deck.RemoveAt(0);
 
-            if (Hand.Count < DrawStopThreshold)
-            {
-                Hand.Add(drawn);
-            }
+            addedToHand = TryAddCardToHand(drawn);
 
             return drawn;
         }
 
-        public CardData DrawRandomItemCard()
+        public CardData DrawRandomItemCard(out bool addedToHand)
         {
+            addedToHand = false;
+
             List<CardData> itemCards = Deck.FindAll(card => card is ItemCardData);
 
             if (itemCards.Count == 0)
@@ -90,10 +90,7 @@ namespace DDD.TNFY.TCG.Core
 
             Deck.Remove(drawn);
 
-            if (Hand.Count < DrawStopThreshold)
-            {
-                Hand.Add(drawn);
-            }
+            addedToHand = TryAddCardToHand(drawn);
 
             return drawn;
         }

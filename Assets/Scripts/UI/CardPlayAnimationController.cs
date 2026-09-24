@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Core;
+using DDD.TNFY.TCG.Effects;
 
 namespace DDD.TNFY.TCG.UI
 {
@@ -18,7 +20,14 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private float resolveDuration = 0.4f;
         [SerializeField] private float maxScale = 1.5f;
 
+        [Header("Card Burn (hand was full)")]
+        [SerializeField] private float burnGrowDuration = 0.25f;
+        [SerializeField] private float burnLingerDuration = 0.5f;
+        [SerializeField] private float burnFadeDuration = 0.5f;
+        [SerializeField] private float burnScale = 1f;
+
         private NetworkedMatchSync networkSync;
+        private List<LeaderDropTarget> cachedLeaderDropTargets;
 
         public static bool IsLocalPlayAnimationActive { get; private set; }
 
@@ -35,6 +44,7 @@ namespace DDD.TNFY.TCG.UI
             networkSync = gameManager.GetComponent<NetworkedMatchSync>();
             gameManager.State.UnitPlayAnimationRequested += HandleUnitPlayAnimationRequested;
             gameManager.State.ItemPlayAnimationRequested += HandleItemPlayAnimationRequested;
+            gameManager.State.CardBurnAnimationRequested += HandleCardBurnAnimationRequested;
         }
 
         private void OnDisable()
@@ -46,6 +56,7 @@ namespace DDD.TNFY.TCG.UI
 
             gameManager.State.UnitPlayAnimationRequested -= HandleUnitPlayAnimationRequested;
             gameManager.State.ItemPlayAnimationRequested -= HandleItemPlayAnimationRequested;
+            gameManager.State.CardBurnAnimationRequested -= HandleCardBurnAnimationRequested;
         }
 
         private void HandleUnitPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, int slotIndex)
@@ -54,10 +65,16 @@ namespace DDD.TNFY.TCG.UI
             StartCoroutine(RunUnitAnimation(card, playingSide, handIndex, slotIndex));
         }
 
-        private void HandleItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex)
+        private void HandleItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, EffectTarget target)
         {
-            Debug.Log($"[CardPlayAnimationController] ItemPlayAnimationRequested: {card.CardName} ({playingSide}). LocalSide={LocalSide}.");
-            StartCoroutine(RunItemAnimation(card, playingSide, handIndex));
+            Debug.Log($"[CardPlayAnimationController] ItemPlayAnimationRequested: {card.CardName} ({playingSide}), target.Kind={target.Kind}, targetUnit={target.Unit?.SourceCard?.CardName}, targetLeaderSide={target.LeaderSide}, targetSlot={target.SlotSide}/{target.SlotIndex}. LocalSide={LocalSide}.");
+            StartCoroutine(RunItemAnimation(card, playingSide, handIndex, target));
+        }
+
+        private void HandleCardBurnAnimationRequested(CardData card, PlayerSide side)
+        {
+            Debug.Log($"[CardPlayAnimationController] CardBurnAnimationRequested: {card.CardName} ({side}) - {side}'s hand was full. LocalSide={LocalSide}.");
+            StartCoroutine(RunBurnAnimation(card, side));
         }
 
         private IEnumerator RunUnitAnimation(CardData card, PlayerSide playingSide, int handIndex, int slotIndex)
@@ -105,7 +122,7 @@ namespace DDD.TNFY.TCG.UI
             gameManager.State.RaiseUnitPlayAnimationFinished(playingSide, handIndex, slotIndex);
         }
 
-        private IEnumerator RunItemAnimation(CardData card, PlayerSide playingSide, int handIndex)
+        private IEnumerator RunItemAnimation(CardData card, PlayerSide playingSide, int handIndex, EffectTarget target)
         {
             bool isLocalCard = playingSide == LocalSide;
             RectTransform anchor = isLocalCard ? rightAnchor : leftAnchor;
@@ -127,7 +144,17 @@ namespace DDD.TNFY.TCG.UI
 
             yield return ScaleOver(cloneRect, Vector3.zero, Vector3.one * maxScale, growDuration);
             yield return new WaitForSeconds(lingerDuration);
-            yield return ScaleOver(cloneRect, cloneRect.localScale, Vector3.zero, resolveDuration);
+
+            if (TryGetTargetWorldPosition(target, out Vector3 targetPosition))
+            {
+                Debug.Log($"[CardPlayAnimationController] {card.CardName}'s item animation travelling to its target (Kind={target.Kind}) at {targetPosition}.");
+                yield return ScaleAndMoveOver(cloneRect, Vector3.zero, targetPosition, resolveDuration);
+            }
+            else
+            {
+                Debug.Log($"[CardPlayAnimationController] {card.CardName} has no on-board target to travel to (Kind={target.Kind}) - shrinking in place.");
+                yield return ScaleOver(cloneRect, cloneRect.localScale, Vector3.zero, resolveDuration);
+            }
 
             Destroy(clone.gameObject);
 
@@ -138,6 +165,102 @@ namespace DDD.TNFY.TCG.UI
 
             Debug.Log($"[CardPlayAnimationController] Item animation finished for {card.CardName} ({playingSide}). Raising ItemPlayAnimationFinished.");
             gameManager.State.RaiseItemPlayAnimationFinished(playingSide, handIndex);
+        }
+
+        private IEnumerator RunBurnAnimation(CardData card, PlayerSide side)
+        {
+            RectTransform anchor = side == LocalSide ? rightAnchor : leftAnchor;
+
+            if (clonePrefab == null || anchor == null || animationLayer == null)
+            {
+                Debug.LogWarning("[CardPlayAnimationController] Missing clonePrefab/anchor/animationLayer reference - skipping the burn visual.");
+                yield break;
+            }
+
+            HandCardView clone = SpawnClone(card, side, anchor);
+            RectTransform cloneRect = clone.transform as RectTransform;
+            CanvasGroup cloneCanvasGroup = clone.GetComponent<CanvasGroup>();
+
+            yield return ScaleOver(cloneRect, Vector3.zero, Vector3.one * burnScale, burnGrowDuration);
+            yield return new WaitForSeconds(burnLingerDuration);
+            yield return FadeAndScaleOver(cloneRect, cloneCanvasGroup, Vector3.zero, burnFadeDuration);
+
+            Destroy(clone.gameObject);
+
+            Debug.Log($"[CardPlayAnimationController] Burn animation finished for {card.CardName} ({side}).");
+        }
+
+        private bool TryGetTargetWorldPosition(EffectTarget target, out Vector3 position)
+        {
+            position = Vector3.zero;
+
+            switch (target.Kind)
+            {
+                case EffectTargetKind.Unit:
+                    if (target.Unit == null || boardView == null)
+                    {
+                        return false;
+                    }
+
+                    Transform unitContainer = boardView.GetSlotContainer(target.Unit.Owner, target.Unit.SlotIndex);
+
+                    if (unitContainer == null)
+                    {
+                        return false;
+                    }
+
+                    position = unitContainer.position;
+                    return true;
+
+                case EffectTargetKind.Slot:
+                    if (boardView == null)
+                    {
+                        return false;
+                    }
+
+                    Transform slotContainer = boardView.GetSlotContainer(target.SlotSide, target.SlotIndex);
+
+                    if (slotContainer == null)
+                    {
+                        return false;
+                    }
+
+                    position = slotContainer.position;
+                    return true;
+
+                case EffectTargetKind.Leader:
+                    LeaderDropTarget leader = FindLeaderDropTarget(target.LeaderSide);
+
+                    if (leader == null)
+                    {
+                        Debug.LogWarning($"[CardPlayAnimationController] No LeaderDropTarget found for {target.LeaderSide} - the item will shrink in place instead of travelling to the leader.");
+                        return false;
+                    }
+
+                    position = leader.transform.position;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private LeaderDropTarget FindLeaderDropTarget(PlayerSide side)
+        {
+            if (cachedLeaderDropTargets == null)
+            {
+                cachedLeaderDropTargets = new List<LeaderDropTarget>(FindObjectsByType<LeaderDropTarget>(FindObjectsSortMode.None));
+            }
+
+            foreach (LeaderDropTarget candidate in cachedLeaderDropTargets)
+            {
+                if (candidate != null && candidate.Side == side)
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         private HandCardView SpawnClone(CardData card, PlayerSide side, RectTransform anchor)
@@ -156,6 +279,7 @@ namespace DDD.TNFY.TCG.UI
                 canvasGroup = clone.gameObject.AddComponent<CanvasGroup>();
             }
             canvasGroup.blocksRaycasts = false;
+            canvasGroup.alpha = 1f;
 
             RectTransform cloneRect = clone.transform as RectTransform;
             cloneRect.position = anchor.position;
@@ -214,6 +338,47 @@ namespace DDD.TNFY.TCG.UI
 
             rect.localScale = toScale;
             rect.position = toPosition;
+        }
+
+        private static IEnumerator FadeAndScaleOver(RectTransform rect, CanvasGroup canvasGroup, Vector3 toScale, float duration)
+        {
+            Vector3 fromScale = rect.localScale;
+            float fromAlpha = canvasGroup != null ? canvasGroup.alpha : 1f;
+
+            if (duration <= 0f)
+            {
+                rect.localScale = toScale;
+
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = 0f;
+                }
+
+                yield break;
+            }
+
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+                rect.localScale = Vector3.LerpUnclamped(fromScale, toScale, t);
+
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = Mathf.LerpUnclamped(fromAlpha, 0f, t);
+                }
+
+                yield return null;
+            }
+
+            rect.localScale = toScale;
+
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+            }
         }
     }
 }

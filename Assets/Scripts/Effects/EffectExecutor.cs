@@ -144,7 +144,13 @@ namespace DDD.TNFY.TCG.Effects
 
             for (int i = 0; i < effect.amount; i++)
             {
-                owner.DrawCard();
+                CardData drawn = owner.DrawCard(out bool addedToHand);
+
+                if (drawn != null && !addedToHand)
+                {
+                    Debug.Log($"[EffectExecutor] {drawn.CardName} was drawn but {owner.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                    context.GameState.RaiseCardBurnAnimationRequested(drawn, owner.Side);
+                }
             }
         }
 
@@ -485,6 +491,7 @@ namespace DDD.TNFY.TCG.Effects
                 if (!recipient.TryAddCardToHand(effect.relevantCard))
                 {
                     Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                    context.GameState.RaiseCardBurnAnimationRequested(effect.relevantCard, recipient.Side);
                     continue;
                 }
 
@@ -527,6 +534,7 @@ namespace DDD.TNFY.TCG.Effects
             if (!thief.TryAddCardToHand(stolen))
             {
                 Debug.Log($"[EffectExecutor] {stolen.CardName} was stolen but burned — {thief.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max.");
+                context.GameState.RaiseCardBurnAnimationRequested(stolen, thief.Side);
             }
         }
     }

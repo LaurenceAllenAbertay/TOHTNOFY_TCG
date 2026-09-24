@@ -216,6 +216,7 @@ namespace DDD.TNFY.TCG.Core
             if (!owner.TryAddCardToHand(cardForHand))
             {
                 Debug.Log($"[UnitLifecycleService] {unit.SourceCard.CardName} could not be bounced — {owner.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
+                state.RaiseCardBurnAnimationRequested(cardForHand, owner.Side);
             }
         }
 

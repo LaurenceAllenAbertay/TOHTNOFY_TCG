@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Double Attack
   m_EditorClassIdentifier: 
   cardId: doubleattack
-  cardName: Double Attack
+  cardName: Awesome Sauce
   manaCost: 3
   rarity: 2
   cardArt: {fileID: 0}

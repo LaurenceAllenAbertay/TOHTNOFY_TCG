@@ -132,6 +132,7 @@ namespace DDD.TNFY.TCG.Core
             gameManager.State.GameOver += HandleStateChangedForBroadcast;
             gameManager.State.ActivePlayerChanged += HandleActivePlayerChangedForBroadcast;
             gameManager.State.CurrentlyAttackingUnitChanged += HandleCurrentlyAttackingUnitChangedForBroadcast;
+            gameManager.State.CardBurnAnimationRequested += HandleCardBurnAnimationRequestedForBroadcast;
         }
 
         private void OnDestroy()
@@ -143,6 +144,7 @@ namespace DDD.TNFY.TCG.Core
                 gameManager.State.GameOver -= HandleStateChangedForBroadcast;
                 gameManager.State.ActivePlayerChanged -= HandleActivePlayerChangedForBroadcast;
                 gameManager.State.CurrentlyAttackingUnitChanged -= HandleCurrentlyAttackingUnitChangedForBroadcast;
+                gameManager.State.CardBurnAnimationRequested -= HandleCardBurnAnimationRequestedForBroadcast;
             }
         }
 
@@ -156,6 +158,33 @@ namespace DDD.TNFY.TCG.Core
         {
             Debug.Log($"[NetworkedMatchSync] CurrentlyAttackingUnitChanged fired (newAttacker={newAttacker?.SourceCard?.CardName}) - queuing broadcast.");
             BroadcastStateIfMaster();
+        }
+
+        private void HandleCardBurnAnimationRequestedForBroadcast(CardData card, PlayerSide side)
+        {
+            if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
+            {
+                return;
+            }
+
+            Debug.Log($"[NetworkedMatchSync] CardBurnAnimationRequested fired for {card.CardName} ({side}) - relaying the burn cue to the other client.");
+            photonView.RPC(nameof(ReceiveCardBurnAnimation), RpcTarget.Others, card.CardId, (int)side);
+        }
+
+        [PunRPC]
+        private void ReceiveCardBurnAnimation(string cardId, int sideRaw)
+        {
+            EnsureLookupsBuilt();
+
+            if (!cardLookup.TryGetValue(cardId, out CardData card))
+            {
+                Debug.LogWarning($"[NetworkedMatchSync] ReceiveCardBurnAnimation: unknown cardId '{cardId}' - skipping the burn visual.");
+                return;
+            }
+
+            PlayerSide side = (PlayerSide)sideRaw;
+            Debug.Log($"[NetworkedMatchSync] ReceiveCardBurnAnimation: raising CardBurnAnimationRequested for {card.CardName} ({side}).");
+            gameManager.State.RaiseCardBurnAnimationRequested(card, side);
         }
 
         public static PlayerSide SideForActorNumber(int actorNumber)
@@ -609,15 +638,17 @@ namespace DDD.TNFY.TCG.Core
                 return false;
             }
 
-            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayItem accepted: {itemCard.CardName} handIndex={handIndex} for {side}. Broadcasting animation cue.");
+            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayItem accepted: {itemCard.CardName} handIndex={handIndex} for {side}, target.Kind={effectiveTarget.Kind}. Broadcasting animation cue with the target so both clients can show what it hit.");
+
+            int[] encodedTarget = EncodeTarget(effectiveTarget);
 
             if (PhotonNetwork.InRoom)
             {
-                photonView.RPC(nameof(ReceivePlayItemAnimation), RpcTarget.All, (int)side, handIndex);
+                photonView.RPC(nameof(ReceivePlayItemAnimation), RpcTarget.All, (int)side, handIndex, encodedTarget);
             }
             else
             {
-                ReceivePlayItemAnimation((int)side, handIndex);
+                ReceivePlayItemAnimation((int)side, handIndex, encodedTarget);
             }
 
             gameManager.Phases.ResolveItemPlayAfterAnimation(itemCard, target, side, handIndex, BroadcastStateIfMaster);
@@ -626,7 +657,7 @@ namespace DDD.TNFY.TCG.Core
         }
 
         [PunRPC]
-        private void ReceivePlayItemAnimation(int sideRaw, int handIndex)
+        private void ReceivePlayItemAnimation(int sideRaw, int handIndex, int[] targetData)
         {
             PlayerSide side = (PlayerSide)sideRaw;
             Player player = gameManager.State.GetPlayer(side);
@@ -637,8 +668,10 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            Debug.Log($"[NetworkedMatchSync] ReceivePlayItemAnimation: raising ItemPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}).");
-            gameManager.State.RaiseItemPlayAnimationRequested(player.Hand[handIndex], side, handIndex);
+            EffectTarget target = DecodeTarget(targetData, gameManager.State);
+
+            Debug.Log($"[NetworkedMatchSync] ReceivePlayItemAnimation: raising ItemPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}), target.Kind={target.Kind}.");
+            gameManager.State.RaiseItemPlayAnimationRequested(player.Hand[handIndex], side, handIndex, target);
         }
 
         public void RequestResolveTargetedEffect(EffectTarget target)
