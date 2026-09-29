@@ -199,7 +199,7 @@ namespace DDD.TNFY.TCG.Effects
                 return;
             }
 
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackThisTurn, 1, effect.amount));
+            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttack, 1, effect.amount));
         }
 
         private static void ExecuteBuffMaxHealth(CardEffect effect, EffectContext context, PhaseManager phases)

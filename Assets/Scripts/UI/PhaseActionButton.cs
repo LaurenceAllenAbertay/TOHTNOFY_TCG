@@ -48,7 +48,6 @@ namespace DDD.TNFY.TCG.UI
 
             if (endTurnRequested && (currentPhase != TurnPhase.Action || currentActivePlayer != LocalSide))
             {
-                Debug.Log($"[PhaseActionButton] {LocalSide}'s requested end turn has gone through (phase={currentPhase}, activePlayer={currentActivePlayer}) - clearing the '{resolvingLabel}' state.");
                 endTurnRequested = false;
             }
 
@@ -119,12 +118,11 @@ namespace DDD.TNFY.TCG.UI
 
             if (endTurnRequested)
             {
-                Debug.Log($"[PhaseActionButton] End Turn clicked again by {LocalSide} while already waiting - ignoring.");
                 return;
             }
 
             endTurnRequested = true;
-            Debug.Log($"[PhaseActionButton] End Turn clicked by {LocalSide} - requesting end of action phase. HasUnresolvedActions={gameManager.Phases.HasUnresolvedActions} (only meaningful on the master/offline).");
+            Debug.Log($"[PhaseActionButton] End Turn clicked by {LocalSide}.");
 
             if (networkSync != null)
             {

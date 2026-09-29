@@ -21,9 +21,31 @@ namespace DDD.TNFY.TCG.Cards
             { Keyword.Relentless, "When the opposing unit moves, this unit moves to stay opposite them, if able." },
         };
 
+        private static readonly Dictionary<Keyword, string> DisplayNames = new Dictionary<Keyword, string>
+        {
+            { Keyword.Taunt, "Taunt" },
+            { Keyword.Rush, "Rush" },
+            { Keyword.BifurcatedAttack, "Bifurcated Attack" },
+            { Keyword.Agile, "Agile" },
+            { Keyword.Nimble, "Nimble" },
+            { Keyword.Piercing, "Piercing" },
+            { Keyword.Unmoving, "Unmoving" },
+            { Keyword.Unstable, "Unstable" },
+            { Keyword.Retaliate, "Retaliate" },
+            { Keyword.Teleport, "Teleport" },
+            { Keyword.Absorb, "Absorb" },
+            { Keyword.Slippy, "Slippy" },
+            { Keyword.Relentless, "Relentless" },
+        };
+
         public static bool TryGetDescription(Keyword keyword, out string description)
         {
             return Descriptions.TryGetValue(keyword, out description);
+        }
+
+        public static string GetDisplayName(Keyword keyword)
+        {
+            return DisplayNames.TryGetValue(keyword, out string displayName) ? displayName : keyword.ToString();
         }
 
         public static IEnumerable<Keyword> GetAllValues()

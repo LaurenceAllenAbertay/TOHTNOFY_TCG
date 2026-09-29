@@ -37,15 +37,25 @@ namespace DDD.TNFY.TCG.Core
             int inheritedPermanentAttack = absorbedUnit.SourceCard.Attack + absorbedUnit.BonusAttack + inheritedAuraAttack;
             int inheritedMaxHealth = absorbedUnit.MaxHealth;
             int inheritedCurrentHealth = absorbedUnit.CurrentHealth;
-            int inheritedTemporaryAttack = ConsumeStatusMagnitude(absorbedUnit, StatusEffectType.TemporaryAttackNextAttack);
+            List<ActiveStatusEffect> inheritedTemporaryAttacks = absorbedUnit.Statuses.FindAll(status => status.Type == StatusEffectType.TemporaryAttack);
 
             state.Board.RemoveUnit(absorbedUnit.Owner, slotIndex);
 
             BoardUnit unit = new BoardUnit(card, absorbedUnit.Owner, slotIndex);
             state.Board.PlaceUnit(absorbedUnit.Owner, slotIndex, unit);
 
-            unit.BonusAttack = inheritedPermanentAttack + inheritedTemporaryAttack;
+            unit.BonusAttack = inheritedPermanentAttack;
             unit.MaxHealth = card.Health + inheritedMaxHealth;
+
+            foreach (ActiveStatusEffect temporaryAttack in inheritedTemporaryAttacks)
+            {
+                unit.Statuses.Add(temporaryAttack.Clone());
+            }
+
+            if (inheritedTemporaryAttacks.Count > 0)
+            {
+                Debug.Log($"[UnitLifecycleService] {card.CardName} absorbed {absorbedUnit.SourceCard.CardName} and kept its {inheritedTemporaryAttacks.Count} Temporary Attack bonus(es) as temporary - they still wear off at the end of the turn.");
+            }
 
             int effectiveMax = unit.GetEffectiveMaxHealth(state);
 
@@ -247,21 +257,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             return false;
-        }
-
-        public static int ConsumeStatusMagnitude(BoardUnit unit, StatusEffectType type)
-        {
-            for (int i = 0; i < unit.Statuses.Count; i++)
-            {
-                if (unit.Statuses[i].Type == type)
-                {
-                    int magnitude = unit.Statuses[i].Magnitude;
-                    unit.Statuses.RemoveAt(i);
-                    return magnitude;
-                }
-            }
-
-            return 0;
         }
     }
 }

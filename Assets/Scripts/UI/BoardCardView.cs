@@ -123,12 +123,7 @@ namespace DDD.TNFY.TCG.UI
 
             if (attackText != null)
             {
-                string newAttackText = CardDisplayFormatter.GetAttackText(unit, state);
-                if (attackText.text != newAttackText)
-                {
-                    Debug.Log($"[BoardCardView] {unit.SourceCard.CardName} (Slot={unit.SlotIndex}) attack text changed: '{attackText.text}' -> '{newAttackText}'");
-                }
-                attackText.text = newAttackText;
+                attackText.text = CardDisplayFormatter.GetAttackText(unit, state);
             }
 
             if (healthText != null)
@@ -180,8 +175,6 @@ namespace DDD.TNFY.TCG.UI
             Vector3 rootScale = visualRoot.localScale;
             rootScale.y = flip;
             visualRoot.localScale = rootScale;
-
-            Debug.Log($"[BoardCardView] {Unit.SourceCard.CardName} orientation applied: isOpponentCard={isOpponentCard} (Owner={Unit.Owner}, LocalSide={localSide}).");
         }
 
         public void PlayTriggered()
@@ -206,7 +199,6 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            Debug.Log($"[BoardCardView] {(Unit != null ? Unit.SourceCard.CardName : "unknown")} OnAttackHitLanded: hitIndex={hitIndex}. Raising AttackHitLanded.");
             gameManager.State.RaiseAttackHitLanded(hitIndex);
         }
 
@@ -258,7 +250,6 @@ namespace DDD.TNFY.TCG.UI
 
                 if (wasAttackAnimation && gameManager != null && gameManager.State != null)
                 {
-                    Debug.Log($"[BoardCardView] {(Unit != null ? Unit.SourceCard.CardName : "unknown")} attack animation finished playing. Raising AttackAnimationFinished.");
                     gameManager.State.RaiseAttackAnimationFinished(Unit);
                 }
             }
@@ -279,7 +270,6 @@ namespace DDD.TNFY.TCG.UI
 
             if (shouldBeActive && !isCurrentlyActive)
             {
-                Debug.Log($"[BoardCardView] Playing Active on {Unit?.SourceCard?.CardName} (Owner={Unit?.Owner}, Slot={Unit?.SlotIndex}) - isPendingTargetSource={isPendingTargetSource}, isPendingEnemyMoveGrantTarget={isPendingEnemyMoveGrantTarget}.");
                 animator.Play(AnimState.Active, 0, 0f);
             }
             else if (!shouldBeActive && (isCurrentlyActive || justFinishedOneShot))
@@ -307,11 +297,8 @@ namespace DDD.TNFY.TCG.UI
         {
             if (Unit == null || gameManager == null || gameManager.State == null)
             {
-                Debug.Log($"[BoardCardView] Click ignored: Unit={Unit}, gameManager={gameManager}, State={(gameManager != null ? gameManager.State : null)}");
                 return;
             }
-
-            Debug.Log($"[BoardCardView] Click on {Unit.SourceCard.CardName} (Owner={Unit.Owner}). PendingTargetedEffect={gameManager.State.PendingTargetedEffect?.action}");
 
             PlayerSide localSide = networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
@@ -339,8 +326,7 @@ namespace DDD.TNFY.TCG.UI
             }
             else
             {
-                bool resolved = gameManager.Phases.TryResolvePendingTargetedEffect(EffectTarget.ForUnit(Unit));
-                Debug.Log($"[BoardCardView] TryResolvePendingTargetedEffect on {Unit.SourceCard.CardName} returned {resolved}");
+                gameManager.Phases.TryResolvePendingTargetedEffect(EffectTarget.ForUnit(Unit));
             }
         }
 
@@ -361,17 +347,18 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            bool attacked = networkSync != null
-                ? networkSync.RequestAttackWithUnit(Unit.SlotIndex)
-                : gameManager.Phases.TryAttackWithUnit(Unit.SlotIndex);
-
-            Debug.Log($"[BoardCardView] Attack click on {Unit.SourceCard.CardName} (Slot={Unit.SlotIndex}) -> attacked={attacked}");
+            if (networkSync != null)
+            {
+                networkSync.RequestAttackWithUnit(Unit.SlotIndex);
+            }
+            else
+            {
+                gameManager.Phases.TryAttackWithUnit(Unit.SlotIndex);
+            }
         }
 
         public void OnDrop(PointerEventData eventData)
         {
-            Debug.Log($"[BoardCardView] OnDrop fired on {(Unit != null ? Unit.SourceCard.CardName : "null Unit")}. pointerDrag={(eventData.pointerDrag != null ? eventData.pointerDrag.name : "null")}");
-
             if (eventData.pointerDrag == null || Unit == null)
             {
                 return;
@@ -473,9 +460,6 @@ namespace DDD.TNFY.TCG.UI
             attackingIndicator.SetActive(willAttack);
         }
 
-        private bool lastLoggedStunnedState;
-        private bool hasLoggedStunnedStateOnce;
-
         private void RefreshStunnedOverlay()
         {
             if (stunnedOverlay == null || Unit == null)
@@ -485,19 +469,10 @@ namespace DDD.TNFY.TCG.UI
 
             bool isStunned = Unit.HasStatus(StatusEffectType.Stunned);
 
-            if (!hasLoggedStunnedStateOnce || isStunned != lastLoggedStunnedState)
-            {
-                lastLoggedStunnedState = isStunned;
-                hasLoggedStunnedStateOnce = true;
-            }
-
             Color color = stunnedOverlay.color;
             color.a = isStunned ? StunnedOverlayAlpha : StunnedOverlayHiddenAlpha;
             stunnedOverlay.color = color;
         }
-
-        private bool lastLoggedTargetableState;
-        private bool hasLoggedTargetableStateOnce;
 
         private void RefreshTargetableHighlight()
         {
@@ -512,13 +487,6 @@ namespace DDD.TNFY.TCG.UI
             bool isTargetable = pending != null
                 && !isExcludedAsSelf
                 && EffectTargeting.IsValidTarget(pending.targetType, EffectTarget.ForUnit(Unit), boundState);
-
-            if (pending != null && (!hasLoggedTargetableStateOnce || isTargetable != lastLoggedTargetableState))
-            {
-                Debug.Log($"[BoardCardView] {Unit.SourceCard.CardName} (Slot={Unit.SlotIndex}) targetable highlight -> {isTargetable}, isExcludedAsSelf={isExcludedAsSelf}");
-                lastLoggedTargetableState = isTargetable;
-                hasLoggedTargetableStateOnce = true;
-            }
 
             targetableHighlight.enabled = isTargetable;
         }

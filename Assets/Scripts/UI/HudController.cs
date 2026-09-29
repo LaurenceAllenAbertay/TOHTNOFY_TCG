@@ -31,9 +31,6 @@ namespace DDD.TNFY.TCG.UI
         private Color originalPlayerBLeaderHealthColor;
         private NetworkedMatchSync networkSync;
 
-        private int lastLoggedBottomHealth = int.MinValue;
-        private int lastLoggedTopHealth = int.MinValue;
-
         private PlayerSide LocalSide => networkSync != null ? networkSync.LocalSide : PlayerSide.PlayerA;
 
         private void Awake()
@@ -83,24 +80,12 @@ namespace DDD.TNFY.TCG.UI
 
             if (playerALeaderHealthText != null)
             {
-                if (bottomSeatPlayer.LeaderHealth != lastLoggedBottomHealth)
-                {
-                    Debug.Log($"[HudController] Bottom seat (playerALeaderHealthText) now showing side={bottomSeatPlayer.Side}, LeaderHealth={bottomSeatPlayer.LeaderHealth} (LocalSide={LocalSide}).");
-                    lastLoggedBottomHealth = bottomSeatPlayer.LeaderHealth;
-                }
-
                 playerALeaderHealthText.text = bottomSeatPlayer.LeaderHealth.ToString();
                 playerALeaderHealthText.color = CardDisplayFormatter.GetHealthColor(bottomSeatPlayer.LeaderHealth, bottomSeatPlayer.MaxLeaderHealth, originalPlayerALeaderHealthColor);
             }
 
             if (playerBLeaderHealthText != null)
             {
-                if (topSeatPlayer.LeaderHealth != lastLoggedTopHealth)
-                {
-                    Debug.Log($"[HudController] Top seat (playerBLeaderHealthText) now showing side={topSeatPlayer.Side}, LeaderHealth={topSeatPlayer.LeaderHealth} (LocalSide={LocalSide}).");
-                    lastLoggedTopHealth = topSeatPlayer.LeaderHealth;
-                }
-
                 playerBLeaderHealthText.text = topSeatPlayer.LeaderHealth.ToString();
                 playerBLeaderHealthText.color = CardDisplayFormatter.GetHealthColor(topSeatPlayer.LeaderHealth, topSeatPlayer.MaxLeaderHealth, originalPlayerBLeaderHealthColor);
             }

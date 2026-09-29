@@ -150,13 +150,11 @@ namespace DDD.TNFY.TCG.Core
 
         private void HandleActivePlayerChangedForBroadcast(PlayerSide newActivePlayer)
         {
-            Debug.Log($"[NetworkedMatchSync] ActivePlayerChanged fired (newActivePlayer={newActivePlayer}) - queuing broadcast.");
             BroadcastStateIfMaster();
         }
 
         private void HandleCurrentlyAttackingUnitChangedForBroadcast(BoardUnit newAttacker)
         {
-            Debug.Log($"[NetworkedMatchSync] CurrentlyAttackingUnitChanged fired (newAttacker={newAttacker?.SourceCard?.CardName}) - queuing broadcast.");
             BroadcastStateIfMaster();
         }
 
@@ -167,7 +165,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            Debug.Log($"[NetworkedMatchSync] CardBurnAnimationRequested fired for {card.CardName} ({side}) - relaying the burn cue to the other client.");
             photonView.RPC(nameof(ReceiveCardBurnAnimation), RpcTarget.Others, card.CardId, (int)side);
         }
 
@@ -183,7 +180,6 @@ namespace DDD.TNFY.TCG.Core
             }
 
             PlayerSide side = (PlayerSide)sideRaw;
-            Debug.Log($"[NetworkedMatchSync] ReceiveCardBurnAnimation: raising CardBurnAnimationRequested for {card.CardName} ({side}).");
             gameManager.State.RaiseCardBurnAnimationRequested(card, side);
         }
 
@@ -194,13 +190,11 @@ namespace DDD.TNFY.TCG.Core
 
         private void HandleStateChangedForBroadcast()
         {
-            Debug.Log("[NetworkedMatchSync] DraftOptionsChanged/GameOver fired - queuing broadcast.");
             BroadcastStateIfMaster();
         }
 
         private void HandlePhaseChangedForBroadcast(TurnPhase newPhase)
         {
-            Debug.Log($"[NetworkedMatchSync] PhaseChanged fired (newPhase={newPhase}) - queuing broadcast.");
             BroadcastStateIfMaster();
 
             bool isAuthoritative = !PhotonNetwork.InRoom || PhotonNetwork.IsMasterClient;
@@ -297,8 +291,7 @@ namespace DDD.TNFY.TCG.Core
             };
 
             string json = JsonUtility.ToJson(dto);
-            Debug.Log($"[NetworkedMatchSync] Broadcasting state - phase={state.CurrentPhase}, PlayerA draftStage={state.PlayerA.CurrentDraftStage}, PlayerB draftStage={state.PlayerB.CurrentDraftStage}.");
-            Debug.Log($"[NetworkedMatchSync] Broadcasting turnRemaining={dto.turnRemaining}, activePlayer={state.ActivePlayer}.");
+            Debug.Log($"[NetworkedMatchSync] Broadcasting state - phase={state.CurrentPhase}, activePlayer={state.ActivePlayer}, turnRemaining={dto.turnRemaining:F1}s.");
             photonView.RPC(nameof(ReceiveState), RpcTarget.Others, json);
         }
 
@@ -332,23 +325,16 @@ namespace DDD.TNFY.TCG.Core
                 ? (EffectTriggerType?)dto.pendingTargetedEffectTrigger
                 : null;
 
-            Debug.Log($"[NetworkedMatchSync] Synced pending targeted effect: hasPendingTargetedEffect={dto.hasPendingTargetedEffect}, source={pendingTargetedEffectSource?.SourceCard?.CardName}, effect={state.PendingTargetedEffect?.action}.");
-
             state.PendingCardChoiceSource = DecodeUnitRef(dto.pendingCardChoiceSourceRef, state);
             state.PendingCardChoiceOptions = (dto.pendingCardChoiceOptions != null && dto.pendingCardChoiceOptions.Length > 0)
                 ? new List<CardData>(Array.ConvertAll(dto.pendingCardChoiceOptions, ResolveCard))
                 : null;
 
-            Debug.Log($"[NetworkedMatchSync] Synced pending card choice: hasPendingCardChoice={state.PendingCardChoiceOptions != null}, source={state.PendingCardChoiceSource?.SourceCard?.CardName}, optionCount={state.PendingCardChoiceOptions?.Count ?? 0}.");
-
             BoardUnit syncedAttacker = DecodeUnitRef(dto.currentlyAttackingUnitRef, state);
             state.CurrentlyAttackingUnit = syncedAttacker;
 
-            Debug.Log($"[NetworkedMatchSync] Synced CurrentlyAttackingUnit: attacker={syncedAttacker?.SourceCard?.CardName}.");
-
             if (turnTimer != null && !PhotonNetwork.IsMasterClient)
             {
-                Debug.Log($"[NetworkedMatchSync] Applying synced turnRemaining={dto.turnRemaining} on non-master client.");
                 turnTimer.ApplySyncedRemaining(dto.playerADraftRemaining, dto.playerBDraftRemaining, dto.playerAMulliganRemaining, dto.playerBMulliganRemaining, dto.turnRemaining);
             }
 
@@ -400,8 +386,7 @@ namespace DDD.TNFY.TCG.Core
 
         private void ResolveDraftChoice(PlayerSide side, CardData chosenCard)
         {
-            bool resolved = gameManager.Phases.TryResolvePendingDraftChoice(side, chosenCard);
-            Debug.Log($"[NetworkedMatchSync] ResolveDraftChoice resolved={resolved} for {side}, '{chosenCard.CardId}' - broadcasting (in case only one side has finished picking so far).");
+            gameManager.Phases.TryResolvePendingDraftChoice(side, chosenCard);
             BroadcastStateIfMaster();
         }
 
@@ -564,8 +549,6 @@ namespace DDD.TNFY.TCG.Core
                 return false;
             }
 
-            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayUnit accepted: {unitCard.CardName} handIndex={handIndex} -> slot {slotIndex} for {side}. Broadcasting animation cue.");
-
             if (PhotonNetwork.InRoom)
             {
                 photonView.RPC(nameof(ReceivePlayUnitAnimation), RpcTarget.All, (int)side, handIndex, slotIndex);
@@ -592,7 +575,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            Debug.Log($"[NetworkedMatchSync] ReceivePlayUnitAnimation: raising UnitPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}) -> slot {slotIndex}.");
             gameManager.State.RaiseUnitPlayAnimationRequested(player.Hand[handIndex], side, handIndex, slotIndex);
         }
 
@@ -638,8 +620,6 @@ namespace DDD.TNFY.TCG.Core
                 return false;
             }
 
-            Debug.Log($"[NetworkedMatchSync] BeginAnimatedPlayItem accepted: {itemCard.CardName} handIndex={handIndex} for {side}, target.Kind={effectiveTarget.Kind}. Broadcasting animation cue with the target so both clients can show what it hit.");
-
             int[] encodedTarget = EncodeTarget(effectiveTarget);
 
             if (PhotonNetwork.InRoom)
@@ -651,7 +631,7 @@ namespace DDD.TNFY.TCG.Core
                 ReceivePlayItemAnimation((int)side, handIndex, encodedTarget);
             }
 
-            gameManager.Phases.ResolveItemPlayAfterAnimation(itemCard, target, side, handIndex, BroadcastStateIfMaster);
+            gameManager.Phases.ResolveItemPlayAfterAnimation(itemCard, effectiveTarget, side, handIndex, BroadcastStateIfMaster);
 
             return true;
         }
@@ -670,7 +650,6 @@ namespace DDD.TNFY.TCG.Core
 
             EffectTarget target = DecodeTarget(targetData, gameManager.State);
 
-            Debug.Log($"[NetworkedMatchSync] ReceivePlayItemAnimation: raising ItemPlayAnimationRequested for {player.Hand[handIndex].CardName} ({side}), target.Kind={target.Kind}.");
             gameManager.State.RaiseItemPlayAnimationRequested(player.Hand[handIndex], side, handIndex, target);
         }
 
@@ -1018,7 +997,6 @@ namespace DDD.TNFY.TCG.Core
 
         private void OnAttackFullyResolved()
         {
-            Debug.Log("[NetworkedMatchSync] Attack sequence fully resolved (damage/chain-attacks applied) - queuing a follow-up broadcast.");
             BroadcastStateIfMaster();
         }
 
@@ -1037,7 +1015,6 @@ namespace DDD.TNFY.TCG.Core
 
             gameManager.Phases.ResolveMulliganAndAdvance(side, cardsToMulligan);
 
-            Debug.Log($"[NetworkedMatchSync] ResolveMulliganByIndices: broadcasting after resolving {side}'s mulligan (in case only one side has finished so far).");
             BroadcastStateIfMaster();
         }
 
@@ -1069,8 +1046,6 @@ namespace DDD.TNFY.TCG.Core
 
         private PlayerStateDto BuildPlayerDto(Player player)
         {
-            Debug.Log($"[NetworkedMatchSync] BuildPlayerDto: side={player.Side}, leaderHealth={player.LeaderHealth}, maxLeaderHealth={player.MaxLeaderHealth}.");
-
             return new PlayerStateDto
             {
                 leaderId = player.Leader != null ? player.Leader.LeaderId : string.Empty,
@@ -1178,8 +1153,6 @@ namespace DDD.TNFY.TCG.Core
 
         private void ApplyPlayerState(Player player, PlayerStateDto dto)
         {
-            Debug.Log($"[NetworkedMatchSync] ApplyPlayerState: side={player.Side}, beforeLeaderHealth={player.LeaderHealth}, dto.leaderHealth={dto.leaderHealth}, dto.maxLeaderHealth={dto.maxLeaderHealth}.");
-
             player.Leader = ResolveLeader(dto.leaderId);
             player.LeaderHealth = dto.leaderHealth;
             player.MaxLeaderHealth = dto.maxLeaderHealth;

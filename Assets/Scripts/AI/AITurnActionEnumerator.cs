@@ -24,8 +24,15 @@ namespace DDD.TNFY.TCG.Core
 
             Player active = state.GetPlayer(aiSide);
 
-            foreach (CardData card in active.Hand)
+            for (int handIndex = 0; handIndex < active.Hand.Count; handIndex++)
             {
+                CardData card = active.Hand[handIndex];
+
+                if (active.Hand.IndexOf(card) != handIndex)
+                {
+                    continue;
+                }
+
                 if (card is UnitCardData unitCard)
                 {
                     EnumerateUnitPlacements(state, phases, aiSide, unitCard, actions);
@@ -44,6 +51,15 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
+            AddLegalMoves(phases, actions);
+
+            actions.Add(AITurnAction.EndPhaseAction);
+
+            return actions;
+        }
+
+        public static void AddLegalMoves(PhaseManager phases, List<AITurnAction> actions)
+        {
             for (int fromSlot = 0; fromSlot < Board.SlotsPerSide; fromSlot++)
             {
                 for (int toSlot = 0; toSlot < Board.SlotsPerSide; toSlot++)
@@ -59,19 +75,22 @@ namespace DDD.TNFY.TCG.Core
                     }
                 }
             }
-
-            actions.Add(AITurnAction.EndPhaseAction);
-
-            return actions;
         }
 
         private static void EnumeratePendingInteractionActions(GameState state, PlayerSide aiSide, List<AITurnAction> actions)
         {
             if (state.PendingCardChoiceOptions != null)
             {
-                foreach (CardData option in state.PendingCardChoiceOptions)
+                List<CardData> options = state.PendingCardChoiceOptions;
+
+                for (int optionIndex = 0; optionIndex < options.Count; optionIndex++)
                 {
-                    actions.Add(AITurnAction.ResolveCardChoiceWith(option));
+                    if (options.IndexOf(options[optionIndex]) != optionIndex)
+                    {
+                        continue;
+                    }
+
+                    actions.Add(AITurnAction.ResolveCardChoiceWith(options[optionIndex]));
                 }
 
                 return;
@@ -116,7 +135,9 @@ namespace DDD.TNFY.TCG.Core
         {
             foreach (EffectTarget candidateTarget in EnumerateCandidateTargets(state, aiSide, itemCard.PrimaryEffect.targetType))
             {
-                if (phases.CanPlayItem(itemCard, candidateTarget))
+                EffectTarget resolvedTarget = phases.ResolveItemEffectTarget(itemCard.PrimaryEffect, candidateTarget);
+
+                if (phases.CanPlayItem(itemCard, resolvedTarget))
                 {
                     actions.Add(AITurnAction.PlayItemAt(itemCard, candidateTarget));
                 }
@@ -125,13 +146,6 @@ namespace DDD.TNFY.TCG.Core
 
         public static IEnumerable<EffectTarget> EnumerateCandidateTargets(GameState state, PlayerSide aiSide, TargetType targetType)
         {
-            if (targetType == TargetType.None || targetType == TargetType.Board || targetType == TargetType.Self
-                || EffectTargeting.IsGroupTarget(targetType))
-            {
-                yield return EffectTarget.None;
-                yield break;
-            }
-
             if (targetType == TargetType.AllyLeader)
             {
                 yield return EffectTarget.ForLeader(aiSide);
@@ -141,6 +155,12 @@ namespace DDD.TNFY.TCG.Core
             if (targetType == TargetType.EnemyLeader)
             {
                 yield return EffectTarget.ForLeader(aiSide.Opposite());
+                yield break;
+            }
+
+            if (!EffectTargeting.RequiresClick(targetType))
+            {
+                yield return EffectTarget.None;
                 yield break;
             }
 

@@ -22,6 +22,8 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private int mctsMaxIterations = 20000;
         [SerializeField] private int mctsMaxRolloutDepth = 30;
         [SerializeField] private float mctsFrameBudgetMilliseconds = 6f;
+        [SerializeField] private float mctsExplorationConstant = 1f;
+        [SerializeField] private float mctsValueScale = 30f;
 
         private GameManager gameManager;
         private GameState state;
@@ -78,9 +80,9 @@ namespace DDD.TNFY.TCG.Core
         private void RebuildPlanner()
         {
             planner = new AIMonteCarloTurnPlanner(aiSide, mctsMaxIterations, mctsMaxRolloutDepth,
-                mctsFrameBudgetMilliseconds, new System.Random());
+                mctsFrameBudgetMilliseconds, mctsExplorationConstant, mctsValueScale, new System.Random());
 
-            Debug.Log($"[AIController] Planner built for {aiSide}: thinks for {thinkTimeSeconds:F2}s before its first action each turn, then {delayBetweenActionsSeconds:F2}s between actions, maxIterations={mctsMaxIterations}, maxRolloutDepth={mctsMaxRolloutDepth}, frameBudget={mctsFrameBudgetMilliseconds:F2}ms.");
+            Debug.Log($"[AIController] Planner built for {aiSide}: thinks for {thinkTimeSeconds:F2}s before its first action each turn, then {delayBetweenActionsSeconds:F2}s between actions, maxIterations={mctsMaxIterations}, maxRolloutDepth={mctsMaxRolloutDepth}, frameBudget={mctsFrameBudgetMilliseconds:F2}ms, explorationConstant={mctsExplorationConstant:F2}, valueScale={mctsValueScale:F1}.");
         }
 
         private void Update()
@@ -249,8 +251,12 @@ namespace DDD.TNFY.TCG.Core
         private IEnumerator RunActionPhase()
         {
             const int maxSafetyIterations = 60;
+            const int maxRejectedActionsPerTurn = 3;
             int safetyIterations = 0;
+            int rejectedActions = 0;
             bool isFirstActionThisTurn = true;
+
+            planner.DiscardTree();
 
             while (state.CurrentPhase == TurnPhase.Action && state.ActivePlayer == aiSide && !state.IsGameOver)
             {
@@ -344,10 +350,24 @@ namespace DDD.TNFY.TCG.Core
 
                 if (!applied)
                 {
-                    Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state - stopping to avoid a stuck turn.");
-                    break;
+                    rejectedActions++;
+
+                    if (rejectedActions >= maxRejectedActionsPerTurn)
+                    {
+                        Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state - that's {rejectedActions} rejected action(s) this turn, so the AI is ending its turn instead of stalling the match.");
+                        phases.EndActionPhase();
+                        break;
+                    }
+
+                    Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state ({rejectedActions}/{maxRejectedActionsPerTurn} this turn) - discarding the search tree and planning again from the live board.");
+                    planner.DiscardTree();
+                    continue;
                 }
+
+                planner.AdvanceTreeToLastChosenAction();
             }
+
+            planner.DiscardTree();
         }
     }
 }

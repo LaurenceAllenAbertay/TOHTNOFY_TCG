@@ -47,15 +47,13 @@ namespace DDD.TNFY.TCG.UI
 
         public void OnDrop(PointerEventData eventData)
         {
-            Debug.Log($"[BoardSlotDropTarget] OnDrop fired on seat={side}, actualSide={Side}, SlotIndex={slotIndex}. pointerDrag={(eventData.pointerDrag != null ? eventData.pointerDrag.name : "null")}");
-
             if (eventData.pointerDrag == null)
             {
                 return;
             }
 
             HandCardDrag handDrag = eventData.pointerDrag.GetComponent<HandCardDrag>();
-          
+
             if (handDrag != null && (handDrag.IsDraggingUnitCard || handDrag.IsDraggingItemCard))
             {
                 handDrag.HandleDroppedOnSlot(this);

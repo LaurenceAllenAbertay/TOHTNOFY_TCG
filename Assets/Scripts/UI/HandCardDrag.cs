@@ -261,8 +261,6 @@ namespace DDD.TNFY.TCG.UI
 
         private void CancelDrag()
         {
-            Debug.Log($"[HandCardDrag] CancelDrag: right-click detected mid-drag for {handCardView.Card?.CardName} - returning it to hand.");
-
             if (dragGhost != null)
             {
                 Destroy(dragGhost);
@@ -316,12 +314,7 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
-            bool result = RectTransformUtility.RectangleContainsScreenPoint(boardAreaRect, eventData.position, eventData.pressEventCamera);
-
-            Vector3[] corners = new Vector3[4];
-            boardAreaRect.GetWorldCorners(corners);
-            
-            return result;
+            return RectTransformUtility.RectangleContainsScreenPoint(boardAreaRect, eventData.position, eventData.pressEventCamera);
         }
 
         private void UpdateReorderPreview(PointerEventData eventData)
@@ -430,8 +423,6 @@ namespace DDD.TNFY.TCG.UI
 
         public void HandleDroppedOnUnit(BoardUnit unit)
         {
-            Debug.Log($"[HandCardDrag] HandleDroppedOnUnit called. isInsideBoardArea={isInsideBoardArea}, unit={(unit != null ? unit.SourceCard.CardName : "null")}");
-
             if (!isInsideBoardArea)
             {
                 return;
@@ -455,8 +446,7 @@ namespace DDD.TNFY.TCG.UI
 
             EffectTarget target = IsBoardTargeted(itemCard) ? EffectTarget.None : EffectTarget.ForUnit(unit);
 
-            bool played = TryRequestPlayItem(itemCard, target);
-            Debug.Log($"[HandCardDrag] TryPlayItem({itemCard.CardName}, target.Kind={target.Kind}) returned {played}");
+            TryRequestPlayItem(itemCard, target);
         }
 
         public void HandleDroppedOnBoardArea()

@@ -127,11 +127,7 @@ namespace DDD.TNFY.TCG.UI
                 return;
             }
 
-            Debug.Log($"[BoardView] SyncCardPositionToSlot: slot='{slotContainer.name}' slotWorldPos={slotRect.position} cardWorldPosBefore={cardRect.position}");
-
             cardRect.position = slotRect.position;
-
-            Debug.Log($"[BoardView] SyncCardPositionToSlot: cardWorldPosAfter={cardRect.position}");
         }
     }
 }

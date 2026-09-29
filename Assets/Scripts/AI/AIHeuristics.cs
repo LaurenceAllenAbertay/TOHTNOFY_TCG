@@ -22,7 +22,18 @@ namespace DDD.TNFY.TCG.Core
         public const float WinScore = 1000000f;
         public const float LossScore = -1000000f;
 
-        private const float ManaCostValueWeight = 0.5f;
+        private const float AttackValueWeight = 2f;
+        private const float HealthValueWeight = 1f;
+        private const float CardCostValueWeight = 1f;
+        private const float SilencedCardCostFactor = 0.5f;
+        private const float TauntValue = 4f;
+        private const float HandCardBaseValue = 1f;
+        private const float CastableUnitHandFactor = 0.7f;
+        private const float LeaderHealthWeight = 1f;
+        private const int LowLeaderHealthThreshold = 15;
+        private const float LowLeaderHealthExtraWeight = 2f;
+        private const float LeaderShieldValue = 3f;
+        private const float HealthPaymentOrderingPenalty = 10f;
 
         public static float EvaluateState(GameState state, PlayerSide aiSide)
         {
@@ -33,17 +44,79 @@ namespace DDD.TNFY.TCG.Core
                 return 0f;
             }
 
-            PlayerSide enemySide = aiSide.Opposite();
             Player ai = state.GetPlayer(aiSide);
-            Player enemy = state.GetPlayer(enemySide);
+            Player enemy = state.GetPlayer(aiSide.Opposite());
 
-            float score = 0f;
-            score += (ai.LeaderHealth - enemy.LeaderHealth) * 2f;
-            score += EvaluateBoardPresence(state, aiSide) - EvaluateBoardPresence(state, enemySide);
-            score += (ai.Hand.Count - enemy.Hand.Count) * 2f;
-            score += ai.CurrentMana * 1.5f;
+            return LeaderTerm(ai, enemy) + BoardTerm(state, aiSide) + HandTerm(state, ai, enemy);
+        }
 
-            return score;
+        public static string DescribeEvaluation(GameState state, PlayerSide aiSide)
+        {
+            if (state.IsGameOver)
+            {
+                return $"game over (winner={state.Winner}) -> {EvaluateState(state, aiSide):F1}";
+            }
+
+            Player ai = state.GetPlayer(aiSide);
+            Player enemy = state.GetPlayer(aiSide.Opposite());
+
+            return $"total={EvaluateState(state, aiSide):F1} = leader {LeaderTerm(ai, enemy):F1} (AI {ai.LeaderHealth} vs enemy {enemy.LeaderHealth}) + board {BoardTerm(state, aiSide):F1} (AI {EvaluateBoardPresence(state, aiSide):F1} vs enemy {EvaluateBoardPresence(state, aiSide.Opposite()):F1}) + hand {HandTerm(state, ai, enemy):F1} (AI {ai.Hand.Count} vs enemy {enemy.Hand.Count} cards). activePlayer={state.ActivePlayer}, phase={state.CurrentPhase}.";
+        }
+
+        private static float LeaderTerm(Player ai, Player enemy)
+        {
+            return LeaderValue(ai) - LeaderValue(enemy);
+        }
+
+        private static float LeaderValue(Player player)
+        {
+            int health = player.LeaderHealth;
+            float value = health * LeaderHealthWeight - System.Math.Max(0, LowLeaderHealthThreshold - health) * LowLeaderHealthExtraWeight;
+
+            if (player.HasStatus(StatusEffectType.Shield))
+            {
+                value += LeaderShieldValue;
+            }
+
+            return value;
+        }
+
+        private static float BoardTerm(GameState state, PlayerSide aiSide)
+        {
+            return EvaluateBoardPresence(state, aiSide) - EvaluateBoardPresence(state, aiSide.Opposite());
+        }
+
+        private static float HandTerm(GameState state, Player ai, Player enemy)
+        {
+            return HandValue(state, ai) - HandValue(state, enemy);
+        }
+
+        private static float HandValue(GameState state, Player player)
+        {
+            bool canCastNow = state.ActivePlayer == player.Side;
+            int manaLeft = player.CurrentMana;
+            float total = 0f;
+
+            foreach (CardData card in player.Hand)
+            {
+                float cardValue = HandCardBaseValue + card.ManaCost * CardCostValueWeight;
+
+                if (canCastNow && card is UnitCardData unitCard)
+                {
+                    int cost = AuraCalculator.GetUnitCost(unitCard, player);
+                    float castableValue = (unitCard.Attack * AttackValueWeight + unitCard.Health * HealthValueWeight + cost * CardCostValueWeight) * CastableUnitHandFactor;
+
+                    if (cost <= manaLeft && castableValue > cardValue)
+                    {
+                        cardValue = castableValue;
+                        manaLeft -= cost;
+                    }
+                }
+
+                total += cardValue;
+            }
+
+            return total;
         }
 
         private static float EvaluateBoardPresence(GameState state, PlayerSide side)
@@ -52,18 +125,12 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (BoardUnit unit in state.Board.GetUnits(side))
             {
-                float unitValue = GetUnitValue(state, unit);
-                total += unitValue;
-
-                if (unit.HasKeyword(Keyword.Taunt, state))
-                {
-                    total += 4f;
-                }
-
                 if (IsHangingInLane(state, unit))
                 {
-                    total -= unitValue;
+                    continue;
                 }
+
+                total += GetUnitValue(state, unit);
             }
 
             return total;
@@ -71,7 +138,32 @@ namespace DDD.TNFY.TCG.Core
 
         private static float GetUnitValue(GameState state, BoardUnit unit)
         {
-            return unit.GetCurrentAttack(state) + unit.CurrentHealth + GetUnitManaCost(state, unit) * ManaCostValueWeight;
+            float attackValue = unit.GetCurrentAttack(state) * AttackValueWeight * GetAttackLaneCount(state, unit);
+            float healthValue = unit.CurrentHealth * HealthValueWeight;
+            float cardValue = GetUnitManaCost(state, unit) * CardCostValueWeight * (unit.IsSilenced ? SilencedCardCostFactor : 1f);
+            float tauntValue = unit.HasKeyword(Keyword.Taunt, state) ? TauntValue : 0f;
+
+            return attackValue + healthValue + cardValue + tauntValue;
+        }
+
+        private static int GetAttackLaneCount(GameState state, BoardUnit unit)
+        {
+            if (!unit.HasKeyword(Keyword.BifurcatedAttack, state))
+            {
+                return 1;
+            }
+
+            return CountBifurcatedLanes(unit.SlotIndex);
+        }
+
+        private static int CountBifurcatedLanes(int slot)
+        {
+            int lanes = 0;
+
+            if (slot - 1 >= 0) lanes++;
+            if (slot + 1 < Board.SlotsPerSide) lanes++;
+
+            return lanes;
         }
 
         private static int GetUnitManaCost(GameState state, BoardUnit unit)
@@ -109,19 +201,45 @@ namespace DDD.TNFY.TCG.Core
             return theyKillUs && !weKillThem;
         }
 
+        public static bool RequiresHealthPayment(GameState state, PlayerSide side, AITurnAction action, out int healthCost)
+        {
+            healthCost = 0;
+            Player player = state.GetPlayer(side);
+            int cost;
+
+            if (action.Kind == AITurnActionKind.PlayUnit)
+            {
+                cost = AuraCalculator.GetUnitCost(action.UnitCard, player);
+            }
+            else if (action.Kind == AITurnActionKind.PlayItem)
+            {
+                cost = action.ItemCard.ManaCost;
+            }
+            else
+            {
+                return false;
+            }
+
+            return AuraCalculator.TryGetHealthCostForManaShortfall(player, cost - player.CurrentMana, out healthCost);
+        }
+
         public static float ScoreAction(GameState state, PlayerSide aiSide, AITurnAction action)
         {
+            float healthPaymentPenalty = RequiresHealthPayment(state, aiSide, action, out int healthCost)
+                ? healthCost * HealthPaymentOrderingPenalty
+                : 0f;
+
             switch (action.Kind)
             {
                 case AITurnActionKind.PlayUnit:
-                    return ScoreUnitPlacement(state, aiSide, action.UnitCard, action.SlotIndex);
+                    return ScoreUnitPlacement(state, aiSide, action.UnitCard, action.SlotIndex) - healthPaymentPenalty;
 
                 case AITurnActionKind.PlayItem:
-                    return ScoreTargetedAction(aiSide, action.ItemCard.ManaCost * 10f, action.ItemCard.PrimaryEffect, action.Target);
+                    return ScoreTargetedAction(state, aiSide, action.ItemCard.ManaCost * 10f, action.ItemCard.PrimaryEffect, action.Target) - healthPaymentPenalty;
 
                 case AITurnActionKind.ResolveTargetedEffect:
                     return state.PendingTargetedEffect != null
-                        ? ScoreTargetedAction(aiSide, 0f, state.PendingTargetedEffect, action.Target)
+                        ? ScoreTargetedAction(state, aiSide, 0f, state.PendingTargetedEffect, action.Target)
                         : 0f;
 
                 case AITurnActionKind.Attack:
@@ -135,6 +253,9 @@ namespace DDD.TNFY.TCG.Core
 
                 case AITurnActionKind.PlaceAbstractUnit:
                     return ScoreAbstractPlacement(state, aiSide, action);
+
+                case AITurnActionKind.AbstractRemoval:
+                    return ScoreAbstractRemoval(state, aiSide, action);
 
                 case AITurnActionKind.EndPhase:
                     return 0f;
@@ -150,53 +271,96 @@ namespace DDD.TNFY.TCG.Core
             float score = cost * 10f;
 
             BoardUnit opposing = state.Board.GetOpponentUnit(aiSide, slot);
-            bool newUnitPiercesPast = unitCard.HasKeyword(Keyword.Piercing) && !IsBlockedByTaunt(state, opposing);
 
-            if (opposing == null)
+            if (unitCard.HasKeyword(Keyword.BifurcatedAttack))
             {
-                score += unitCard.Attack * 2f;
-            }
-            else
-            {
-                int opposingAttack = opposing.GetCurrentAttack(state);
-                bool opposingPiercesPast = opposing.HasKeyword(Keyword.Piercing, state) && !unitCard.HasKeyword(Keyword.Taunt);
-                bool theyKillUs = !opposingPiercesPast && opposingAttack >= unitCard.Health;
-                bool weKillThem = !newUnitPiercesPast && unitCard.Attack >= opposing.CurrentHealth;
-                float killBonus = GetUnitManaCost(state, opposing) * ManaCostValueWeight;
+                score += ScoreBifurcatedPlacementLanes(state, aiSide, unitCard, slot);
 
-                if (newUnitPiercesPast)
-                {
-                    score += unitCard.Attack * 2f;
+                bool opposingKillsUs = opposing != null
+                    && !(opposing.HasKeyword(Keyword.Piercing, state) && !unitCard.HasKeyword(Keyword.Taunt))
+                    && opposing.GetCurrentAttack(state) >= unitCard.Health;
 
-                    if (theyKillUs)
-                    {
-                        score -= 25f;
-                    }
-                }
-                else if (weKillThem && !theyKillUs)
-                {
-                    score += 30f + killBonus;
-                }
-                else if (weKillThem && theyKillUs)
-                {
-                    score += 8f + killBonus;
-                }
-                else if (!weKillThem && theyKillUs)
+                if (opposingKillsUs)
                 {
                     score -= 25f;
                 }
-                else
-                {
-                    score += unitCard.Attack - opposingAttack;
-                }
+            }
+            else
+            {
+                score += ScoreSingleLanePlacement(state, unitCard, opposing);
             }
 
             if (unitCard.HasKeyword(Keyword.Taunt))
             {
-                score += 4f;
+                score += TauntValue;
             }
 
             return score;
+        }
+
+        private static float ScoreSingleLanePlacement(GameState state, UnitCardData unitCard, BoardUnit opposing)
+        {
+            bool newUnitPiercesPast = unitCard.HasKeyword(Keyword.Piercing) && !IsBlockedByTaunt(state, opposing);
+
+            if (opposing == null)
+            {
+                return unitCard.Attack * 2f;
+            }
+
+            int opposingAttack = opposing.GetCurrentAttack(state);
+            bool opposingPiercesPast = opposing.HasKeyword(Keyword.Piercing, state) && !unitCard.HasKeyword(Keyword.Taunt);
+            bool theyKillUs = !opposingPiercesPast && opposingAttack >= unitCard.Health;
+            bool weKillThem = !newUnitPiercesPast && unitCard.Attack >= opposing.CurrentHealth;
+            float killBonus = GetUnitManaCost(state, opposing) * CardCostValueWeight;
+
+            if (newUnitPiercesPast)
+            {
+                return unitCard.Attack * 2f - (theyKillUs ? 25f : 0f);
+            }
+
+            if (weKillThem && !theyKillUs)
+            {
+                return 30f + killBonus;
+            }
+
+            if (weKillThem && theyKillUs)
+            {
+                return 8f + killBonus;
+            }
+
+            if (!weKillThem && theyKillUs)
+            {
+                return -25f;
+            }
+
+            return unitCard.Attack - opposingAttack;
+        }
+
+        private static float ScoreBifurcatedPlacementLanes(GameState state, PlayerSide aiSide, UnitCardData unitCard, int slot)
+        {
+            float total = 0f;
+
+            foreach (int lane in GetBifurcatedLanes(slot))
+            {
+                BoardUnit target = state.Board.GetOpponentUnit(aiSide, lane);
+
+                if (target == null)
+                {
+                    total += unitCard.Attack * 2f;
+                }
+                else if (unitCard.Attack >= target.CurrentHealth)
+                {
+                    total += 15f + GetUnitManaCost(state, target) * CardCostValueWeight;
+                }
+            }
+
+            return total;
+        }
+
+        private static IEnumerable<int> GetBifurcatedLanes(int slot)
+        {
+            if (slot - 1 >= 0) yield return slot - 1;
+            if (slot + 1 < Board.SlotsPerSide) yield return slot + 1;
         }
 
         private static float ScoreAbstractPlacement(GameState state, PlayerSide side, AITurnAction action)
@@ -232,16 +396,37 @@ namespace DDD.TNFY.TCG.Core
             return score;
         }
 
-        private static float ScoreTargetedAction(PlayerSide aiSide, float baseScore, CardEffect effect, EffectTarget target)
+        private static float ScoreAbstractRemoval(GameState state, PlayerSide side, AITurnAction action)
+        {
+            if (!AIOpponentReplyModel.TryGetAbstractRemovalCost(state, side, action.SlotIndex, out BoardUnit target, out int manaCost))
+            {
+                return float.NegativeInfinity;
+            }
+
+            return manaCost * 10f + 15f + GetUnitValue(state, target);
+        }
+
+        private static float ScoreTargetedAction(GameState state, PlayerSide aiSide, float baseScore, CardEffect effect, EffectTarget target)
         {
             float score = baseScore;
-            bool isHarmful = HarmfulActions.Contains(effect.action);
 
             bool targetIsEnemy = (target.Kind == EffectTargetKind.Unit && target.Unit.Owner != aiSide)
                 || (target.Kind == EffectTargetKind.Leader && target.LeaderSide != aiSide);
 
             bool targetIsAlly = (target.Kind == EffectTargetKind.Unit && target.Unit.Owner == aiSide)
                 || (target.Kind == EffectTargetKind.Leader && target.LeaderSide == aiSide);
+
+            if (effect.action == EffectActionType.SwapAttackAndHealth && target.Kind == EffectTargetKind.Unit)
+            {
+                int attack = target.Unit.GetCurrentAttack(state);
+                int health = target.Unit.CurrentHealth;
+                bool raisesAttack = health > attack;
+                bool helpsUs = (targetIsAlly && raisesAttack) || (targetIsEnemy && attack > health);
+
+                return score + (helpsUs ? 15f + System.Math.Abs(health - attack) : -20f);
+            }
+
+            bool isHarmful = HarmfulActions.Contains(effect.action);
 
             if (isHarmful && targetIsEnemy)
             {
@@ -283,24 +468,41 @@ namespace DDD.TNFY.TCG.Core
 
         private static float ScoreLaneForUnit(GameState state, PlayerSide aiSide, BoardUnit unit, int slot)
         {
-            BoardUnit opposing = state.Board.GetOpponentUnit(aiSide, slot);
+            if (!unit.HasKeyword(Keyword.BifurcatedAttack, state))
+            {
+                return ScoreHitOnLane(state, aiSide, unit, slot, slot);
+            }
+
+            float total = 0f;
+
+            foreach (int lane in GetBifurcatedLanes(slot))
+            {
+                total += ScoreHitOnLane(state, aiSide, unit, slot, lane);
+            }
+
+            return total;
+        }
+
+        private static float ScoreHitOnLane(GameState state, PlayerSide aiSide, BoardUnit unit, int ownSlot, int targetLane)
+        {
+            BoardUnit target = state.Board.GetOpponentUnit(aiSide, targetLane);
+            BoardUnit facing = state.Board.GetOpponentUnit(aiSide, ownSlot);
             int ourAttack = unit.GetCurrentAttack(state);
 
-            if (opposing == null)
+            if (target == null)
             {
                 return 20f + ourAttack;
             }
 
-            int opposingAttack = opposing.GetCurrentAttack(state);
-            bool theyKillUs = !HitsLeaderDirectly(state, opposing, unit) && opposingAttack >= unit.CurrentHealth;
+            bool theyKillUs = facing != null && !HitsLeaderDirectly(state, facing, unit) && facing.GetCurrentAttack(state) >= unit.CurrentHealth;
 
-            if (HitsLeaderDirectly(state, unit, opposing))
+            if (HitsLeaderDirectly(state, unit, target))
             {
                 return 20f + ourAttack - (theyKillUs ? 30f : 0f);
             }
 
-            bool weKillThem = ourAttack >= opposing.CurrentHealth;
-            float killBonus = GetUnitManaCost(state, opposing) * ManaCostValueWeight;
+            bool weKillThem = ourAttack >= target.CurrentHealth;
+            float killBonus = GetUnitManaCost(state, target) * CardCostValueWeight;
 
             if (weKillThem && !theyKillUs)
             {
@@ -317,7 +519,7 @@ namespace DDD.TNFY.TCG.Core
                 return 5f + killBonus;
             }
 
-            return ourAttack - opposingAttack;
+            return ourAttack - target.GetCurrentAttack(state);
         }
     }
 }

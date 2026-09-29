@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DDD.TNFY.TCG.Cards;
+using DDD.TNFY.TCG.Effects;
 using UnityEngine;
 
 namespace DDD.TNFY.TCG.Core
@@ -61,6 +62,16 @@ namespace DDD.TNFY.TCG.Core
                 TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Threat, actions);
             }
 
+            Player actor = state.GetPlayer(side);
+
+            for (int slot = 0; slot < Board.SlotsPerSide; slot++)
+            {
+                if (TryGetAbstractRemovalCost(state, side, slot, out _, out int removalCost) && CanAfford(actor, removalCost))
+                {
+                    actions.Add(AITurnAction.AbstractRemovalAt(slot));
+                }
+            }
+
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
             {
                 if (phases.CanAttackWithUnit(slot))
@@ -68,6 +79,8 @@ namespace DDD.TNFY.TCG.Core
                     actions.Add(AITurnAction.AttackFrom(slot));
                 }
             }
+
+            AITurnActionEnumerator.AddLegalMoves(phases, actions);
 
             actions.Add(AITurnAction.EndPhaseAction);
 
@@ -160,6 +173,20 @@ namespace DDD.TNFY.TCG.Core
             return Mathf.Max(1, Mathf.CeilToInt((attack + health) / 2f));
         }
 
+        public static bool TryGetAbstractRemovalCost(GameState state, PlayerSide side, int targetSlot, out BoardUnit target, out int manaCost)
+        {
+            target = state.Board.GetUnit(side.Opposite(), targetSlot);
+            manaCost = 0;
+
+            if (target == null || target.CurrentHealth <= 0)
+            {
+                return false;
+            }
+
+            manaCost = Mathf.Max(1, target.CurrentHealth);
+            return true;
+        }
+
         public static bool IsAbstractUnit(BoardUnit unit)
         {
             return unit != null && abstractUnitTemplate != null && unit.SourceCard == abstractUnitTemplate;
@@ -204,6 +231,30 @@ namespace DDD.TNFY.TCG.Core
             placer.Hand.RemoveAt(placer.Hand.Count - 1);
 
             phases.SyncQualifyingEnemyAuraHealth();
+
+            return true;
+        }
+
+        public static bool TryApplyAbstractRemoval(AITurnAction action, GameState state, PhaseManager phases)
+        {
+            PlayerSide side = state.ActivePlayer;
+
+            if (!TryGetAbstractRemovalCost(state, side, action.SlotIndex, out BoardUnit target, out int manaCost))
+            {
+                return false;
+            }
+
+            Player caster = state.GetPlayer(side);
+
+            if (!CanAfford(caster, manaCost))
+            {
+                return false;
+            }
+
+            caster.CurrentMana -= manaCost;
+            caster.Hand.RemoveAt(caster.Hand.Count - 1);
+
+            phases.DamageUnit(target, manaCost, side, DamageSourceType.Effect);
 
             return true;
         }

@@ -26,16 +26,16 @@ namespace DDD.TNFY.TCG.Core
 
         public int GetCurrentAttack(GameState state)
         {
-            return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state) + GetPendingTemporaryAttackBonus();
+            return SourceCard.Attack + BonusAttack + AuraCalculator.GetAttackBonus(this, state) + GetTemporaryAttackBonus();
         }
 
-        private int GetPendingTemporaryAttackBonus()
+        private int GetTemporaryAttackBonus()
         {
             int bonus = 0;
 
             foreach (ActiveStatusEffect status in Statuses)
             {
-                if (status.Type == StatusEffectType.TemporaryAttackNextAttack || status.Type == StatusEffectType.TemporaryAttackThisTurn)
+                if (status.Type == StatusEffectType.TemporaryAttack)
                 {
                     bonus += status.Magnitude;
                 }

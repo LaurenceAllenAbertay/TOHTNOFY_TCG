@@ -49,6 +49,12 @@ namespace DDD.TNFY.TCG.UI
 
         private void OnDisable()
         {
+            if (IsLocalPlayAnimationActive)
+            {
+                Debug.Log("[CardPlayAnimationController] Disabled while a local card-play animation was still running - clearing IsLocalPlayAnimationActive so hand cards can be dragged again.");
+                IsLocalPlayAnimationActive = false;
+            }
+
             if (gameManager == null || gameManager.State == null)
             {
                 return;
@@ -118,7 +124,6 @@ namespace DDD.TNFY.TCG.UI
                 IsLocalPlayAnimationActive = false;
             }
 
-            Debug.Log($"[CardPlayAnimationController] Unit animation finished for {card.CardName} ({playingSide}) -> slot {slotIndex}. Raising UnitPlayAnimationFinished.");
             gameManager.State.RaiseUnitPlayAnimationFinished(playingSide, handIndex, slotIndex);
         }
 
@@ -147,12 +152,10 @@ namespace DDD.TNFY.TCG.UI
 
             if (TryGetTargetWorldPosition(target, out Vector3 targetPosition))
             {
-                Debug.Log($"[CardPlayAnimationController] {card.CardName}'s item animation travelling to its target (Kind={target.Kind}) at {targetPosition}.");
                 yield return ScaleAndMoveOver(cloneRect, Vector3.zero, targetPosition, resolveDuration);
             }
             else
             {
-                Debug.Log($"[CardPlayAnimationController] {card.CardName} has no on-board target to travel to (Kind={target.Kind}) - shrinking in place.");
                 yield return ScaleOver(cloneRect, cloneRect.localScale, Vector3.zero, resolveDuration);
             }
 
@@ -163,7 +166,6 @@ namespace DDD.TNFY.TCG.UI
                 IsLocalPlayAnimationActive = false;
             }
 
-            Debug.Log($"[CardPlayAnimationController] Item animation finished for {card.CardName} ({playingSide}). Raising ItemPlayAnimationFinished.");
             gameManager.State.RaiseItemPlayAnimationFinished(playingSide, handIndex);
         }
 
@@ -186,8 +188,6 @@ namespace DDD.TNFY.TCG.UI
             yield return FadeAndScaleOver(cloneRect, cloneCanvasGroup, Vector3.zero, burnFadeDuration);
 
             Destroy(clone.gameObject);
-
-            Debug.Log($"[CardPlayAnimationController] Burn animation finished for {card.CardName} ({side}).");
         }
 
         private bool TryGetTargetWorldPosition(EffectTarget target, out Vector3 position)

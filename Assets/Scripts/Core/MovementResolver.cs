@@ -233,29 +233,56 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
+            Debug.Log($"[MovementResolver] {sourceUnit.SourceCard.CardName} (slot {sourceSlot}) pushing allies away: {leftGroup.Count} to the left, {rightGroup.Count} to the right.");
+
             foreach (BoardUnit unit in leftGroup)
             {
-                TryPushUnitOneSlot(side, unit, -1);
+                PushUnitAsFarAsPossible(side, unit, -1);
             }
 
             for (int i = rightGroup.Count - 1; i >= 0; i--)
             {
-                TryPushUnitOneSlot(side, rightGroup[i], 1);
+                PushUnitAsFarAsPossible(side, rightGroup[i], 1);
             }
         }
 
-        private void TryPushUnitOneSlot(PlayerSide side, BoardUnit unit, int direction)
+        private void PushUnitAsFarAsPossible(PlayerSide side, BoardUnit unit, int direction)
         {
-            if (unit.HasKeyword(Keyword.Unmoving, state)) return;
+            if (state.Board.GetUnit(side, unit.SlotIndex) != unit)
+            {
+                Debug.Log($"[MovementResolver] Push skipped for {unit.SourceCard.CardName} - it's no longer on the board at slot {unit.SlotIndex}.");
+                return;
+            }
+
+            if (unit.HasKeyword(Keyword.Unmoving, state))
+            {
+                Debug.Log($"[MovementResolver] Push skipped for {unit.SourceCard.CardName} (slot {unit.SlotIndex}) - it's Unmoving.");
+                return;
+            }
 
             int fromSlot = unit.SlotIndex;
-            int toSlot = fromSlot + direction;
+            int toSlot = fromSlot;
 
-            if (toSlot < 0 || toSlot >= Board.SlotsPerSide) return;
-            if (state.Board.GetUnit(side, toSlot) != null) return;
+            while (true)
+            {
+                int nextSlot = toSlot + direction;
+
+                if (nextSlot < 0 || nextSlot >= Board.SlotsPerSide) break;
+                if (state.Board.GetUnit(side, nextSlot) != null) break;
+
+                toSlot = nextSlot;
+            }
+
+            if (toSlot == fromSlot)
+            {
+                Debug.Log($"[MovementResolver] Push: {unit.SourceCard.CardName} (slot {fromSlot}) is already against the edge or another unit - not moved.");
+                return;
+            }
 
             state.Board.RemoveUnit(side, fromSlot);
             state.Board.PlaceUnit(side, toSlot, unit);
+
+            Debug.Log($"[MovementResolver] Push moved {unit.SourceCard.CardName} from slot {fromSlot} to slot {toSlot}.");
 
             GrantCodyMoveBonusIfApplicable(unit);
             OnUnitRelocated(unit, fromSlot);
@@ -324,7 +351,7 @@ namespace DDD.TNFY.TCG.Core
 
             if (ownerLeader != null && ownerLeader.MoveTemporaryAttackBonus > 0)
             {
-                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttackNextAttack, 1, ownerLeader.MoveTemporaryAttackBonus));
+                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttack, 1, ownerLeader.MoveTemporaryAttackBonus));
             }
         }
 

@@ -63,7 +63,7 @@ namespace DDD.TNFY.TCG.UI
                     continue;
                 }
 
-                result += "\n" + keyword.ToString();
+                result += "\n" + KeywordReference.GetDisplayName(keyword);
             }
 
             return result;
@@ -85,7 +85,7 @@ namespace DDD.TNFY.TCG.UI
                     continue;
                 }
 
-                result += "\n" + statusType.ToString();
+                result += "\n" + StatusEffectReference.GetDisplayName(statusType);
             }
 
             return result;

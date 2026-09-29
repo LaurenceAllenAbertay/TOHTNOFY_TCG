@@ -20,6 +20,8 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private TextMeshProUGUI attackText;
         [SerializeField] private TextMeshProUGUI healthText;
         [SerializeField] private TextMeshProUGUI abilityText;
+        [SerializeField] private Image rarityIndicator;
+        [SerializeField] private TextMeshProUGUI rarityText;
         [SerializeField] private RectTransform extraInfoContainer;
         [SerializeField] private TermInfoPanel infoPanelPrefab;
         [SerializeField] private float extraInfoGapX = 20f;
@@ -193,6 +195,8 @@ namespace DDD.TNFY.TCG.UI
                 nameText.text = CardDisplayFormatter.GetNameText(card);
             }
 
+            ShowRarity(card);
+
             if (costText != null)
             {
                 costText.gameObject.SetActive(true);
@@ -232,6 +236,50 @@ namespace DDD.TNFY.TCG.UI
             PopulateExtraInfo(card, liveUnit);
         }
 
+        private void ShowRarity(CardData card)
+        {
+            bool hasRarityColor = CardRarityReference.TryGetColor(card.Rarity, out Color rarityColor);
+
+            if (!hasRarityColor)
+            {
+                Debug.LogWarning($"[CardHoverPreview] No rarity color defined for {card.Rarity} on card {card.CardName}.");
+            }
+
+            if (rarityIndicator != null)
+            {
+                rarityIndicator.enabled = true;
+
+                if (hasRarityColor)
+                {
+                    rarityIndicator.color = rarityColor;
+                }
+            }
+
+            if (rarityText != null)
+            {
+                rarityText.enabled = true;
+                rarityText.text = card.Rarity.ToString();
+
+                if (hasRarityColor)
+                {
+                    rarityText.color = rarityColor;
+                }
+            }
+        }
+
+        private void HideRarity()
+        {
+            if (rarityIndicator != null)
+            {
+                rarityIndicator.enabled = false;
+            }
+
+            if (rarityText != null)
+            {
+                rarityText.enabled = false;
+            }
+        }
+
         private void PopulateExtraInfo(CardData card, BoardUnit liveUnit = null)
         {
             ClearExtraInfo();
@@ -262,7 +310,7 @@ namespace DDD.TNFY.TCG.UI
 
                     if (KeywordReference.TryGetDescription(keyword, out string description))
                     {
-                        SpawnInfoPanel(keyword.ToString(), description);
+                        SpawnInfoPanel(KeywordReference.GetDisplayName(keyword), description);
                         keywordCount++;
                     }
                 }
@@ -319,7 +367,7 @@ namespace DDD.TNFY.TCG.UI
                         continue;
                     }
 
-                    SpawnInfoPanel(grantedKeyword.ToString(), grantedDescription);
+                    SpawnInfoPanel(KeywordReference.GetDisplayName(grantedKeyword), grantedDescription);
                     alreadyShownGrantedKeywords |= grantedKeyword;
                     grantedKeywordCount++;
                 }
@@ -349,7 +397,7 @@ namespace DDD.TNFY.TCG.UI
                         continue;
                     }
 
-                    SpawnInfoPanel(keyword.ToString(), description);
+                    SpawnInfoPanel(KeywordReference.GetDisplayName(keyword), description);
                     alreadyShownGrantedKeywords |= keyword;
                     grantedKeywordCount++;
                 }
@@ -383,7 +431,7 @@ namespace DDD.TNFY.TCG.UI
                         continue;
                     }
 
-                    SpawnInfoPanel(grantedStatus.ToString(), appliedStatusDescription);
+                    SpawnInfoPanel(StatusEffectReference.GetDisplayName(grantedStatus), appliedStatusDescription);
                     appliedStatusEffectCount++;
                 }
             }
@@ -406,7 +454,7 @@ namespace DDD.TNFY.TCG.UI
                         continue;
                     }
 
-                    SpawnInfoPanel(statusType.ToString(), statusDescription);
+                    SpawnInfoPanel(StatusEffectReference.GetDisplayName(statusType), statusDescription);
                     statusEffectCount++;
                 }
             }
@@ -456,6 +504,10 @@ namespace DDD.TNFY.TCG.UI
 
                 case EffectActionType.SilenceUnit:
                     statusType = StatusEffectType.Silenced;
+                    return true;
+
+                case EffectActionType.AddTemporaryAttack:
+                    statusType = StatusEffectType.TemporaryAttack;
                     return true;
 
                 default:
@@ -533,6 +585,8 @@ namespace DDD.TNFY.TCG.UI
                 nameText.text = leader.LeaderName;
             }
 
+            HideRarity();
+
             if (costText != null)
             {
                 costText.gameObject.SetActive(false);
@@ -578,7 +632,7 @@ namespace DDD.TNFY.TCG.UI
                     continue;
                 }
 
-                SpawnInfoPanel(statusType.ToString(), statusDescription);
+                SpawnInfoPanel(StatusEffectReference.GetDisplayName(statusType), statusDescription);
             }
         }
 

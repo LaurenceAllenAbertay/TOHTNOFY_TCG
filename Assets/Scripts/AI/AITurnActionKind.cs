@@ -9,6 +9,7 @@ namespace DDD.TNFY.TCG.Core
         ResolveCardChoice,
         ResolveTargetedEffect,
         EndPhase,
-        PlaceAbstractUnit
+        PlaceAbstractUnit,
+        AbstractRemoval
     }
 }
