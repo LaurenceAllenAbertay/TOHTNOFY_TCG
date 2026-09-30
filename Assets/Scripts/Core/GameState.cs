@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
 
@@ -12,6 +11,35 @@ namespace DDD.TNFY.TCG.Core
         public Player PlayerA { get; } = new Player(PlayerSide.PlayerA);
         public Player PlayerB { get; } = new Player(PlayerSide.PlayerB);
 
+        public event Action<PlayerSide> ActivePlayerChanged;
+        public event Action<TurnPhase> PhaseChanged;
+        public event Action<TurnPhase, PlayerSide> PhaseAnnounced;
+        public event Action BannerAnimationFinished;
+        public event Action<int> AttackHitLanded;
+        public event Action<BoardUnit> AttackAnimationFinished;
+        public event Action<BoardUnit> UnitMoved;
+        public event Action DraftOptionsChanged;
+        public event Action GameOver;
+        public event Action<CardData, PlayerSide, int, int> UnitPlayAnimationRequested;
+        public event Action<PlayerSide, int, int> UnitPlayAnimationFinished;
+        public event Action<CardData, PlayerSide, int, EffectTarget> ItemPlayAnimationRequested;
+        public event Action<PlayerSide, int> ItemPlayAnimationFinished;
+        public event Action<CardData, PlayerSide> CardBurnAnimationRequested;
+        public event Action<BoardUnit> CurrentlyAttackingUnitChanged;
+
+        public void RaisePhaseAnnounced(TurnPhase phase, PlayerSide activePlayerAtAnnouncement) => PhaseAnnounced?.Invoke(phase, activePlayerAtAnnouncement);
+        public void RaiseBannerAnimationFinished() => BannerAnimationFinished?.Invoke();
+        public void RaiseAttackHitLanded(int hitIndex) => AttackHitLanded?.Invoke(hitIndex);
+        public void RaiseAttackAnimationFinished(BoardUnit unit) => AttackAnimationFinished?.Invoke(unit);
+        public void RaiseUnitMoved(BoardUnit unit) => UnitMoved?.Invoke(unit);
+        public void RaiseDraftOptionsChanged() => DraftOptionsChanged?.Invoke();
+        public void RaiseGameOver() => GameOver?.Invoke();
+        public void RaiseUnitPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, int slotIndex) => UnitPlayAnimationRequested?.Invoke(card, playingSide, handIndex, slotIndex);
+        public void RaiseUnitPlayAnimationFinished(PlayerSide playingSide, int handIndex, int slotIndex) => UnitPlayAnimationFinished?.Invoke(playingSide, handIndex, slotIndex);
+        public void RaiseItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, EffectTarget target) => ItemPlayAnimationRequested?.Invoke(card, playingSide, handIndex, target);
+        public void RaiseItemPlayAnimationFinished(PlayerSide playingSide, int handIndex) => ItemPlayAnimationFinished?.Invoke(playingSide, handIndex);
+        public void RaiseCardBurnAnimationRequested(CardData card, PlayerSide side) => CardBurnAnimationRequested?.Invoke(card, side);
+
         private PlayerSide activePlayer = PlayerSide.PlayerA;
         public PlayerSide ActivePlayer
         {
@@ -19,13 +47,9 @@ namespace DDD.TNFY.TCG.Core
             set
             {
                 activePlayer = value;
-                ActivePlayerChanged?.Invoke(activePlayer);
+                ActivePlayerChanged?.Invoke(value);
             }
         }
-
-        public event Action<PlayerSide> ActivePlayerChanged;
-
-        public PlayerSide FirstPlayer { get; set; } = PlayerSide.PlayerA;
 
         private TurnPhase currentPhase = TurnPhase.None;
         public TurnPhase CurrentPhase
@@ -35,101 +59,26 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (currentPhase == value)
                 {
-                    Debug.Log($"[GameState] CurrentPhase set to {value} but it was already {currentPhase} - PhaseChanged will NOT fire.");
                     return;
                 }
 
                 currentPhase = value;
-                PhaseChanged?.Invoke(currentPhase);
+                PhaseChanged?.Invoke(value);
             }
         }
 
-        public event Action<TurnPhase> PhaseChanged;
-
-        public event Action<TurnPhase, PlayerSide> PhaseAnnounced;
-
-        public void RaisePhaseAnnounced(TurnPhase phase, PlayerSide activePlayerAtAnnouncement)
+        private BoardUnit currentlyAttackingUnit;
+        public BoardUnit CurrentlyAttackingUnit
         {
-            PhaseAnnounced?.Invoke(phase, activePlayerAtAnnouncement);
+            get => currentlyAttackingUnit;
+            set
+            {
+                currentlyAttackingUnit = value;
+                CurrentlyAttackingUnitChanged?.Invoke(value);
+            }
         }
 
-        public event Action BannerAnimationFinished;
-
-        public void RaiseBannerAnimationFinished()
-        {
-            BannerAnimationFinished?.Invoke();
-        }
-
-        public event Action<int> AttackHitLanded;
-
-        public void RaiseAttackHitLanded(int hitIndex)
-        {
-            AttackHitLanded?.Invoke(hitIndex);
-        }
-
-        public event Action<BoardUnit> AttackAnimationFinished;
-
-        public void RaiseAttackAnimationFinished(BoardUnit unit)
-        {
-            AttackAnimationFinished?.Invoke(unit);
-        }
-
-        public event Action<BoardUnit> UnitMoved;
-
-        public void RaiseUnitMoved(BoardUnit unit)
-        {
-            UnitMoved?.Invoke(unit);
-        }
-
-        public event Action DraftOptionsChanged;
-
-        public void RaiseDraftOptionsChanged()
-        {
-            DraftOptionsChanged?.Invoke();
-        }
-
-        public event Action GameOver;
-
-        public void RaiseGameOver()
-        {
-            GameOver?.Invoke();
-        }
-
-        public event Action<CardData, PlayerSide, int, int> UnitPlayAnimationRequested;
-
-        public void RaiseUnitPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, int slotIndex)
-        {
-            UnitPlayAnimationRequested?.Invoke(card, playingSide, handIndex, slotIndex);
-        }
-
-        public event Action<PlayerSide, int, int> UnitPlayAnimationFinished;
-
-        public void RaiseUnitPlayAnimationFinished(PlayerSide playingSide, int handIndex, int slotIndex)
-        {
-            UnitPlayAnimationFinished?.Invoke(playingSide, handIndex, slotIndex);
-        }
-
-        public event Action<CardData, PlayerSide, int, EffectTarget> ItemPlayAnimationRequested;
-
-        public void RaiseItemPlayAnimationRequested(CardData card, PlayerSide playingSide, int handIndex, EffectTarget target)
-        {
-            ItemPlayAnimationRequested?.Invoke(card, playingSide, handIndex, target);
-        }
-
-        public event Action<PlayerSide, int> ItemPlayAnimationFinished;
-
-        public void RaiseItemPlayAnimationFinished(PlayerSide playingSide, int handIndex)
-        {
-            ItemPlayAnimationFinished?.Invoke(playingSide, handIndex);
-        }
-
-        public event Action<CardData, PlayerSide> CardBurnAnimationRequested;
-
-        public void RaiseCardBurnAnimationRequested(CardData card, PlayerSide side)
-        {
-            CardBurnAnimationRequested?.Invoke(card, side);
-        }
-
+        public PlayerSide FirstPlayer { get; set; } = PlayerSide.PlayerA;
         public int TurnNumber { get; set; } = 1;
         public bool HasUsedMoveThisTurn { get; set; }
         public bool IsGameOver { get; set; }
@@ -151,43 +100,15 @@ namespace DDD.TNFY.TCG.Core
         public bool IsResolvingTurnStartEffects { get; set; }
         public int TurnStartScanSlot { get; set; }
 
-        private BoardUnit currentlyAttackingUnit;
-        public BoardUnit CurrentlyAttackingUnit
-        {
-            get => currentlyAttackingUnit;
-            set
-            {
-                currentlyAttackingUnit = value;
-                CurrentlyAttackingUnitChanged?.Invoke(currentlyAttackingUnit);
-            }
-        }
+        public Player GetPlayer(PlayerSide side) => side == PlayerSide.PlayerA ? PlayerA : PlayerB;
 
-        public event Action<BoardUnit> CurrentlyAttackingUnitChanged;
+        public Player GetActivePlayerData() => GetPlayer(ActivePlayer);
 
-        public Player GetPlayer(PlayerSide side)
-        {
-            return side == PlayerSide.PlayerA ? PlayerA : PlayerB;
-        }
-
-        public Player GetActivePlayerData()
-        {
-            return GetPlayer(ActivePlayer);
-        }
-
-        public PlayerSide GetOpponent(PlayerSide side)
-        {
-            return side.Opposite();
-        }
+        public PlayerSide GetOpponent(PlayerSide side) => side.Opposite();
 
         public bool IsExcludedAsSelfTarget(BoardUnit candidate)
         {
-            if (PendingTargetedEffectSource == null || candidate != PendingTargetedEffectSource)
-            {
-                return false;
-            }
-
-            bool cameFromTurnStart = PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
-            return !cameFromTurnStart;
+            return candidate != null && candidate == PendingTargetedEffectSource && PendingTargetedEffectTrigger != EffectTriggerType.OnTurnStart;
         }
 
         public GameState Clone()
@@ -199,44 +120,29 @@ namespace DDD.TNFY.TCG.Core
             clone.PlayerA.CopyFrom(PlayerA);
             clone.PlayerB.CopyFrom(PlayerB);
 
+            BoardUnit Map(BoardUnit original) => original != null && unitMap.TryGetValue(original, out BoardUnit mapped) ? mapped : null;
+
             clone.activePlayer = activePlayer;
             clone.currentPhase = currentPhase;
-
+            clone.currentlyAttackingUnit = Map(currentlyAttackingUnit);
             clone.FirstPlayer = FirstPlayer;
             clone.TurnNumber = TurnNumber;
             clone.HasUsedMoveThisTurn = HasUsedMoveThisTurn;
             clone.IsGameOver = IsGameOver;
             clone.Winner = Winner;
-
             clone.HasPendingFreeMove = HasPendingFreeMove;
-            clone.PendingFreeMoveExcludedUnit = MapUnit(PendingFreeMoveExcludedUnit, unitMap);
-
+            clone.PendingFreeMoveExcludedUnit = Map(PendingFreeMoveExcludedUnit);
             clone.HasPendingEnemyMoveGrantOnPlay = HasPendingEnemyMoveGrantOnPlay;
-            clone.PendingEnemyMoveGrantTarget = MapUnit(PendingEnemyMoveGrantTarget, unitMap);
-
+            clone.PendingEnemyMoveGrantTarget = Map(PendingEnemyMoveGrantTarget);
             clone.PendingTargetedEffect = PendingTargetedEffect;
-            clone.PendingTargetedEffectSource = MapUnit(PendingTargetedEffectSource, unitMap);
+            clone.PendingTargetedEffectSource = Map(PendingTargetedEffectSource);
             clone.PendingTargetedEffectTrigger = PendingTargetedEffectTrigger;
-
             clone.PendingCardChoiceOptions = PendingCardChoiceOptions != null ? new List<CardData>(PendingCardChoiceOptions) : null;
-            clone.PendingCardChoiceSource = MapUnit(PendingCardChoiceSource, unitMap);
-
+            clone.PendingCardChoiceSource = Map(PendingCardChoiceSource);
             clone.IsResolvingTurnStartEffects = IsResolvingTurnStartEffects;
             clone.TurnStartScanSlot = TurnStartScanSlot;
 
-            clone.currentlyAttackingUnit = MapUnit(currentlyAttackingUnit, unitMap);
-
             return clone;
-        }
-
-        private static BoardUnit MapUnit(BoardUnit original, Dictionary<BoardUnit, BoardUnit> unitMap)
-        {
-            if (original == null)
-            {
-                return null;
-            }
-
-            return unitMap.TryGetValue(original, out BoardUnit mapped) ? mapped : null;
         }
     }
 }

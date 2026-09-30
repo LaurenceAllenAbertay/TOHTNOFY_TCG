@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using DDD.TNFY.TCG.Core;
-using UnityEngine;
 
 namespace DDD.TNFY.TCG.Effects
 {
     public static class EffectTargeting
     {
+        private static readonly System.Random rng = new System.Random();
+
         public static EffectTarget ResolveImmediateTarget(TargetType targetType, BoardUnit sourceUnit, PlayerSide sourceOwner, GameState state)
         {
             switch (targetType)
@@ -20,41 +21,26 @@ namespace DDD.TNFY.TCG.Effects
                     return EffectTarget.ForLeader(sourceOwner.Opposite());
 
                 case TargetType.OpposingEnemy:
-                    if (sourceUnit == null)
-                    {
-                        return EffectTarget.None;
-                    }
-
-                    BoardUnit opposingUnit = state.Board.GetOpponentUnit(sourceOwner, sourceUnit.SlotIndex);
-
-                    return opposingUnit != null ? EffectTarget.ForUnit(opposingUnit) : EffectTarget.None;
+                    BoardUnit opposing = sourceUnit != null ? state.Board.GetOpponentUnit(sourceOwner, sourceUnit.SlotIndex) : null;
+                    return opposing != null ? EffectTarget.ForUnit(opposing) : EffectTarget.None;
 
                 case TargetType.LowestHealthEnemy:
-                    BoardUnit lowestHealthEnemy = null;
+                    BoardUnit lowest = null;
 
                     foreach (BoardUnit candidate in state.Board.GetUnits(sourceOwner.Opposite()))
                     {
-                        if (lowestHealthEnemy == null || candidate.CurrentHealth < lowestHealthEnemy.CurrentHealth)
+                        if (lowest == null || candidate.CurrentHealth < lowest.CurrentHealth)
                         {
-                            lowestHealthEnemy = candidate;
+                            lowest = candidate;
                         }
                     }
 
-                    return lowestHealthEnemy != null ? EffectTarget.ForUnit(lowestHealthEnemy) : EffectTarget.None;
+                    return lowest != null ? EffectTarget.ForUnit(lowest) : EffectTarget.None;
 
                 case TargetType.RandomUnitEitherSide:
                     List<BoardUnit> allUnits = new List<BoardUnit>(state.Board.GetUnits(PlayerSide.PlayerA));
                     allUnits.AddRange(state.Board.GetUnits(PlayerSide.PlayerB));
-
-                    if (allUnits.Count == 0)
-                    {
-                        return EffectTarget.None;
-                    }
-
-                    System.Random rng = new System.Random();
-                    BoardUnit randomUnit = allUnits[rng.Next(allUnits.Count)];
-
-                    return EffectTarget.ForUnit(randomUnit);
+                    return allUnits.Count > 0 ? EffectTarget.ForUnit(allUnits[rng.Next(allUnits.Count)]) : EffectTarget.None;
 
                 default:
                     return EffectTarget.None;
@@ -65,44 +51,27 @@ namespace DDD.TNFY.TCG.Effects
         {
             List<BoardUnit> result = new List<BoardUnit>();
 
-            switch (targetType)
+            if (targetType == TargetType.AllAllyUnits || targetType == TargetType.AllUnits)
             {
-                case TargetType.AllEnemyUnits:
-                    result.AddRange(state.Board.GetUnits(sourceOwner.Opposite()));
-                    break;
+                result.AddRange(state.Board.GetUnits(sourceOwner));
+            }
 
-                case TargetType.AllAllyUnits:
-                    result.AddRange(state.Board.GetUnits(sourceOwner));
-                    break;
+            if (targetType == TargetType.AllEnemyUnits || targetType == TargetType.AllUnits)
+            {
+                result.AddRange(state.Board.GetUnits(sourceOwner.Opposite()));
+            }
 
-                case TargetType.AllUnits:
-                    result.AddRange(state.Board.GetUnits(sourceOwner));
-                    result.AddRange(state.Board.GetUnits(sourceOwner.Opposite()));
-                    break;
+            if (targetType == TargetType.AdjacentUnits && sourceUnit != null)
+            {
+                foreach (int slot in new[] { sourceUnit.SlotIndex - 1, sourceUnit.SlotIndex + 1 })
+                {
+                    BoardUnit neighbour = slot >= 0 && slot < Board.SlotsPerSide ? state.Board.GetUnit(sourceUnit.Owner, slot) : null;
 
-                case TargetType.AdjacentUnits:
-                    if (sourceUnit == null)
+                    if (neighbour != null)
                     {
-                        break;
+                        result.Add(neighbour);
                     }
-
-                    int slotIndex = sourceUnit.SlotIndex;
-                    PlayerSide side = sourceUnit.Owner;
-
-                    BoardUnit leftNeighbor = slotIndex - 1 >= 0 ? state.Board.GetUnit(side, slotIndex - 1) : null;
-                    BoardUnit rightNeighbor = slotIndex + 1 < Board.SlotsPerSide ? state.Board.GetUnit(side, slotIndex + 1) : null;
-
-                    if (leftNeighbor != null)
-                    {
-                        result.Add(leftNeighbor);
-                    }
-
-                    if (rightNeighbor != null)
-                    {
-                        result.Add(rightNeighbor);
-                    }
-
-                    break;
+                }
             }
 
             return result;
@@ -112,31 +81,17 @@ namespace DDD.TNFY.TCG.Effects
         {
             List<EffectTarget> result = new List<EffectTarget>();
 
-            switch (targetType)
+            if (targetType != TargetType.AdjacentSlots || sourceUnit == null)
             {
-                case TargetType.AdjacentSlots:
-                    if (sourceUnit == null)
-                    {
-                        break;
-                    }
+                return result;
+            }
 
-                    int slotIndex = sourceUnit.SlotIndex;
-                    PlayerSide side = sourceUnit.Owner;
-
-                    bool leftIsEmpty = slotIndex - 1 >= 0 && state.Board.GetUnit(side, slotIndex - 1) == null;
-                    bool rightIsEmpty = slotIndex + 1 < Board.SlotsPerSide && state.Board.GetUnit(side, slotIndex + 1) == null;
-
-                    if (leftIsEmpty)
-                    {
-                        result.Add(EffectTarget.ForSlot(side, slotIndex - 1));
-                    }
-
-                    if (rightIsEmpty)
-                    {
-                        result.Add(EffectTarget.ForSlot(side, slotIndex + 1));
-                    }
-
-                    break;
+            foreach (int slot in new[] { sourceUnit.SlotIndex - 1, sourceUnit.SlotIndex + 1 })
+            {
+                if (slot >= 0 && slot < Board.SlotsPerSide && state.Board.GetUnit(sourceUnit.Owner, slot) == null)
+                {
+                    result.Add(EffectTarget.ForSlot(sourceUnit.Owner, slot));
+                }
             }
 
             return result;
@@ -157,72 +112,31 @@ namespace DDD.TNFY.TCG.Effects
 
         public static bool RequiresClick(TargetType targetType)
         {
-            return targetType != TargetType.None
-                && targetType != TargetType.Board
-                && targetType != TargetType.Self
-                && targetType != TargetType.AllyLeader
-                && targetType != TargetType.EnemyLeader
-                && targetType != TargetType.OpposingEnemy
-                && targetType != TargetType.LowestHealthEnemy
-                && targetType != TargetType.RandomUnitEitherSide
-                && !IsGroupTarget(targetType)
-                && !IsGroupSlotTarget(targetType);
+            return targetType == TargetType.AnyUnit
+                || targetType == TargetType.AnyAllyUnit
+                || targetType == TargetType.AnyEnemyUnit
+                || targetType == TargetType.AnyUnitOrLeader
+                || targetType == TargetType.AnyEnemyUnitOrLeader
+                || targetType == TargetType.AnyAllyUnitOrLeader
+                || targetType == TargetType.EmptySlot
+                || targetType == TargetType.AnySlot;
         }
 
         public static bool IsValidTarget(TargetType targetType, EffectTarget target, GameState state)
         {
-            if (target.Kind == EffectTargetKind.Unit && !IsUnitOnBoard(target.Unit, state))
+            bool isUnit = target.Kind == EffectTargetKind.Unit;
+            bool isLeader = target.Kind == EffectTargetKind.Leader;
+
+            if (isUnit && (target.Unit == null || state.Board.GetUnit(target.Unit.Owner, target.Unit.SlotIndex) != target.Unit))
             {
-                Debug.LogWarning($"[EffectTargeting] IsValidTarget REJECTED: target unit {target.Unit?.SourceCard?.CardName} ({target.Unit?.Owner} slot {target.Unit?.SlotIndex}) is not on this GameState's board - it's a stale reference or belongs to a different GameState (e.g. an AI simulation copy).");
                 return false;
             }
+
+            bool isAlly = isUnit ? target.Unit.Owner == state.ActivePlayer : isLeader && target.LeaderSide == state.ActivePlayer;
 
             switch (targetType)
             {
                 case TargetType.None:
-                    return target.Kind == EffectTargetKind.None;
-
-                case TargetType.Board:
-                    return true;
-
-                case TargetType.AnyUnit:
-                    return target.Kind == EffectTargetKind.Unit;
-
-                case TargetType.AnyAllyUnit:
-                    return target.Kind == EffectTargetKind.Unit && target.Unit.Owner == state.ActivePlayer;
-
-                case TargetType.AnyEnemyUnit:
-                    return target.Kind == EffectTargetKind.Unit && target.Unit.Owner != state.ActivePlayer;
-
-                case TargetType.OpposingEnemy:
-                    return target.Kind == EffectTargetKind.Unit && target.Unit.Owner != state.ActivePlayer;
-
-                case TargetType.LowestHealthEnemy:
-                    return target.Kind == EffectTargetKind.Unit && target.Unit.Owner != state.ActivePlayer;
-
-                case TargetType.RandomUnitEitherSide:
-                    return target.Kind == EffectTargetKind.Unit;
-
-                case TargetType.AllyLeader:
-                    return target.Kind == EffectTargetKind.Leader && target.LeaderSide == state.ActivePlayer;
-
-                case TargetType.EnemyLeader:
-                    return target.Kind == EffectTargetKind.Leader && target.LeaderSide != state.ActivePlayer;
-
-                case TargetType.AnyUnitOrLeader:
-                    return target.Kind == EffectTargetKind.Unit || target.Kind == EffectTargetKind.Leader;
-
-                case TargetType.AnyAllyUnitOrLeader:
-                    if (target.Kind == EffectTargetKind.Unit)
-                    {
-                        return target.Unit.Owner == state.ActivePlayer;
-                    }
-                    if (target.Kind == EffectTargetKind.Leader)
-                    {
-                        return target.LeaderSide == state.ActivePlayer;
-                    }
-                    return false;
-
                 case TargetType.AllEnemyUnits:
                 case TargetType.AllAllyUnits:
                 case TargetType.AllUnits:
@@ -230,16 +144,35 @@ namespace DDD.TNFY.TCG.Effects
                 case TargetType.AdjacentSlots:
                     return target.Kind == EffectTargetKind.None;
 
+                case TargetType.Board:
+                    return true;
+
+                case TargetType.AnyUnit:
+                case TargetType.RandomUnitEitherSide:
+                    return isUnit;
+
+                case TargetType.AnyAllyUnit:
+                    return isUnit && isAlly;
+
+                case TargetType.AnyEnemyUnit:
+                case TargetType.OpposingEnemy:
+                case TargetType.LowestHealthEnemy:
+                    return isUnit && !isAlly;
+
+                case TargetType.AllyLeader:
+                    return isLeader && isAlly;
+
+                case TargetType.EnemyLeader:
+                    return isLeader && !isAlly;
+
+                case TargetType.AnyUnitOrLeader:
+                    return isUnit || isLeader;
+
+                case TargetType.AnyAllyUnitOrLeader:
+                    return (isUnit || isLeader) && isAlly;
+
                 case TargetType.AnyEnemyUnitOrLeader:
-                    if (target.Kind == EffectTargetKind.Unit)
-                    {
-                        return target.Unit.Owner != state.ActivePlayer;
-                    }
-                    if (target.Kind == EffectTargetKind.Leader)
-                    {
-                        return target.LeaderSide != state.ActivePlayer;
-                    }
-                    return false;
+                    return (isUnit || isLeader) && !isAlly;
 
                 case TargetType.EmptySlot:
                     return target.Kind == EffectTargetKind.Slot && state.Board.GetUnit(target.SlotSide, target.SlotIndex) == null;
@@ -250,11 +183,6 @@ namespace DDD.TNFY.TCG.Effects
                 default:
                     return false;
             }
-        }
-
-        private static bool IsUnitOnBoard(BoardUnit unit, GameState state)
-        {
-            return unit != null && state.Board.GetUnit(unit.Owner, unit.SlotIndex) == unit;
         }
     }
 }

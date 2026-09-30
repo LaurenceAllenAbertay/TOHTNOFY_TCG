@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using DDD.TNFY.TCG.Cards;
 using DDD.TNFY.TCG.Effects;
@@ -8,19 +9,22 @@ namespace DDD.TNFY.TCG.Core
 {
     public class PhaseManager
     {
+        private const float PlayAnimationTimeout = 6f;
+        private const float AttackHitLandedTimeout = 6f;
+        private const float AttackAnimationFinishedTimeout = 3f;
+
+        private static readonly PlayerSide[] Sides = { PlayerSide.PlayerA, PlayerSide.PlayerB };
+        private static readonly System.Random rng = new System.Random();
+
         private readonly GameState state;
         private readonly MonoBehaviour coroutineRunner;
-        private readonly MovementResolver movement;
-        private readonly UnitLifecycleService lifecycle;
 
         private List<CardData> draftPool;
         private DraftSettings draftSettings;
+        private int maxCopiesPerCard;
         private readonly Dictionary<PlayerSide, int> draftPickIndexInStage = new Dictionary<PlayerSide, int>();
 
         private int unresolvedActionCount;
-
-        public bool HasUnresolvedActions => unresolvedActionCount > 0;
-        public bool IsEndTurnQueued { get; private set; }
 
         private BoardUnit lastPlayedUnit;
         private UnitCardData lastPlayedCard;
@@ -28,47 +32,40 @@ namespace DDD.TNFY.TCG.Core
         private int lastPlayedManaSpent;
         private int lastPlayedHealthPaid;
 
+        public bool HasUnresolvedActions => unresolvedActionCount > 0;
+        public bool IsEndTurnQueued { get; private set; }
+
         public PhaseManager(GameState state, MonoBehaviour coroutineRunner)
         {
             this.state = state;
             this.coroutineRunner = coroutineRunner;
-            this.movement = new MovementResolver(state);
-            this.lifecycle = new UnitLifecycleService(state);
-
-            this.state.UnitMoved += TriggerOnMove;
+            state.UnitMoved += TriggerOnMove;
         }
 
-        public void StartDraft(List<CardData> pool, DraftSettings settings)
+        public void StartDraft(List<CardData> pool, DraftSettings settings, int maxCopies)
         {
             draftPool = new List<CardData>(pool);
             draftSettings = settings;
+            maxCopiesPerCard = maxCopies;
 
             state.CurrentPhase = TurnPhase.Draft;
 
-            Debug.Log("[PhaseManager] Draft started. Both players are drafting simultaneously.");
-
-            StartDraftForSide(PlayerSide.PlayerA);
-            StartDraftForSide(PlayerSide.PlayerB);
-        }
-
-        private void StartDraftForSide(PlayerSide side)
-        {
-            Player player = state.GetPlayer(side);
-            player.CurrentDraftStage = DraftStage.Common;
-            draftPickIndexInStage[side] = 0;
-
-            OfferNextDraftPick(side);
+            foreach (PlayerSide side in Sides)
+            {
+                state.GetPlayer(side).CurrentDraftStage = DraftStage.Common;
+                draftPickIndexInStage[side] = 0;
+                OfferNextDraftPick(side);
+            }
         }
 
         private void OfferNextDraftPick(PlayerSide side)
         {
             Player player = state.GetPlayer(side);
             DraftStage stage = player.CurrentDraftStage.Value;
-            List<CardData> eligible = GetEligibleDraftCards(stage, side);
+            List<CardData> eligible = draftPool.FindAll(card => MatchesDraftStage(card.Rarity, stage) && player.Deck.FindAll(c => c == card).Count < maxCopiesPerCard);
 
             if (eligible.Count == 0)
             {
-                Debug.LogWarning($"[PhaseManager] No eligible {stage} cards left for {side} — skipping this pick.");
                 player.PendingDraftOptions = null;
                 draftPickIndexInStage[side]++;
                 AdvanceDraft(side);
@@ -76,159 +73,58 @@ namespace DDD.TNFY.TCG.Core
             }
 
             ListShuffler.Shuffle(eligible);
-            int optionCount = Mathf.Min(draftSettings.optionsPerChoice, eligible.Count);
-            player.PendingDraftOptions = eligible.GetRange(0, optionCount);
-
-            Debug.Log($"[PhaseManager] Offering {side} {optionCount} {stage} option(s): {string.Join(", ", player.PendingDraftOptions.ConvertAll(c => c.CardName))}");
-
+            player.PendingDraftOptions = eligible.GetRange(0, Mathf.Min(draftSettings.optionsPerChoice, eligible.Count));
             state.RaiseDraftOptionsChanged();
         }
 
-        private List<CardData> GetEligibleDraftCards(DraftStage stage, PlayerSide side)
+        public static bool MatchesDraftStage(CardRarity rarity, DraftStage stage) => stage switch
         {
-            Player drafter = state.GetPlayer(side);
-            List<CardData> eligible = new List<CardData>();
-
-            foreach (CardData card in draftPool)
-            {
-                if (!MatchesDraftStage(card.Rarity, stage))
-                {
-                    continue;
-                }
-
-                int copiesInDeck = CountCopiesInDeck(drafter.Deck, card);
-
-                if (copiesInDeck >= draftSettings.maxCopiesPerCard)
-                {
-                    continue;
-                }
-
-                eligible.Add(card);
-            }
-
-            return eligible;
-        }
-
-        private static int CountCopiesInDeck(List<CardData> deck, CardData card)
-        {
-            int count = 0;
-
-            foreach (CardData deckCard in deck)
-            {
-                if (deckCard == card)
-                {
-                    count++;
-                }
-            }
-
-            return count;
-        }
-
-        public static bool MatchesDraftStage(CardRarity rarity, DraftStage stage)
-        {
-            switch (stage)
-            {
-                case DraftStage.Common:
-                    return rarity == CardRarity.Common;
-                case DraftStage.Uncommon:
-                    return rarity == CardRarity.Uncommon;
-                case DraftStage.Rare:
-                    return rarity == CardRarity.Rare;
-                case DraftStage.EpicOrLegendary:
-                    return rarity == CardRarity.Epic || rarity == CardRarity.Legendary;
-                default:
-                    return false;
-            }
-        }
+            DraftStage.Common => rarity == CardRarity.Common,
+            DraftStage.Uncommon => rarity == CardRarity.Uncommon,
+            DraftStage.Rare => rarity == CardRarity.Rare,
+            _ => rarity == CardRarity.Epic || rarity == CardRarity.Legendary
+        };
 
         public bool TryResolvePendingDraftChoice(PlayerSide side, CardData chosenCard)
         {
             Player drafter = state.GetPlayer(side);
 
-            if (drafter.PendingDraftOptions == null || drafter.CurrentDraftStage == null)
+            if (drafter.PendingDraftOptions == null || drafter.CurrentDraftStage == null || !drafter.PendingDraftOptions.Contains(chosenCard))
             {
-                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: no pending draft choice for {side}.");
                 return false;
             }
 
-            if (!drafter.PendingDraftOptions.Contains(chosenCard))
+            int copies = drafter.CurrentDraftStage.Value switch
             {
-                Debug.Log($"[PhaseManager] TryResolvePendingDraftChoice FAIL: {chosenCard?.CardName} was not one of {side}'s offered options.");
-                return false;
-            }
-
-            DraftStage stage = drafter.CurrentDraftStage.Value;
-            int copies = GetCopiesForStage(stage);
+                DraftStage.Common => draftSettings.copiesPerCommonPick,
+                DraftStage.Uncommon => draftSettings.copiesPerUncommonPick,
+                DraftStage.Rare => draftSettings.copiesPerRarePick,
+                _ => draftSettings.copiesPerEpicOrLegendaryPick
+            };
 
             for (int i = 0; i < copies; i++)
             {
                 drafter.Deck.Add(chosenCard);
             }
 
-            Debug.Log($"[PhaseManager] {side} drafted {chosenCard.CardName} x{copies} ({stage}).");
-
             drafter.PendingDraftOptions = null;
             draftPickIndexInStage[side]++;
-
             AdvanceDraft(side);
-
             return true;
-        }
-
-        private int GetPickCountForStage(DraftStage stage)
-        {
-            switch (stage)
-            {
-                case DraftStage.Common:
-                    return draftSettings.commonPicks;
-                case DraftStage.Uncommon:
-                    return draftSettings.uncommonPicks;
-                case DraftStage.Rare:
-                    return draftSettings.rarePicks;
-                case DraftStage.EpicOrLegendary:
-                    return draftSettings.epicOrLegendaryPicks;
-                default:
-                    return 0;
-            }
-        }
-
-        private int GetCopiesForStage(DraftStage stage)
-        {
-            switch (stage)
-            {
-                case DraftStage.Common:
-                    return draftSettings.copiesPerCommonPick;
-                case DraftStage.Uncommon:
-                    return draftSettings.copiesPerUncommonPick;
-                case DraftStage.Rare:
-                    return draftSettings.copiesPerRarePick;
-                case DraftStage.EpicOrLegendary:
-                    return draftSettings.copiesPerEpicOrLegendaryPick;
-                default:
-                    return 1;
-            }
-        }
-
-        private static DraftStage? GetNextDraftStage(DraftStage stage)
-        {
-            switch (stage)
-            {
-                case DraftStage.Common:
-                    return DraftStage.Uncommon;
-                case DraftStage.Uncommon:
-                    return DraftStage.Rare;
-                case DraftStage.Rare:
-                    return DraftStage.EpicOrLegendary;
-                default:
-                    return null;
-            }
         }
 
         private void AdvanceDraft(PlayerSide side)
         {
             Player player = state.GetPlayer(side);
             DraftStage stage = player.CurrentDraftStage.Value;
-            int picksForStage = GetPickCountForStage(stage);
+
+            int picksForStage = stage switch
+            {
+                DraftStage.Common => draftSettings.commonPicks,
+                DraftStage.Uncommon => draftSettings.uncommonPicks,
+                DraftStage.Rare => draftSettings.rarePicks,
+                _ => draftSettings.epicOrLegendaryPicks
+            };
 
             if (draftPickIndexInStage[side] < picksForStage)
             {
@@ -237,71 +133,55 @@ namespace DDD.TNFY.TCG.Core
             }
 
             draftPickIndexInStage[side] = 0;
-            DraftStage? nextStage = GetNextDraftStage(stage);
 
-            if (nextStage != null)
+            if (stage != DraftStage.EpicOrLegendary)
             {
-                player.CurrentDraftStage = nextStage;
+                player.CurrentDraftStage = stage + 1;
                 OfferNextDraftPick(side);
                 return;
             }
 
             player.CurrentDraftStage = null;
-            Debug.Log($"[PhaseManager] {side}'s draft is complete.");
 
             if (state.PlayerA.CurrentDraftStage != null || state.PlayerB.CurrentDraftStage != null)
             {
-                Debug.Log("[PhaseManager] Waiting on the other player to finish drafting.");
                 return;
             }
 
-            Debug.Log("[PhaseManager] Draft complete for both players.");
-
             ListShuffler.Shuffle(state.PlayerA.Deck);
             ListShuffler.Shuffle(state.PlayerB.Deck);
-
             state.ActivePlayer = state.FirstPlayer;
-
             StartMatch();
         }
 
         public void StartMatch()
         {
-            ApplyLeaderHealth(state.PlayerA);
-            ApplyLeaderHealth(state.PlayerB);
+            foreach (PlayerSide side in Sides)
+            {
+                Player player = state.GetPlayer(side);
 
-            state.PlayerA.CurrentMana = 0;
-            state.PlayerA.MaxManaThisGame = 0;
-            state.PlayerB.CurrentMana = 0;
-            state.PlayerB.MaxManaThisGame = 0;
+                if (player.Leader != null)
+                {
+                    player.MaxLeaderHealth = player.Leader.MaxHealth;
+                    player.LeaderHealth = player.Leader.MaxHealth;
+                }
+
+                player.CurrentMana = 0;
+                player.MaxManaThisGame = 0;
+            }
 
             state.ActivePlayer = state.FirstPlayer;
             state.TurnNumber = 1;
 
-            TriggerLeaderEffects(EffectTriggerType.OnGameStart, state.FirstPlayer, null);
-
+            TriggerLeaderEffects(EffectTriggerType.OnGameStart, null);
             EnterMulliganPhase();
-        }
-
-        private void ApplyLeaderHealth(Player player)
-        {
-            if (player.Leader == null)
-            {
-                return;
-            }
-
-            player.MaxLeaderHealth = player.Leader.MaxHealth;
-            player.LeaderHealth = player.Leader.MaxHealth;
         }
 
         public void EnterMulliganPhase()
         {
             state.CurrentPhase = TurnPhase.Mulligan;
-
             state.PlayerA.HasCompletedMulligan = false;
             state.PlayerB.HasCompletedMulligan = false;
-
-            Debug.Log("[PhaseManager] Mulligan started. Both players are mulliganing simultaneously.");
 
             DrawInitialHand(PlayerSide.PlayerA);
             DrawInitialHand(PlayerSide.PlayerB);
@@ -309,83 +189,47 @@ namespace DDD.TNFY.TCG.Core
 
         public void DrawInitialHand(PlayerSide side)
         {
-            Player player = state.GetPlayer(side);
-            const int drawCount = 4;
-
-            for (int i = 0; i < drawCount; i++)
+            for (int i = 0; i < 4; i++)
             {
-                CardData drawn = player.DrawCard(out bool addedToHand);
-
-                if (drawn == null)
-                {
-                    continue;
-                }
-
-                if (addedToHand)
-                {
-                    TriggerOnDraw(side, drawn);
-                }
-                else
-                {
-                    BurnUndrawableCard(drawn, side);
-                }
+                DrawOne(state.GetPlayer(side));
             }
         }
 
-        private void BurnUndrawableCard(CardData card, PlayerSide side)
+        private void DrawOne(Player player)
         {
-            Debug.Log($"[PhaseManager] {card.CardName} left the deck but {side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max - the card is burned.");
-            state.RaiseCardBurnAnimationRequested(card, side);
+            CardData drawn = player.DrawCard(out bool addedToHand);
+
+            if (drawn == null)
+            {
+                return;
+            }
+
+            if (addedToHand)
+            {
+                TriggerOnDraw(player, drawn);
+            }
+            else
+            {
+                state.RaiseCardBurnAnimationRequested(drawn, player.Side);
+            }
         }
 
         public void ResolveMulligan(PlayerSide side, List<CardData> cardsToMulligan)
         {
             Player player = state.GetPlayer(side);
+            List<CardData> returned = cardsToMulligan.FindAll(card => !player.GameStartBonusCards.Contains(card));
 
-            List<CardData> validCardsToMulligan = new List<CardData>();
-
-            foreach (CardData card in cardsToMulligan)
-            {
-                if (player.GameStartBonusCards.Contains(card))
-                {
-                    Debug.LogWarning($"[PhaseManager] {card.CardName} is a GameStartBonusCard for {side} - ignoring attempt to mulligan it.");
-                    continue;
-                }
-
-                validCardsToMulligan.Add(card);
-            }
-
-            foreach (CardData card in validCardsToMulligan)
+            foreach (CardData card in returned)
             {
                 player.Hand.Remove(card);
             }
 
-            for (int i = 0; i < validCardsToMulligan.Count; i++)
+            for (int i = 0; i < returned.Count && player.Deck.Count > 0; i++)
             {
-                if (player.Deck.Count == 0) break;
-
-                CardData drawn = player.DrawCard(out bool addedToHand);
-
-                if (drawn == null)
-                {
-                    continue;
-                }
-
-                if (addedToHand)
-                {
-                    TriggerOnDraw(side, drawn);
-                }
-                else
-                {
-                    BurnUndrawableCard(drawn, side);
-                }
+                DrawOne(player);
             }
 
-            foreach (CardData card in validCardsToMulligan)
-            {
-                player.Deck.Add(card);
-            }
-
+            player.Deck.AddRange(returned);
             ListShuffler.Shuffle(player.Deck);
         }
 
@@ -395,36 +239,33 @@ namespace DDD.TNFY.TCG.Core
 
             if (player.HasCompletedMulligan)
             {
-                Debug.Log($"[PhaseManager] ResolveMulliganAndAdvance IGNORED: {side} has already completed their mulligan.");
                 return;
             }
 
             ResolveMulligan(side, cardsToMulligan);
             player.HasCompletedMulligan = true;
 
-            Debug.Log($"[PhaseManager] {side}'s mulligan is complete.");
-
-            if (!state.PlayerA.HasCompletedMulligan || !state.PlayerB.HasCompletedMulligan)
+            if (state.PlayerA.HasCompletedMulligan && state.PlayerB.HasCompletedMulligan)
             {
-                Debug.Log("[PhaseManager] Waiting on the other player to finish their mulligan.");
-                return;
+                EnterDrawPhase();
             }
-
-            Debug.Log("[PhaseManager] Mulligan complete for both players.");
-
-            EnterDrawPhase();
         }
 
         public void EnterDrawPhase()
         {
             state.CurrentPhase = TurnPhase.Draw;
-
             Player active = state.GetActivePlayerData();
 
-            ApplyAndConsumeManaReduction(active);
+            ActiveStatusEffect manaReduction = active.Statuses.FindLast(status => status.Type == StatusEffectType.OpponentManaReduction);
 
-            active.MaxManaThisGame = System.Math.Min(active.MaxManaThisGame + 1, Player.MaxMana);
-            active.CurrentMana = System.Math.Max(0, active.MaxManaThisGame - active.PendingManaReduction);
+            if (manaReduction != null)
+            {
+                active.PendingManaReduction = manaReduction.Magnitude;
+                active.Statuses.Remove(manaReduction);
+            }
+
+            active.MaxManaThisGame = Mathf.Min(active.MaxManaThisGame + 1, Player.MaxMana);
+            active.CurrentMana = Mathf.Max(0, active.MaxManaThisGame - active.PendingManaReduction);
             active.PendingManaReduction = 0;
 
             if (active.MaxManaThisGame >= Player.MaxMana && !active.HasReachedMaxMana)
@@ -436,49 +277,29 @@ namespace DDD.TNFY.TCG.Core
             active.OwnTurnCount++;
             TryTriggerPeriodicItemDraw(active);
 
-            int drawCount = state.TurnNumber == 1 && state.ActivePlayer == state.FirstPlayer ? 0 : 1;
+            bool firstPlayerFirstTurn = state.TurnNumber == 1 && state.ActivePlayer == state.FirstPlayer;
 
-            for (int i = 0; i < drawCount; i++)
+            if (!firstPlayerFirstTurn && active.Deck.Count > 0)
             {
-                CardData drawn = active.DrawCard(out bool addedToHand);
+                DrawOne(active);
+            }
+            else if (!firstPlayerFirstTurn)
+            {
+                active.FatigueDamageTaken++;
+                active.LeaderHealth -= active.FatigueDamageTaken;
+                CheckWinCondition();
 
-                if (drawn != null)
+                if (state.IsGameOver)
                 {
-                    if (addedToHand)
-                    {
-                        TriggerOnDraw(state.ActivePlayer, drawn);
-                    }
-                    else
-                    {
-                        BurnUndrawableCard(drawn, state.ActivePlayer);
-                    }
-                }
-                else if (active.Deck.Count == 0)
-                {
-                    active.FatigueDamageTaken++;
-                    active.LeaderHealth -= active.FatigueDamageTaken;
-
-                    Debug.Log($"[PhaseManager] {state.ActivePlayer}'s deck is empty — fatigue dealt {active.FatigueDamageTaken} damage directly to their leader (bypassing shields/reductions). LeaderHealth is now {active.LeaderHealth}.");
-
-                    CheckWinCondition();
-
-                    if (state.IsGameOver)
-                    {
-                        Debug.Log($"[PhaseManager] {state.ActivePlayer} was defeated by fatigue.");
-                        return;
-                    }
+                    return;
                 }
             }
 
             TickDelayedKills(active);
             TickDecay(active);
-            TriggerOnTurnStart(active);
-        }
 
-        private void TriggerOnTurnStart(Player owner)
-        {
             state.IsResolvingTurnStartEffects = true;
-            ContinueTurnStartScan(owner, state.TurnStartScanSlot);
+            ContinueTurnStartScan(active, state.TurnStartScanSlot);
         }
 
         private void ContinueTurnStartScan(Player owner, int fromSlot)
@@ -487,15 +308,17 @@ namespace DDD.TNFY.TCG.Core
             {
                 if (state.IsGameOver)
                 {
-                    Debug.Log($"[PhaseManager] Game ended while resolving {owner.Side}'s turn-start effects - stopping the scan at slot {slot}.");
                     state.IsResolvingTurnStartEffects = false;
                     state.TurnStartScanSlot = 0;
                     return;
                 }
 
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
-                if (unit == null) continue;
-                if (unit.IsSilenced) continue;
+
+                if (unit == null || unit.IsSilenced)
+                {
+                    continue;
+                }
 
                 foreach (CardEffect effect in unit.SourceCard.Effects)
                 {
@@ -507,62 +330,29 @@ namespace DDD.TNFY.TCG.Core
                     if (effect.action == EffectActionType.HealSelfByDamageDealt)
                     {
                         ResolveTurnStartDrain(unit, effect);
-                        continue;
                     }
-
-                    if (EffectTargeting.IsGroupTarget(effect.targetType))
-                    {
-                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                    {
-                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    if (EffectTargeting.RequiresClick(effect.targetType))
+                    else if (EffectTargeting.RequiresClick(effect.targetType))
                     {
                         state.TurnStartScanSlot = slot + 1;
                         DeferTargetedEffect(effect, unit, EffectTriggerType.OnTurnStart, excludeSource: false);
 
                         if (state.PendingTargetedEffect != null)
                         {
-                            Debug.Log($"[PhaseManager] {owner.Side}'s turn-start scan paused on {unit.SourceCard.CardName} (slot {slot}) for a target choice - entering the Action phase so the turn timer and AI run during the selection. Other actions stay blocked until the target is chosen.");
                             EnterActionPhase();
                             return;
                         }
-
-                        continue;
                     }
-
-                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnTurnStart effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}, LeaderSide={immediateTarget.LeaderSide}.");
-                    EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                    EffectExecutor.Execute(effect, context, this);
+                    else
+                    {
+                        ResolveEffect(effect, unit, unit.Owner);
+                    }
                 }
             }
 
             state.IsResolvingTurnStartEffects = false;
             state.TurnStartScanSlot = 0;
 
-            if (state.IsGameOver)
-            {
-                return;
-            }
-
-            if (state.CurrentPhase != TurnPhase.Action)
+            if (!state.IsGameOver && state.CurrentPhase != TurnPhase.Action)
             {
                 EnterActionPhase();
             }
@@ -570,36 +360,16 @@ namespace DDD.TNFY.TCG.Core
 
         private void ResolveTurnStartDrain(BoardUnit source, CardEffect healEffect)
         {
-            BoardUnit target = FindFirstEnemyUnit(source.Owner);
+            BoardUnit target = state.Board.GetUnits(source.Owner.Opposite()).FirstOrDefault();
 
             if (target == null)
             {
                 return;
             }
 
-            int damageDealt = System.Math.Min(healEffect.amount, target.CurrentHealth);
-            DamageUnit(target, healEffect.amount, source.Owner, DamageSourceType.Effect);
-
-            EffectTarget selfTarget = EffectTarget.ForUnit(source);
-            EffectContext context = new EffectContext(state, source.Owner, source, selfTarget);
-            EffectExecutor.Execute(healEffect, context, this, damageDealt);
-        }
-
-        private BoardUnit FindFirstEnemyUnit(PlayerSide side)
-        {
-            PlayerSide enemySide = side.Opposite();
-
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = state.Board.GetUnit(enemySide, i);
-
-                if (unit != null)
-                {
-                    return unit;
-                }
-            }
-
-            return null;
+            int damageDealt = Mathf.Min(healEffect.amount, target.CurrentHealth);
+            DamageUnit(target, healEffect.amount, source.Owner);
+            Execute(healEffect, source.Owner, source, EffectTarget.ForUnit(source), damageDealt);
         }
 
         public void EnterActionPhase()
@@ -609,12 +379,7 @@ namespace DDD.TNFY.TCG.Core
 
         private void TryTriggerPeriodicItemDraw(Player player)
         {
-            if (player.Leader == null || player.Leader.ItemDrawIntervalTurns <= 0)
-            {
-                return;
-            }
-
-            if (player.OwnTurnCount % player.Leader.ItemDrawIntervalTurns != 0)
+            if (player.Leader == null || player.Leader.ItemDrawIntervalTurns <= 0 || player.OwnTurnCount % player.Leader.ItemDrawIntervalTurns != 0)
             {
                 return;
             }
@@ -623,27 +388,17 @@ namespace DDD.TNFY.TCG.Core
 
             if (drawn != null && !addedToHand)
             {
-                BurnUndrawableCard(drawn, player.Side);
+                state.RaiseCardBurnAnimationRequested(drawn, player.Side);
             }
         }
 
-        private System.Action BeginUnresolvedAction(string description, System.Action onFullyResolved)
+        private System.Action BeginUnresolvedAction(System.Action onFullyResolved)
         {
             unresolvedActionCount++;
 
-            bool completed = false;
-
             return () =>
             {
-                if (completed)
-                {
-                    Debug.LogWarning($"[PhaseManager] Unresolved action '{description}' reported completion twice - ignoring the duplicate.");
-                    return;
-                }
-
-                completed = true;
-                unresolvedActionCount = Mathf.Max(0, unresolvedActionCount - 1);
-
+                unresolvedActionCount--;
                 onFullyResolved?.Invoke();
                 TryRunQueuedEndTurn();
             };
@@ -658,44 +413,61 @@ namespace DDD.TNFY.TCG.Core
 
             if (state.IsGameOver || state.CurrentPhase != TurnPhase.Action)
             {
-                Debug.Log($"[PhaseManager] Dropping queued end turn: IsGameOver={state.IsGameOver}, phase={state.CurrentPhase}.");
                 IsEndTurnQueued = false;
                 return;
             }
 
-            Debug.Log($"[PhaseManager] Everything {state.ActivePlayer} played has resolved - running the queued end turn.");
             EndActionPhase();
         }
 
-        public bool TryPlayUnit(UnitCardData card, int slotIndex)
+        private static WaitUntil WaitOrTimeout(System.Func<bool> isDone, float timeoutSeconds, string description)
         {
-            if (!IsUnitPlayLegal(card, slotIndex)) return false;
+            return new WaitUntil(isDone, System.TimeSpan.FromSeconds(timeoutSeconds), () => Debug.LogWarning($"[PhaseManager] Timed out waiting for {description} - continuing anyway."), WaitTimeoutMode.InGameTime);
+        }
 
-            CancelPendingTargetedEffectIfNonMandatory();
+        private static IEnumerator RunThen(IEnumerator routine, System.Action onDone)
+        {
+            yield return routine;
+            onDone();
+        }
 
-            Player active = state.GetActivePlayerData();
-            int effectiveCost = AuraCalculator.GetUnitCost(card, active);
-            int manaShort = effectiveCost - active.CurrentMana;
-            int manaBeforePayment = active.CurrentMana;
+        private int PayCost(Player active, int cost)
+        {
+            int manaShort = cost - active.CurrentMana;
             int healthPaid = 0;
 
             if (manaShort > 0 && AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out int healthCost))
             {
-                Debug.Log($"[PhaseManager] {active.Side} converting {healthCost} health into {manaShort} mana to afford {card.CardName}.");
-                bool healthDamaged = DamageLeader(active.Side, healthCost);
-                healthPaid = healthDamaged ? healthCost : 0;
+                healthPaid = DamageLeader(active.Side, healthCost) ? healthCost : 0;
                 active.CurrentMana += manaShort;
             }
 
-            active.CurrentMana -= effectiveCost;
+            active.CurrentMana -= cost;
+            return healthPaid;
+        }
 
+        private static bool CanPayCost(Player player, int cost)
+        {
+            int manaShort = cost - player.CurrentMana;
+            return manaShort <= 0 || AuraCalculator.TryGetHealthCostForManaShortfall(player, manaShort, out _);
+        }
+
+        public bool TryPlayUnit(UnitCardData card, int slotIndex)
+        {
+            if (!IsUnitPlayLegal(card, slotIndex))
+            {
+                return false;
+            }
+
+            CancelPendingTargetedEffectIfNonMandatory();
+
+            Player active = state.GetActivePlayerData();
+            int manaBeforePayment = active.CurrentMana;
+            int healthPaid = PayCost(active, card.ManaCost);
             active.Hand.Remove(card);
 
             BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
-
-            BoardUnit unit = occupyingUnit != null
-                ? AbsorbUnit(occupyingUnit, card, slotIndex)
-                : PlaceNewUnit(card, slotIndex);
+            BoardUnit unit = occupyingUnit != null ? AbsorbUnit(occupyingUnit, card, slotIndex) : AddUnit(card, state.ActivePlayer, slotIndex);
 
             lastPlayedUnit = unit;
             lastPlayedCard = card;
@@ -704,29 +476,70 @@ namespace DDD.TNFY.TCG.Core
             lastPlayedHealthPaid = healthPaid;
 
             TriggerOnPlay(unit);
-
             return true;
         }
 
-        private const float PlayAnimationTimeout = 6f;
+        public bool CanPlayUnit(UnitCardData card, int slotIndex)
+        {
+            return !IsEndTurnQueued && IsUnitPlayLegal(card, slotIndex);
+        }
+
+        private bool IsUnitPlayLegal(UnitCardData card, int slotIndex)
+        {
+            if (HasBlockingPendingTargetedEffect() || state.CurrentPhase != TurnPhase.Action)
+            {
+                return false;
+            }
+
+            Player active = state.GetActivePlayerData();
+
+            if (!CanPayCost(active, card.ManaCost) || !active.Hand.Contains(card))
+            {
+                return false;
+            }
+
+            BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
+            return occupyingUnit != null ? card.HasKeyword(Keyword.Absorb) : IsSlotLegalForPlacement(slotIndex);
+        }
+
+        public bool IsSlotLegalForPlacement(int slotIndex)
+        {
+            bool anyOpenTauntSlot = false;
+
+            for (int i = 0; i < Board.SlotsPerSide; i++)
+            {
+                BoardUnit opposingUnit = state.Board.GetUnit(state.ActivePlayer.Opposite(), i);
+
+                if (opposingUnit != null && opposingUnit.HasKeyword(Keyword.Taunt, state) && state.Board.GetUnit(state.ActivePlayer, i) == null)
+                {
+                    if (i == slotIndex)
+                    {
+                        return true;
+                    }
+
+                    anyOpenTauntSlot = true;
+                }
+            }
+
+            return !anyOpenTauntSlot;
+        }
 
         public bool TryPlayUnitAnimated(UnitCardData card, int slotIndex, System.Action onFullyResolved = null)
         {
-            if (!CanPlayUnit(card, slotIndex)) return false;
+            if (!CanPlayUnit(card, slotIndex))
+            {
+                return false;
+            }
 
             PlayerSide side = state.ActivePlayer;
             int handIndex = state.GetPlayer(side).Hand.IndexOf(card);
 
-            if (coroutineRunner == null)
+            if (coroutineRunner != null)
             {
-                bool resolvedImmediately = TryPlayUnit(card, slotIndex);
-                onFullyResolved?.Invoke();
-                return resolvedImmediately;
+                state.RaiseUnitPlayAnimationRequested(card, side, handIndex, slotIndex);
             }
 
-            System.Action trackedCallback = BeginUnresolvedAction($"play {card.CardName} ({side}) -> slot {slotIndex}", onFullyResolved);
-            state.RaiseUnitPlayAnimationRequested(card, side, handIndex, slotIndex);
-            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, trackedCallback));
+            ResolveUnitPlayAfterAnimation(card, side, handIndex, slotIndex, onFullyResolved);
             return true;
         }
 
@@ -739,20 +552,10 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            System.Action trackedCallback = BeginUnresolvedAction($"play {card.CardName} ({side}) -> slot {slotIndex}", onFullyResolved);
-            coroutineRunner.StartCoroutine(WaitForUnitPlayAnimationThenResolve(card, side, handIndex, slotIndex, trackedCallback));
+            coroutineRunner.StartCoroutine(RunThen(PlayUnitAfterAnimation(card, side, handIndex, slotIndex), BeginUnresolvedAction(onFullyResolved)));
         }
 
-        private IEnumerator WaitForUnitPlayAnimationThenResolve(UnitCardData card, PlayerSide side, int handIndex, int slotIndex, System.Action onFullyResolved)
-        {
-            yield return WaitForUnitPlayAnimationFinished(side, handIndex, slotIndex);
-
-            bool resolved = TryPlayUnit(card, slotIndex);
-            Debug.Log($"[PhaseManager] TryPlayUnit resolved={resolved} for {card.CardName} -> slot {slotIndex} (post-animation). ActivePlayer={state.ActivePlayer}, phase={state.CurrentPhase}, playingSide={side}.");
-            onFullyResolved?.Invoke();
-        }
-
-        private IEnumerator WaitForUnitPlayAnimationFinished(PlayerSide side, int handIndex, int slotIndex)
+        private IEnumerator PlayUnitAfterAnimation(UnitCardData card, PlayerSide side, int handIndex, int slotIndex)
         {
             bool finished = false;
 
@@ -765,270 +568,327 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.UnitPlayAnimationFinished += OnFinished;
-
-            float elapsed = 0f;
-
-            while (!finished && elapsed < PlayAnimationTimeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
+            yield return WaitOrTimeout(() => finished, PlayAnimationTimeout, $"{card.CardName}'s play animation");
             state.UnitPlayAnimationFinished -= OnFinished;
 
-            if (!finished)
+            TryPlayUnit(card, slotIndex);
+        }
+
+        public EffectTarget ResolveItemEffectTarget(CardEffect effect, EffectTarget target)
+        {
+            if (effect == null)
             {
-                Debug.LogWarning($"[PhaseManager] WaitForUnitPlayAnimationFinished: timed out after {elapsed:F2}s for {side} handIndex={handIndex} -> slot {slotIndex} - proceeding anyway.");
+                return target;
             }
+
+            bool picksItsOwnTarget = effect.targetType == TargetType.AllyLeader
+                || effect.targetType == TargetType.EnemyLeader
+                || effect.targetType == TargetType.LowestHealthEnemy
+                || effect.targetType == TargetType.RandomUnitEitherSide;
+
+            if (!picksItsOwnTarget || (target.Kind != EffectTargetKind.None && EffectTargeting.IsValidTarget(effect.targetType, target, state)))
+            {
+                return target;
+            }
+
+            return EffectTargeting.ResolveImmediateTarget(effect.targetType, null, state.ActivePlayer, state);
         }
 
-        private BoardUnit PlaceNewUnit(UnitCardData card, int slotIndex)
+        public bool TryPlayItem(ItemCardData card, EffectTarget target)
         {
-            return lifecycle.PlaceNewUnit(card, slotIndex);
-        }
+            CardEffect effect = card.PrimaryEffect;
+            EffectTarget effectiveTarget = ResolveItemEffectTarget(effect, target);
 
-        private BoardUnit AbsorbUnit(BoardUnit absorbedUnit, UnitCardData card, int slotIndex)
-        {
-            return lifecycle.AbsorbUnit(absorbedUnit, card, slotIndex);
-        }
-
-        private void InitializeHealthToEffectiveMax(BoardUnit unit)
-        {
-            lifecycle.InitializeHealthToEffectiveMax(unit);
-        }
-
-        public void SyncQualifyingEnemyAuraHealth()
-        {
-            lifecycle.SyncQualifyingEnemyAuraHealth();
-        }
-
-        private void TopUpAllUnitsToEffectiveMaxHealth(PlayerSide side)
-        {
-            lifecycle.TopUpAllUnitsToEffectiveMaxHealth(side);
-        }
-
-        public bool CanPlayUnit(UnitCardData card, int slotIndex)
-        {
-            if (IsEndTurnQueued) return false;
-
-            return IsUnitPlayLegal(card, slotIndex);
-        }
-
-        private bool IsUnitPlayLegal(UnitCardData card, int slotIndex)
-        {
-            if (HasBlockingPendingTargetedEffect()) return false;
-            if (state.CurrentPhase != TurnPhase.Action) return false;
-
-            Player active = state.GetActivePlayerData();
-            int effectiveCost = AuraCalculator.GetUnitCost(card, active);
-            int manaShort = effectiveCost - active.CurrentMana;
-
-            if (manaShort > 0 && !AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out _))
+            if (!IsItemPlayLegal(card, effectiveTarget))
             {
                 return false;
             }
 
-            if (!active.Hand.Contains(card)) return false;
+            CancelPendingTargetedEffectIfNonMandatory();
 
-            BoardUnit occupyingUnit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
+            Player active = state.GetActivePlayerData();
+            PayCost(active, card.ManaCost);
+            active.Hand.Remove(card);
 
-            if (occupyingUnit != null)
+            int passes = active.HasNextItemDoubled ? 2 : 1;
+            active.HasNextItemDoubled = false;
+
+            for (int pass = 0; pass < passes; pass++)
             {
-                return card.HasKeyword(Keyword.Absorb);
+                if (EffectTargeting.IsGroupTarget(effect.targetType) || EffectTargeting.IsGroupSlotTarget(effect.targetType))
+                {
+                    ResolveEffect(effect, null, state.ActivePlayer);
+                }
+                else
+                {
+                    Execute(effect, state.ActivePlayer, null, effectiveTarget);
+                }
             }
-
-            if (!IsSlotLegalForPlacement(slotIndex)) return false;
 
             return true;
         }
 
-        public bool IsSlotLegalForPlacement(int slotIndex)
+        public bool CanPlayItem(ItemCardData card, EffectTarget target)
         {
-            PlayerSide opponentSide = state.ActivePlayer.Opposite();
-            List<int> tauntSlots = new List<int>();
+            return !IsEndTurnQueued && IsItemPlayLegal(card, target);
+        }
 
-            for (int i = 0; i < Board.SlotsPerSide; i++)
+        private bool IsItemPlayLegal(ItemCardData card, EffectTarget target)
+        {
+            if (HasBlockingPendingTargetedEffect() || state.CurrentPhase != TurnPhase.Action || card.PrimaryEffect == null)
             {
-                BoardUnit opposingUnit = state.Board.GetUnit(opponentSide, i);
-                if (opposingUnit != null && opposingUnit.HasKeyword(Keyword.Taunt, state))
+                return false;
+            }
+
+            Player active = state.GetActivePlayerData();
+            return CanPayCost(active, card.ManaCost) && active.Hand.Contains(card) && EffectTargeting.IsValidTarget(card.PrimaryEffect.targetType, target, state);
+        }
+
+        public bool TryPlayItemAnimated(ItemCardData card, EffectTarget target, System.Action onFullyResolved = null)
+        {
+            EffectTarget effectiveTarget = ResolveItemEffectTarget(card.PrimaryEffect, target);
+
+            if (!CanPlayItem(card, effectiveTarget))
+            {
+                return false;
+            }
+
+            PlayerSide side = state.ActivePlayer;
+            int handIndex = state.GetPlayer(side).Hand.IndexOf(card);
+
+            if (coroutineRunner != null)
+            {
+                state.RaiseItemPlayAnimationRequested(card, side, handIndex, effectiveTarget);
+            }
+
+            ResolveItemPlayAfterAnimation(card, effectiveTarget, side, handIndex, onFullyResolved);
+            return true;
+        }
+
+        public void ResolveItemPlayAfterAnimation(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved = null)
+        {
+            if (coroutineRunner == null)
+            {
+                TryPlayItem(card, target);
+                onFullyResolved?.Invoke();
+                return;
+            }
+
+            coroutineRunner.StartCoroutine(RunThen(PlayItemAfterAnimation(card, target, side, handIndex), BeginUnresolvedAction(onFullyResolved)));
+        }
+
+        private IEnumerator PlayItemAfterAnimation(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex)
+        {
+            bool finished = false;
+
+            void OnFinished(PlayerSide finishedSide, int finishedHandIndex)
+            {
+                if (finishedSide == side && finishedHandIndex == handIndex)
                 {
-                    tauntSlots.Add(i);
+                    finished = true;
                 }
             }
 
-            List<int> openTauntSlots = new List<int>();
-            foreach (int tauntSlot in tauntSlots)
+            state.ItemPlayAnimationFinished += OnFinished;
+            yield return WaitOrTimeout(() => finished, PlayAnimationTimeout, $"{card.CardName}'s play animation");
+            state.ItemPlayAnimationFinished -= OnFinished;
+
+            TryPlayItem(card, target);
+        }
+
+        private BoardUnit AddUnit(UnitCardData card, PlayerSide side, int slotIndex)
+        {
+            BoardUnit unit = new BoardUnit(card, side, slotIndex);
+            state.Board.PlaceUnit(side, slotIndex, unit);
+            InitializeHealthToEffectiveMax(unit);
+
+            if (card.HasPendingCurrentHealth)
             {
-                if (state.Board.GetUnit(state.ActivePlayer, tauntSlot) == null)
+                unit.CurrentHealth = Mathf.Min(card.PendingCurrentHealth, unit.GetEffectiveMaxHealth(state));
+            }
+
+            SyncQualifyingEnemyAuraHealth();
+            return unit;
+        }
+
+        private BoardUnit AbsorbUnit(BoardUnit absorbedUnit, UnitCardData card, int slotIndex)
+        {
+            int inheritedAttack = absorbedUnit.SourceCard.Attack + absorbedUnit.BonusAttack + AuraCalculator.GetAttackBonus(absorbedUnit, state);
+            List<ActiveStatusEffect> temporaryAttacks = absorbedUnit.Statuses.FindAll(status => status.Type == StatusEffectType.TemporaryAttack);
+
+            state.Board.RemoveUnit(absorbedUnit.Owner, slotIndex);
+
+            BoardUnit unit = new BoardUnit(card, absorbedUnit.Owner, slotIndex);
+            state.Board.PlaceUnit(absorbedUnit.Owner, slotIndex, unit);
+
+            unit.BonusAttack = inheritedAttack;
+            unit.MaxHealth = card.Health + absorbedUnit.MaxHealth;
+
+            foreach (ActiveStatusEffect temporaryAttack in temporaryAttacks)
+            {
+                unit.Statuses.Add(temporaryAttack.Clone());
+            }
+
+            unit.CurrentHealth = Mathf.Min(absorbedUnit.CurrentHealth + card.Health, unit.GetEffectiveMaxHealth(state));
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+
+            SyncQualifyingEnemyAuraHealth();
+            return unit;
+        }
+
+        private void InitializeHealthToEffectiveMax(BoardUnit unit)
+        {
+            unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
+            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+        }
+
+        public void SyncQualifyingEnemyAuraHealth()
+        {
+            foreach (PlayerSide side in Sides)
+            {
+                foreach (BoardUnit unit in state.Board.GetUnits(side))
                 {
-                    openTauntSlots.Add(tauntSlot);
+                    int auraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+
+                    if (auraHealthBonus > unit.LastSyncedAuraHealthBonus)
+                    {
+                        unit.CurrentHealth += auraHealthBonus - unit.LastSyncedAuraHealthBonus;
+                    }
+
+                    unit.LastSyncedAuraHealthBonus = auraHealthBonus;
                 }
             }
+        }
 
-            if (openTauntSlots.Count == 0)
+        private void TopUpAllUnitsToEffectiveMaxHealth(PlayerSide side)
+        {
+            foreach (BoardUnit unit in state.Board.GetUnits(side))
             {
-                return true;
-            }
+                int gainedMaxHealth = unit.GetEffectiveMaxHealth(state) - unit.MaxHealth;
 
-            return openTauntSlots.Contains(slotIndex);
+                if (gainedMaxHealth > 0)
+                {
+                    unit.CurrentHealth += gainedMaxHealth;
+                }
+            }
         }
 
         public bool CanAnyUnitAttack()
         {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
-
-                if (unit == null) continue;
-                if (!CanUnitAttack(unit)) continue;
-
-                return true;
-            }
-
-            return false;
+            return state.Board.GetUnits(state.ActivePlayer).Any(CanUnitAttack);
         }
 
         public bool CanUnitAttack(BoardUnit unit)
         {
-            if (unit == null) return false;
-            if (unit.PlacedThisTurn && !unit.HasKeyword(Keyword.Rush, state)) return false;
-            if (unit.IsStunned) return false;
-            if (unit.GetCurrentAttack(state) <= 0) return false;
-
-            return true;
+            return unit != null
+                && (!unit.PlacedThisTurn || unit.HasKeyword(Keyword.Rush, state))
+                && !unit.IsStunned
+                && unit.GetCurrentAttack(state) > 0;
         }
-
-        private const float BannerWaitTimeout = 3f;
-        private const float AttackHitLandedWarningTime = 3f;
-        private const float AttackHitLandedTimeout = 6f;
-        private const float AttackAnimationFinishedTimeout = 3f;
-
-        public bool CanAnyUnitMove()
-        {
-            return movement.CanAnyUnitMove();
-        }
-
 
         public bool CanAttackWithUnit(int slotIndex)
         {
-            if (IsEndTurnQueued) return false;
-            if (state.CurrentPhase != TurnPhase.Action) return false;
-            if (HasBlockingPendingTargetedEffect()) return false;
+            if (IsEndTurnQueued || state.CurrentPhase != TurnPhase.Action || HasBlockingPendingTargetedEffect())
+            {
+                return false;
+            }
 
             BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, slotIndex);
-
-            if (unit == null) return false;
-            if (unit.HasAttackedThisTurn) return false;
-
-            return CanUnitAttack(unit);
+            return unit != null && !unit.HasAttackedThisTurn && CanUnitAttack(unit);
         }
 
         public bool TryAttackWithUnit(int slotIndex, System.Action onAttackFullyResolved = null)
         {
-            if (!CanAttackWithUnit(slotIndex)) return false;
+            if (!CanAttackWithUnit(slotIndex))
+            {
+                return false;
+            }
 
             BoardUnit attacker = state.Board.GetUnit(state.ActivePlayer, slotIndex);
-
-            bool hadDoubleAttack = ConsumeStatus(attacker, StatusEffectType.DoubleAttackNextAttack);
-
+            bool hadDoubleAttack = ConsumeStatus(attacker.Statuses, StatusEffectType.DoubleAttackNextAttack);
             attacker.HasAttackedThisTurn = true;
 
-            int effectiveAttack = attacker.GetCurrentAttack(state);
-
-            if (effectiveAttack <= 0 || coroutineRunner == null)
+            if (coroutineRunner == null || attacker.GetCurrentAttack(state) <= 0)
             {
-                bool chainAttack = ResolveAttackerCombat(attacker, slotIndex, hadDoubleAttack);
-
-                CheckWinCondition();
-
-                if (!state.IsGameOver && chainAttack)
-                {
-                    ResolveChainAttack(attacker, slotIndex);
-                    CheckWinCondition();
-                }
-
+                IEnumerator attack = RunAttack(attacker, slotIndex, hadDoubleAttack, false);
+                while (attack.MoveNext()) { }
                 onAttackFullyResolved?.Invoke();
-
                 return true;
             }
 
-            System.Action trackedCallback = BeginUnresolvedAction($"attack by {attacker.SourceCard.CardName} ({attacker.Owner}, slot {slotIndex})", onAttackFullyResolved);
-            coroutineRunner.StartCoroutine(RunSingleAttackAnimated(attacker, slotIndex, hadDoubleAttack, trackedCallback));
+            coroutineRunner.StartCoroutine(RunThen(RunAttack(attacker, slotIndex, hadDoubleAttack, true), BeginUnresolvedAction(onAttackFullyResolved)));
             return true;
         }
 
-        private IEnumerator RunSingleAttackAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, System.Action onAttackFullyResolved)
+        private IEnumerator RunAttack(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, bool animate)
         {
-            state.CurrentlyAttackingUnit = attacker;
-
-            bool shouldChainAttack = false;
-            yield return ResolveAttackerCombatAnimated(attacker, slotIndex, hadDoubleAttack, result => shouldChainAttack = result);
-
-            state.CurrentlyAttackingUnit = null;
-
-            CheckWinCondition();
-
-            if (state.IsGameOver || !shouldChainAttack)
-            {
-                onAttackFullyResolved?.Invoke();
-                yield break;
-            }
-
-            yield return null;
-
-            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-            {
-                onAttackFullyResolved?.Invoke();
-                yield break;
-            }
-
-            int chainEffectiveAttack = attacker.GetCurrentAttack(state);
-
-            if (chainEffectiveAttack <= 0)
-            {
-                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName}'s chained attack has 0 effective attack — skipping animation, resolving immediately.");
-                ResolveChainAttack(attacker, slotIndex);
-                CheckWinCondition();
-                onAttackFullyResolved?.Invoke();
-                yield break;
-            }
-
-            state.CurrentlyAttackingUnit = attacker;
-            yield return WaitForAttackHitLanded(0);
-
-            if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) == attacker)
-            {
-                ResolveChainAttack(attacker, slotIndex);
-                CheckWinCondition();
-            }
-
-            state.CurrentlyAttackingUnit = null;
-            onAttackFullyResolved?.Invoke();
-        }
-
-        private bool ResolveAttackerCombat(BoardUnit attacker, int slotIndex, bool hadDoubleAttack)
-        {
-            int attackCount = hadDoubleAttack ? 2 : 1;
+            bool isBifurcated = attacker.HasKeyword(Keyword.BifurcatedAttack, state);
             bool shouldChainAttack = false;
 
-            for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
+            if (animate)
             {
-                bool killedDefender;
+                state.CurrentlyAttackingUnit = attacker;
+            }
 
-                if (attacker.HasKeyword(Keyword.BifurcatedAttack, state))
+            for (int attackIndex = 0; attackIndex < (hadDoubleAttack ? 2 : 1); attackIndex++)
+            {
+                if (attackIndex > 0 && animate)
                 {
-                    int beforeSlot = slotIndex - 1;
-                    int afterSlot = slotIndex + 1;
-                    killedDefender = false;
+                    yield return WaitForAttackAnimationFinished(attacker);
 
-                    if (beforeSlot >= 0)
+                    if (!IsOnBoard(attacker))
                     {
-                        killedDefender |= ResolveAttack(attacker, beforeSlot);
+                        break;
                     }
 
-                    if (afterSlot < Board.SlotsPerSide)
+                    state.CurrentlyAttackingUnit = null;
+                    yield return null;
+
+                    if (!IsOnBoard(attacker))
                     {
-                        killedDefender |= ResolveAttack(attacker, afterSlot);
+                        break;
+                    }
+
+                    state.CurrentlyAttackingUnit = attacker;
+                }
+
+                if (animate)
+                {
+                    yield return WaitForAttackHitLanded(0);
+                }
+
+                if (!IsOnBoard(attacker))
+                {
+                    break;
+                }
+
+                bool killedDefender = false;
+
+                if (isBifurcated)
+                {
+                    if (slotIndex > 0)
+                    {
+                        killedDefender |= ResolveAttack(attacker, slotIndex - 1);
+                    }
+
+                    if (state.IsGameOver)
+                    {
+                        break;
+                    }
+
+                    if (animate)
+                    {
+                        yield return WaitForAttackHitLanded(1);
+                    }
+
+                    if (!IsOnBoard(attacker))
+                    {
+                        break;
+                    }
+
+                    if (slotIndex < Board.SlotsPerSide - 1)
+                    {
+                        killedDefender |= ResolveAttack(attacker, slotIndex + 1);
                     }
                 }
                 else
@@ -1036,7 +896,10 @@ namespace DDD.TNFY.TCG.Core
                     killedDefender = ResolveAttack(attacker, slotIndex);
                 }
 
-                if (state.IsGameOver) break;
+                if (state.IsGameOver)
+                {
+                    break;
+                }
 
                 if (killedDefender && attacker.CurrentHealth > 0 && HasAttackAgainOnKill(attacker))
                 {
@@ -1044,7 +907,45 @@ namespace DDD.TNFY.TCG.Core
                 }
             }
 
-            return shouldChainAttack;
+            if (animate)
+            {
+                state.CurrentlyAttackingUnit = null;
+            }
+
+            CheckWinCondition();
+
+            if (state.IsGameOver || !shouldChainAttack)
+            {
+                yield break;
+            }
+
+            if (animate)
+            {
+                yield return null;
+
+                if (!IsOnBoard(attacker))
+                {
+                    yield break;
+                }
+
+                if (attacker.GetCurrentAttack(state) > 0)
+                {
+                    state.CurrentlyAttackingUnit = attacker;
+                    yield return WaitForAttackHitLanded(0);
+
+                    if (IsOnBoard(attacker))
+                    {
+                        ResolveAttack(attacker, slotIndex);
+                        CheckWinCondition();
+                    }
+
+                    state.CurrentlyAttackingUnit = null;
+                    yield break;
+                }
+            }
+
+            ResolveAttack(attacker, slotIndex);
+            CheckWinCondition();
         }
 
         private IEnumerator WaitForAttackHitLanded(int expectedHitIndex)
@@ -1060,29 +961,8 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.AttackHitLanded += OnHitLanded;
-
-            float elapsed = 0f;
-            bool hasWarned = false;
-
-            while (!hitLanded && elapsed < AttackHitLandedTimeout)
-            {
-                elapsed += Time.deltaTime;
-
-                if (!hasWarned && elapsed >= AttackHitLandedWarningTime)
-                {
-                    hasWarned = true;
-                    Debug.LogWarning($"[PhaseManager] WaitForAttackHitLanded: still waiting for hitIndex={expectedHitIndex} after {elapsed:F2}s. Check the attacker's Animator has an Animation Event calling OnAttackHitLanded({expectedHitIndex}).");
-                }
-
-                yield return null;
-            }
-
+            yield return WaitOrTimeout(() => hitLanded, AttackHitLandedTimeout, $"hit {expectedHitIndex} (does the attack animation have an Animation Event calling OnAttackHitLanded({expectedHitIndex})?)");
             state.AttackHitLanded -= OnHitLanded;
-
-            if (!hitLanded)
-            {
-                Debug.LogWarning($"[PhaseManager] WaitForAttackHitLanded: timed out after {elapsed:F2}s waiting for hitIndex={expectedHitIndex} — proceeding anyway so the attack phase doesn't soft lock.");
-            }
         }
 
         private IEnumerator WaitForAttackAnimationFinished(BoardUnit attacker)
@@ -1098,170 +978,38 @@ namespace DDD.TNFY.TCG.Core
             }
 
             state.AttackAnimationFinished += OnAnimationFinished;
-
-            float elapsed = 0f;
-
-            while (!animationFinished && elapsed < AttackAnimationFinishedTimeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
+            yield return WaitOrTimeout(() => animationFinished, AttackAnimationFinishedTimeout, $"{attacker.SourceCard.CardName}'s attack animation");
             state.AttackAnimationFinished -= OnAnimationFinished;
-
-            if (!animationFinished)
-            {
-                Debug.LogWarning($"[PhaseManager] WaitForAttackAnimationFinished: timed out after {elapsed:F2}s waiting for {attacker.SourceCard.CardName}'s attack animation to finish — proceeding anyway.");
-            }
-        }
-
-        private IEnumerator ResolveAttackerCombatAnimated(BoardUnit attacker, int slotIndex, bool hadDoubleAttack, System.Action<bool> onComplete)
-        {
-            int attackCount = hadDoubleAttack ? 2 : 1;
-            bool shouldChainAttack = false;
-            bool isBifurcated = attacker.HasKeyword(Keyword.BifurcatedAttack, state);
-
-            for (int attackIndex = 0; attackIndex < attackCount; attackIndex++)
-            {
-                bool killedDefender;
-
-                if (attackIndex > 0)
-                {
-                    yield return WaitForAttackAnimationFinished(attacker);
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                    {
-                        break;
-                    }
-
-                    Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} starting repeat attack {attackIndex} (DoubleAttack) — retriggering attack animation.");
-
-                    state.CurrentlyAttackingUnit = null;
-                    yield return null;
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                    {
-                        break;
-                    }
-
-                    state.CurrentlyAttackingUnit = attacker;
-                }
-
-                if (isBifurcated)
-                {
-                    int beforeSlot = slotIndex - 1;
-                    int afterSlot = slotIndex + 1;
-                    killedDefender = false;
-
-                    yield return WaitForAttackHitLanded(0);
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                    {
-                        break;
-                    }
-
-                    if (beforeSlot >= 0)
-                    {
-                        killedDefender |= ResolveAttack(attacker, beforeSlot);
-                    }
-
-                    if (state.IsGameOver) break;
-
-                    yield return WaitForAttackHitLanded(1);
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                    {
-                        break;
-                    }
-
-                    if (afterSlot < Board.SlotsPerSide)
-                    {
-                        killedDefender |= ResolveAttack(attacker, afterSlot);
-                    }
-                }
-                else
-                {
-                    yield return WaitForAttackHitLanded(0);
-
-                    if (state.Board.GetUnit(attacker.Owner, attacker.SlotIndex) != attacker)
-                    {
-                        break;
-                    }
-
-                    killedDefender = ResolveAttack(attacker, slotIndex);
-                }
-
-                if (state.IsGameOver) break;
-
-                if (killedDefender && attacker.CurrentHealth > 0 && HasAttackAgainOnKill(attacker))
-                {
-                    shouldChainAttack = true;
-                }
-            }
-
-            onComplete(shouldChainAttack);
-        }
-
-        private void ResolveChainAttack(BoardUnit attacker, int slotIndex)
-        {
-            Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} killed its target — chaining a bonus attack into slot {slotIndex}.");
-            ResolveAttack(attacker, slotIndex);
         }
 
         private static bool HasAttackAgainOnKill(BoardUnit attacker)
         {
-            if (attacker.IsSilenced)
-            {
-                return false;
-            }
-
-            foreach (CardEffect effect in attacker.SourceCard.Effects)
-            {
-                if (effect.trigger == EffectTriggerType.OnAttack && effect.action == EffectActionType.AttackAgainOnKill)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return !attacker.IsSilenced && attacker.SourceCard.Effects.Any(effect => effect.trigger == EffectTriggerType.OnAttack && effect.action == EffectActionType.AttackAgainOnKill);
         }
 
         private bool ResolveAttack(BoardUnit attacker, int targetSlot)
         {
-            int attackerCurrentAttack = attacker.GetCurrentAttack(state);
+            int damage = attacker.GetCurrentAttack(state);
+            PlayerSide enemySide = state.ActivePlayer.Opposite();
+            BoardUnit defender = state.Board.GetUnit(enemySide, targetSlot);
+            bool blockedByTaunt = defender != null && defender.HasKeyword(Keyword.Taunt, state);
 
-            BoardUnit defender = state.Board.GetOpponentUnit(state.ActivePlayer, targetSlot);
-
-            bool piercingBlockedByTaunt = defender != null && defender.HasKeyword(Keyword.Taunt, state);
-
-            if (attacker.HasKeyword(Keyword.Piercing, state) && !piercingBlockedByTaunt)
+            if (attacker.HasKeyword(Keyword.Piercing, state) && !blockedByTaunt)
             {
-                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Piercing) bypasses slot {targetSlot} and hits the leader directly.");
-                DamageLeader(state.ActivePlayer.Opposite(), attackerCurrentAttack);
-                TriggerOnAttack(attacker, null, attackerCurrentAttack);
+                DamageLeader(enemySide, damage);
+                TriggerOnAttack(attacker, null, damage);
                 return false;
             }
 
-            if (piercingBlockedByTaunt)
-            {
-                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Piercing) is blocked by {defender.SourceCard.CardName}'s Taunt — resolving as a normal attack instead.");
-            }
+            int attackerSlotBeforeDodge = attacker.SlotIndex;
 
-            if (defender != null)
+            if (defender != null && TrySlippyDodge(defender))
             {
-                int attackerSlotBeforeDodge = attacker.SlotIndex;
+                bool relentlessFollowed = attacker.SlotIndex != attackerSlotBeforeDodge && attacker.SlotIndex == defender.SlotIndex;
 
-                if (movement.TrySlippyDodge(defender))
+                if (!relentlessFollowed)
                 {
-                    if (attacker.SlotIndex != attackerSlotBeforeDodge && attacker.SlotIndex == defender.SlotIndex)
-                    {
-                        Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} (Relentless) followed {defender.SourceCard.CardName}'s Slippy dodge into slot {attacker.SlotIndex} — attack still lands.");
-                    }
-                    else
-                    {
-                        Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} dodged out of slot {targetSlot} via Slippy — attack now resolves against an empty slot.");
-                        defender = null;
-                    }
+                    defender = null;
                 }
             }
 
@@ -1269,27 +1017,22 @@ namespace DDD.TNFY.TCG.Core
 
             if (defender != null)
             {
-                killedDefender = DamageUnit(defender, attackerCurrentAttack, state.ActivePlayer, DamageSourceType.Combat);
+                killedDefender = DamageUnit(defender, damage, state.ActivePlayer);
 
                 if (!killedDefender && defender.HasKeyword(Keyword.Retaliate, state))
                 {
-                    int retaliateDamage = defender.GetCurrentAttack(state);
-                    Debug.Log($"[PhaseManager] {defender.SourceCard.CardName} (Retaliate) survived and deals {retaliateDamage} back to {attacker.SourceCard.CardName}.");
-                    DamageUnit(attacker, retaliateDamage, defender.Owner, DamageSourceType.Combat);
+                    DamageUnit(attacker, defender.GetCurrentAttack(state), defender.Owner);
                 }
             }
             else
             {
-                DamageLeader(state.ActivePlayer.Opposite(), attackerCurrentAttack);
+                DamageLeader(enemySide, damage);
             }
 
-            if (attacker.CurrentHealth <= 0)
+            if (attacker.CurrentHealth > 0)
             {
-                Debug.Log($"[PhaseManager] {attacker.SourceCard.CardName} died before its OnAttack effects could resolve — skipping TriggerOnAttack.");
-                return killedDefender;
+                TriggerOnAttack(attacker, defender, damage);
             }
-
-            TriggerOnAttack(attacker, defender, attackerCurrentAttack);
 
             return killedDefender;
         }
@@ -1301,9 +1044,6 @@ namespace DDD.TNFY.TCG.Core
                 return;
             }
 
-            EffectTarget selfTarget = EffectTarget.ForUnit(attacker);
-            EffectContext context = new EffectContext(state, attacker.Owner, attacker, selfTarget);
-
             foreach (CardEffect effect in attacker.SourceCard.Effects)
             {
                 if (effect.trigger != EffectTriggerType.OnAttack)
@@ -1311,387 +1051,184 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (effect.action == EffectActionType.ApplyDecay)
+                if (effect.action != EffectActionType.ApplyDecay)
                 {
-                    if (defender != null)
-                    {
-                        EffectContext decayContext = new EffectContext(state, attacker.Owner, attacker, EffectTarget.ForUnit(defender));
-                        EffectExecutor.Execute(effect, decayContext, this);
-                    }
-
-                    continue;
+                    Execute(effect, attacker.Owner, attacker, EffectTarget.ForUnit(attacker), damageDealt);
                 }
-
-                EffectExecutor.Execute(effect, context, this, damageDealt);
+                else if (defender != null)
+                {
+                    Execute(effect, attacker.Owner, attacker, EffectTarget.ForUnit(defender));
+                }
             }
         }
 
         public bool DamageLeader(PlayerSide side, int amount)
         {
-            bool damaged = lifecycle.DamageLeader(side, amount);
+            Player player = state.GetPlayer(side);
+            bool damaged = !ConsumeStatus(player.Statuses, StatusEffectType.Shield);
+
+            if (damaged)
+            {
+                player.LeaderHealth -= amount;
+            }
 
             CheckWinCondition();
-
             return damaged;
+        }
+
+        public bool DamageUnit(BoardUnit target, int amount, PlayerSide source)
+        {
+            if (target == null || amount <= 0 || ConsumeStatus(target.Statuses, StatusEffectType.Shield))
+            {
+                return false;
+            }
+
+            target.CurrentHealth -= amount;
+            TriggerUnitEffects(target, EffectTriggerType.OnDamaged);
+
+            if (target.CurrentHealth > 0)
+            {
+                return false;
+            }
+
+            KillUnit(target, source);
+            return true;
         }
 
         public void HealUnit(BoardUnit unit, int amount)
         {
-            lifecycle.HealUnit(unit, amount);
+            unit.CurrentHealth = Mathf.Min(unit.CurrentHealth + amount, unit.GetEffectiveMaxHealth(state));
         }
 
         public void HealLeader(PlayerSide side, int amount)
         {
-            lifecycle.HealLeader(side, amount);
+            Player player = state.GetPlayer(side);
+            player.LeaderHealth = Mathf.Min(player.LeaderHealth + amount, player.MaxLeaderHealth);
         }
 
         public bool TransformUnit(BoardUnit originalUnit, UnitCardData replacementCard)
         {
-            return lifecycle.TransformUnit(originalUnit, replacementCard);
+            if (originalUnit == null || replacementCard == null)
+            {
+                return false;
+            }
+
+            state.Board.RemoveUnit(originalUnit.Owner, originalUnit.SlotIndex);
+
+            BoardUnit replacement = AddUnit(replacementCard, originalUnit.Owner, originalUnit.SlotIndex);
+            replacement.PlacedThisTurn = originalUnit.PlacedThisTurn;
+            replacement.HasMovedThisTurn = originalUnit.HasMovedThisTurn;
+            replacement.HasUsedGrantedEnemyMoveThisTurn = originalUnit.HasUsedGrantedEnemyMoveThisTurn;
+            return true;
         }
 
         public bool SpawnUnit(PlayerSide side, int slotIndex, UnitCardData card)
         {
-            return lifecycle.SpawnUnit(side, slotIndex, card);
+            if (card == null || state.Board.GetUnit(side, slotIndex) != null)
+            {
+                return false;
+            }
+
+            AddUnit(card, side, slotIndex);
+            return true;
         }
 
         public void KillUnit(BoardUnit unit, PlayerSide killer)
         {
             state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
+            state.GetPlayer(unit.Owner).AlliedUnitsDied++;
 
-            Player deadUnitOwner = state.GetPlayer(unit.Owner);
-            deadUnitOwner.AlliedUnitsDied++;
-
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} died. {unit.Owner}'s AlliedUnitsDied is now {deadUnitOwner.AlliedUnitsDied}.");
-
-            TriggerOnDeath(unit);
-            TriggerOnAllyDeath(unit);
-            TriggerLeaderEffects(EffectTriggerType.UnitDied, killer, unit);
-            TriggerLeaderEffectsFor(state.GetPlayer(killer), EffectTriggerType.UnitKilled, killer, unit);
-
-            SyncQualifyingEnemyAuraHealth();
-        }
-
-        public bool DamageUnit(BoardUnit target, int amount, PlayerSide source, DamageSourceType sourceType)
-        {
-            if (target == null || amount <= 0)
-            {
-                Debug.Log($"[PhaseManager] DamageUnit skipped: target={(target == null ? "null" : target.SourceCard.CardName)}, amount={amount}.");
-                return false;
-            }
-
-            if (UnitLifecycleService.ConsumeShieldIfPresent(target.Statuses))
-            {
-                Debug.Log($"[PhaseManager] {target.SourceCard.CardName} had Shield — {amount} {sourceType} damage from {source} blocked and Shield consumed.");
-                return false;
-            }
-
-            target.CurrentHealth -= amount;
-
-            Debug.Log($"[PhaseManager] {target.SourceCard.CardName} took {amount} {sourceType} damage from {source}, CurrentHealth={target.CurrentHealth}.");
-
-            TriggerOnDamaged(target, source, sourceType);
-
-            if (target.CurrentHealth <= 0)
-            {
-                KillUnit(target, source);
-                return true;
-            }
-
-            return false;
-        }
-
-        private void TriggerOnDamaged(BoardUnit unit, PlayerSide source, DamageSourceType sourceType)
-        {
-            if (unit.IsSilenced)
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnDamaged effects.");
-                return;
-            }
-
-            foreach (CardEffect effect in unit.SourceCard.Effects)
-            {
-                if (effect.trigger != EffectTriggerType.OnDamaged)
-                {
-                    continue;
-                }
-
-                if (EffectTargeting.IsGroupTarget(effect.targetType))
-                {
-                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-
-                    continue;
-                }
-
-                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                {
-                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-
-                    continue;
-                }
-
-                if (EffectTargeting.RequiresClick(effect.targetType))
-                {
-                    Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect requires a chosen target, which isn't supported yet — skipping.");
-                    continue;
-                }
-
-                EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDamaged effect (targetType={effect.targetType}, sourceType={sourceType}) resolved immediately, target.Kind={immediateTarget.Kind}.");
-                EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                EffectExecutor.Execute(effect, context, this);
-            }
-        }
-
-        private void TriggerOnMove(BoardUnit unit)
-        {
-            if (unit == null)
-            {
-                return;
-            }
-
-            if (state.Board.GetUnit(unit.Owner, unit.SlotIndex) != unit)
-            {
-                Debug.Log($"[PhaseManager] TriggerOnMove skipped for {unit.SourceCard.CardName} — unit is no longer on the board at slot {unit.SlotIndex}.");
-                return;
-            }
-
-            if (unit.IsSilenced)
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnMove effects.");
-                return;
-            }
-
-            foreach (CardEffect effect in unit.SourceCard.Effects)
-            {
-                if (effect.trigger != EffectTriggerType.OnMove)
-                {
-                    continue;
-                }
-
-                if (EffectTargeting.IsGroupTarget(effect.targetType))
-                {
-                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-
-                    continue;
-                }
-
-                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                {
-                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-
-                    continue;
-                }
-
-                if (EffectTargeting.RequiresClick(effect.targetType))
-                {
-                    Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s OnMove effect requires a chosen target, which isn't supported yet — skipping.");
-                    continue;
-                }
-
-                EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnMove effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}.");
-                EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                EffectExecutor.Execute(effect, context, this);
-            }
-        }
-
-        private void TriggerOnAllyDeath(BoardUnit deadUnit)
-        {
-            List<BoardUnit> survivingAllies = new List<BoardUnit>(state.Board.GetUnits(deadUnit.Owner));
-
-            foreach (BoardUnit ally in survivingAllies)
-            {
-                if (ally.IsSilenced)
-                {
-                    continue;
-                }
-
-                foreach (CardEffect effect in ally.SourceCard.Effects)
-                {
-                    if (effect.trigger != EffectTriggerType.OnAllyDeath)
-                    {
-                        continue;
-                    }
-
-                    if (EffectTargeting.IsGroupTarget(effect.targetType))
-                    {
-                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, ally, ally.Owner, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, ally.Owner, ally, EffectTarget.ForUnit(groupUnit));
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                    {
-                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, ally, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, ally.Owner, ally, slotTarget);
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, ally, ally.Owner, state);
-                    Debug.Log($"[PhaseManager] {deadUnit.SourceCard.CardName}'s death triggered {ally.SourceCard.CardName}'s OnAllyDeath effect (targetType={effect.targetType}), target.Kind={immediateTarget.Kind}.");
-                    EffectContext context = new EffectContext(state, ally.Owner, ally, immediateTarget);
-                    EffectExecutor.Execute(effect, context, this);
-                }
-            }
-        }
-
-        private void TriggerOnDeath(BoardUnit unit)
-        {
-            if (unit.IsSilenced)
-            {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} is Silenced — skipping OnDeath effects.");
-            }
-            else
-            {
-                foreach (CardEffect effect in unit.SourceCard.Effects)
-                {
-                    if (effect.trigger != EffectTriggerType.OnDeath)
-                    {
-                        continue;
-                    }
-
-                    if (EffectTargeting.IsGroupTarget(effect.targetType))
-                    {
-                        foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                    {
-                        foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
-                        {
-                            EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
-                            EffectExecutor.Execute(effect, groupContext, this);
-                        }
-
-                        continue;
-                    }
-
-                    if (EffectTargeting.RequiresClick(effect.targetType))
-                    {
-                        Debug.LogWarning($"[PhaseManager] {unit.SourceCard.CardName}'s On-Death effect requires a chosen target, which isn't supported yet since the source unit is already off the board — skipping.");
-                        continue;
-                    }
-
-                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnDeath effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}, LeaderSide={immediateTarget.LeaderSide}.");
-                    EffectContext context = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                    EffectExecutor.Execute(effect, context, this);
-                }
-            }
+            TriggerUnitEffects(unit, EffectTriggerType.OnDeath);
 
             if (unit.HasKeyword(Keyword.Unstable, state))
             {
                 TriggerUnstable(unit);
             }
+
+            foreach (BoardUnit ally in new List<BoardUnit>(state.Board.GetUnits(unit.Owner)))
+            {
+                TriggerUnitEffects(ally, EffectTriggerType.OnAllyDeath);
+            }
+
+            TriggerLeaderEffects(EffectTriggerType.UnitDied, unit);
+            TriggerLeaderEffectsFor(state.GetPlayer(killer), EffectTriggerType.UnitKilled, unit);
+
+            SyncQualifyingEnemyAuraHealth();
         }
 
         private void TriggerUnstable(BoardUnit unit)
         {
-            PlayerSide enemySide = unit.Owner.Opposite();
-            List<BoardUnit> candidates = new List<BoardUnit>(state.Board.GetUnits(enemySide));
+            List<BoardUnit> candidates = new List<BoardUnit>(state.Board.GetUnits(unit.Owner.Opposite()));
 
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName} (Unstable) died, found {candidates.Count} enemy unit(s) as possible targets.");
-
-            if (candidates.Count == 0)
+            if (candidates.Count > 0)
             {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Unstable has no valid enemy target — fizzling.");
-                return;
+                DamageUnit(candidates[rng.Next(candidates.Count)], unit.GetCurrentAttack(state), unit.Owner);
             }
-
-            System.Random rng = new System.Random();
-            BoardUnit target = candidates[rng.Next(candidates.Count)];
-
-            int unstableDamage = unit.GetCurrentAttack(state);
-
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Unstable dealing {unstableDamage} (its Attack) damage to {target.SourceCard.CardName} in slot {target.SlotIndex}.");
-
-            DamageUnit(target, unstableDamage, unit.Owner, DamageSourceType.Effect);
         }
 
         public void BounceUnit(BoardUnit unit)
         {
-            lifecycle.BounceUnit(unit);
+            Player owner = state.GetPlayer(unit.Owner);
+            int damageTaken = unit.GetEffectiveMaxHealth(state) - unit.CurrentHealth;
+
+            state.Board.RemoveUnit(unit.Owner, unit.SlotIndex);
+
+            bool statsChanged = unit.BonusAttack != 0 || unit.MaxHealth != unit.SourceCard.Health || damageTaken != 0;
+
+            CardData cardForHand = statsChanged
+                ? unit.SourceCard.CreateSyncedClone(unit.SourceCard.ManaCost, unit.SourceCard.Attack + unit.BonusAttack, unit.MaxHealth, Mathf.Max(1, unit.MaxHealth - damageTaken))
+                : unit.SourceCard;
+
+            if (!owner.TryAddCardToHand(cardForHand))
+            {
+                state.RaiseCardBurnAnimationRequested(cardForHand, owner.Side);
+            }
         }
 
         public void SilenceUnit(BoardUnit unit, int duration)
         {
-            lifecycle.SilenceUnit(unit, duration);
+            if (unit != null && !unit.IsSilenced)
+            {
+                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Silenced, duration));
+            }
         }
 
         public bool SwapAttackAndHealth(BoardUnit unit)
         {
-            if (unit == null)
+            if (unit == null || unit.HasKeyword(Keyword.Unmoving, state))
             {
-                Debug.Log("[PhaseManager] SwapAttackAndHealth FAIL: unit is null.");
                 return false;
             }
 
-            if (unit.HasKeyword(Keyword.Unmoving, state))
-            {
-                Debug.Log($"[PhaseManager] SwapAttackAndHealth FAIL: {unit.SourceCard.CardName} is Unmoving.");
-                return false;
-            }
-
-            int oldCurrentAttack = unit.GetCurrentAttack(state);
+            int baseAttack = unit.GetCurrentAttack(state) - AuraCalculator.GetAttackBonus(unit, state);
             int oldCurrentHealth = unit.CurrentHealth;
-            int oldEffectiveMaxHealth = unit.GetEffectiveMaxHealth(state);
-
-            int auraAttackBonus = AuraCalculator.GetAttackBonus(unit, state);
-            int oldBaseAttack = oldCurrentAttack - auraAttackBonus;
 
             unit.BonusAttack = oldCurrentHealth - unit.SourceCard.Attack;
-            unit.MaxHealth = oldBaseAttack;
+            unit.MaxHealth = baseAttack;
             unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
             unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
 
-            Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Attack and Health swapped: Attack {oldCurrentAttack}->{unit.GetCurrentAttack(state)}, Health {oldCurrentHealth}/{oldEffectiveMaxHealth}->{unit.CurrentHealth}/{unit.GetEffectiveMaxHealth(state)}.");
-
             if (unit.CurrentHealth <= 0)
             {
-                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s swap left it at 0 or less Health — dying.");
                 KillUnit(unit, unit.Owner);
                 return true;
             }
 
             SyncQualifyingEnemyAuraHealth();
-
             return true;
         }
 
-        private static bool ConsumeStatus(BoardUnit unit, StatusEffectType type)
+        private static bool ConsumeStatus(List<ActiveStatusEffect> statuses, StatusEffectType type)
         {
-            return UnitLifecycleService.ConsumeStatus(unit, type);
+            int index = statuses.FindIndex(status => status.Type == type);
+
+            if (index < 0)
+            {
+                return false;
+            }
+
+            statuses.RemoveAt(index);
+            return true;
         }
 
         private void TickDelayedKills(Player owner)
@@ -1699,141 +1236,396 @@ namespace DDD.TNFY.TCG.Core
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
             {
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
-                if (unit == null) continue;
+
+                if (unit == null)
+                {
+                    continue;
+                }
 
                 for (int i = unit.Statuses.Count - 1; i >= 0; i--)
                 {
                     ActiveStatusEffect status = unit.Statuses[i];
-                    if (status.Type != StatusEffectType.DelayedKill) continue;
 
-                    status.RemainingTriggers--;
-
-                    if (status.RemainingTriggers <= 0)
+                    if (status.Type == StatusEffectType.DelayedKill && --status.RemainingTriggers <= 0)
                     {
-                        PlayerSide killer = status.SourceOwner ?? unit.Owner.Opposite();
-                        KillUnit(unit, killer);
+                        KillUnit(unit, status.SourceOwner ?? unit.Owner.Opposite());
                         break;
                     }
                 }
             }
         }
-
 
         private void TickDecay(Player owner)
         {
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
             {
                 BoardUnit unit = state.Board.GetUnit(owner.Side, slot);
-                if (unit == null) continue;
+                List<ActiveStatusEffect> decay = unit?.Statuses.FindAll(status => status.Type == StatusEffectType.Decaying);
 
-                int decayStacks = 0;
-
-                foreach (ActiveStatusEffect status in unit.Statuses)
+                if (decay != null && decay.Count > 0)
                 {
-                    if (status.Type == StatusEffectType.Decaying)
-                    {
-                        decayStacks++;
-                    }
+                    DamageUnit(unit, decay.Count, decay[0].SourceOwner ?? unit.Owner.Opposite());
                 }
-
-                if (decayStacks == 0) continue;
-
-                PlayerSide? killer = null;
-
-                foreach (ActiveStatusEffect status in unit.Statuses)
-                {
-                    if (status.Type == StatusEffectType.Decaying)
-                    {
-                        killer = status.SourceOwner;
-                        break;
-                    }
-                }
-
-                DamageUnit(unit, decayStacks, killer ?? unit.Owner.Opposite(), DamageSourceType.Effect);
             }
         }
 
-        private void ApplyAndConsumeManaReduction(Player active)
+        private bool IsOnBoard(BoardUnit unit)
         {
-            for (int i = active.Statuses.Count - 1; i >= 0; i--)
+            return state.Board.GetUnit(unit.Owner, unit.SlotIndex) == unit;
+        }
+
+        private static int MoveManaCost(Player player)
+        {
+            return player.Leader != null ? player.Leader.MoveManaCost : 0;
+        }
+
+        public bool CanAnyUnitMove()
+        {
+            for (int fromSlot = 0; fromSlot < Board.SlotsPerSide; fromSlot++)
             {
-                if (active.Statuses[i].Type != StatusEffectType.OpponentManaReduction) continue;
-
-                active.PendingManaReduction = active.Statuses[i].Magnitude;
-                active.Statuses.RemoveAt(i);
-                break;
+                for (int toSlot = 0; toSlot < Board.SlotsPerSide; toSlot++)
+                {
+                    if (IsMoveLegal(fromSlot, toSlot, false))
+                    {
+                        return true;
+                    }
+                }
             }
-        }
 
-        public bool TryMoveUnit(int fromSlot, int toSlot)
-        {
-            if (IsEndTurnQueued) return false;
-            if (HasBlockingPendingTargetedEffect()) return false;
-
-            return movement.TryMoveUnit(fromSlot, toSlot);
-        }
-
-        public bool MoveUnitFree(PlayerSide side, int fromSlot, int toSlot)
-        {
-            return movement.MoveUnitFree(side, fromSlot, toSlot);
-        }
-
-        public bool HookClosestAllyLeft(BoardUnit sourceUnit)
-        {
-            return movement.HookClosestAllyLeft(sourceUnit);
-        }
-
-        public void PushAlliesAwayFrom(BoardUnit sourceUnit)
-        {
-            movement.PushAlliesAwayFrom(sourceUnit);
-        }
-
-        public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
-        {
-            return movement.SwapUnitSlots(unitA, unitB);
-        }
-
-        public bool PullUnitOpposite(BoardUnit sourceUnit, BoardUnit targetUnit)
-        {
-            return movement.PullUnitOpposite(sourceUnit, targetUnit);
+            return HasAvailableGrantedEnemyMove(state.ActivePlayer);
         }
 
         public bool CanMoveUnit(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost = false)
         {
-            if (IsEndTurnQueued) return false;
-            if (HasBlockingPendingTargetedEffect()) return false;
-
-            return movement.CanMoveUnit(fromSlot, toSlot, ignoreMoveLimitAndCost);
+            return !IsEndTurnQueued && !HasBlockingPendingTargetedEffect() && IsMoveLegal(fromSlot, toSlot, ignoreMoveLimitAndCost);
         }
 
-        public bool HasAvailableGrantedEnemyMove(PlayerSide controllingSide)
+        private bool IsMoveLegal(int fromSlot, int toSlot, bool ignoreMoveLimitAndCost)
         {
-            return movement.HasAvailableGrantedEnemyMove(controllingSide);
+            Player mover = state.GetActivePlayerData();
+            BoardUnit unit = state.Board.GetUnit(mover.Side, fromSlot);
+
+            if (unit == null || unit.HasKeyword(Keyword.Unmoving, state) || unit.IsStunned)
+            {
+                return false;
+            }
+
+            if (!ignoreMoveLimitAndCost)
+            {
+                bool alreadyMoved = unit.HasKeyword(Keyword.Nimble, state)
+                    ? unit.HasMovedThisTurn
+                    : unit.PlacedThisTurn || state.HasUsedMoveThisTurn;
+
+                if (alreadyMoved || mover.CurrentMana < MoveManaCost(mover))
+                {
+                    return false;
+                }
+            }
+
+            return IsMoveRangeLegal(unit, fromSlot, toSlot);
         }
 
-        public bool CanMoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
+        private bool IsMoveRangeLegal(BoardUnit unit, int fromSlot, int toSlot)
         {
-            return movement.CanMoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot);
+            if (fromSlot == toSlot || state.Board.GetUnit(unit.Owner, toSlot) != null)
+            {
+                return false;
+            }
+
+            if (unit.HasKeyword(Keyword.Teleport, state))
+            {
+                return true;
+            }
+
+            int maxRange = unit.HasKeyword(Keyword.Agile, state) ? 2 : 1;
+            return Mathf.Abs(toSlot - fromSlot) <= maxRange && IsPathClear(unit.Owner, fromSlot, toSlot);
         }
 
-        public bool MoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
+        private bool IsPathClear(PlayerSide side, int fromSlot, int toSlot)
         {
-            return movement.MoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot);
+            if (fromSlot == toSlot)
+            {
+                return false;
+            }
+
+            int step = toSlot > fromSlot ? 1 : -1;
+
+            for (int slot = fromSlot + step; slot != toSlot + step; slot += step)
+            {
+                if (state.Board.GetUnit(side, slot) != null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public bool TryMoveUnit(int fromSlot, int toSlot)
+        {
+            if (!CanMoveUnit(fromSlot, toSlot))
+            {
+                return false;
+            }
+
+            Player mover = state.GetActivePlayerData();
+            BoardUnit unit = state.Board.GetUnit(mover.Side, fromSlot);
+
+            mover.CurrentMana -= MoveManaCost(mover);
+            unit.HasMovedThisTurn = true;
+
+            if (!unit.HasKeyword(Keyword.Nimble, state))
+            {
+                state.HasUsedMoveThisTurn = true;
+            }
+
+            MoveOnBoard(unit, toSlot);
+            return true;
+        }
+
+        public bool MoveUnitFree(PlayerSide side, int fromSlot, int toSlot)
+        {
+            if (state.ActivePlayer != side || !IsMoveLegal(fromSlot, toSlot, true))
+            {
+                return false;
+            }
+
+            MoveOnBoard(state.Board.GetUnit(side, fromSlot), toSlot);
+            return true;
         }
 
         public bool HasAnyLegalUnblockedSlot(PlayerSide side, int fromSlot)
         {
-            return movement.HasAnyLegalUnblockedSlot(side, fromSlot);
+            for (int toSlot = 0; toSlot < Board.SlotsPerSide; toSlot++)
+            {
+                if (IsPathClear(side, fromSlot, toSlot))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public bool CanMoveGrantedEnemyUnitFree(BoardUnit unit, int toSlot)
         {
-            return movement.CanMoveGrantedEnemyUnitFree(unit, toSlot);
+            return unit != null && IsPathClear(unit.Owner, unit.SlotIndex, toSlot);
         }
 
         public bool MoveGrantedEnemyUnitFree(BoardUnit unit, int toSlot)
         {
-            return movement.MoveGrantedEnemyUnitFree(unit, toSlot);
+            if (!CanMoveGrantedEnemyUnitFree(unit, toSlot))
+            {
+                return false;
+            }
+
+            MoveOnBoard(unit, toSlot);
+            return true;
+        }
+
+        private BoardUnit FindAvailableEnemyMoveGranter(PlayerSide controllingSide)
+        {
+            return state.Board.GetUnits(controllingSide).FirstOrDefault(unit => unit.SourceCard.GrantsEnemyUnitMove && !unit.HasUsedGrantedEnemyMoveThisTurn);
+        }
+
+        public bool HasAvailableGrantedEnemyMove(PlayerSide controllingSide)
+        {
+            return FindAvailableEnemyMoveGranter(controllingSide) != null;
+        }
+
+        public bool CanMoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
+        {
+            BoardUnit unit = state.Board.GetUnit(controllingSide.Opposite(), fromSlot);
+            return HasAvailableGrantedEnemyMove(controllingSide) && unit != null && IsMoveRangeLegal(unit, fromSlot, toSlot);
+        }
+
+        public bool MoveEnemyUnitViaGrantedAbility(PlayerSide controllingSide, int fromSlot, int toSlot)
+        {
+            if (!CanMoveEnemyUnitViaGrantedAbility(controllingSide, fromSlot, toSlot))
+            {
+                return false;
+            }
+
+            FindAvailableEnemyMoveGranter(controllingSide).HasUsedGrantedEnemyMoveThisTurn = true;
+            MoveOnBoard(state.Board.GetUnit(controllingSide.Opposite(), fromSlot), toSlot, false);
+            return true;
+        }
+
+        public bool HookClosestAllyLeft(BoardUnit sourceUnit)
+        {
+            if (sourceUnit == null)
+            {
+                return false;
+            }
+
+            int destinationSlot = sourceUnit.SlotIndex - 1;
+            BoardUnit closestAlly = null;
+
+            for (int slot = destinationSlot; slot >= 0 && closestAlly == null; slot--)
+            {
+                closestAlly = state.Board.GetUnit(sourceUnit.Owner, slot);
+            }
+
+            if (closestAlly == null || closestAlly.SlotIndex == destinationSlot || closestAlly.HasKeyword(Keyword.Unmoving, state))
+            {
+                return false;
+            }
+
+            MoveOnBoard(closestAlly, destinationSlot);
+            return true;
+        }
+
+        public void PushAlliesAwayFrom(BoardUnit sourceUnit)
+        {
+            if (sourceUnit == null)
+            {
+                return;
+            }
+
+            int sourceSlot = sourceUnit.SlotIndex;
+            List<BoardUnit> allies = new List<BoardUnit>(state.Board.GetUnits(sourceUnit.Owner));
+            List<BoardUnit> leftGroup = allies.FindAll(unit => unit.SlotIndex < sourceSlot);
+            List<BoardUnit> rightGroup = allies.FindAll(unit => unit.SlotIndex > sourceSlot);
+            rightGroup.Reverse();
+
+            foreach (BoardUnit unit in leftGroup)
+            {
+                PushUnitAsFarAsPossible(unit, -1);
+            }
+
+            foreach (BoardUnit unit in rightGroup)
+            {
+                PushUnitAsFarAsPossible(unit, 1);
+            }
+        }
+
+        private void PushUnitAsFarAsPossible(BoardUnit unit, int direction)
+        {
+            if (!IsOnBoard(unit) || unit.HasKeyword(Keyword.Unmoving, state))
+            {
+                return;
+            }
+
+            int toSlot = unit.SlotIndex;
+
+            while (toSlot + direction >= 0 && toSlot + direction < Board.SlotsPerSide && state.Board.GetUnit(unit.Owner, toSlot + direction) == null)
+            {
+                toSlot += direction;
+            }
+
+            if (toSlot != unit.SlotIndex)
+            {
+                MoveOnBoard(unit, toSlot);
+            }
+        }
+
+        public bool SwapUnitSlots(BoardUnit unitA, BoardUnit unitB)
+        {
+            if (unitA == null || unitB == null || unitA == unitB || unitA.HasKeyword(Keyword.Unmoving, state) || unitB.HasKeyword(Keyword.Unmoving, state))
+            {
+                return false;
+            }
+
+            int slotA = unitA.SlotIndex;
+            int slotB = unitB.SlotIndex;
+
+            state.Board.RemoveUnit(unitA.Owner, slotA);
+            state.Board.RemoveUnit(unitB.Owner, slotB);
+            state.Board.PlaceUnit(unitA.Owner, slotB, unitA);
+            state.Board.PlaceUnit(unitB.Owner, slotA, unitB);
+
+            GrantMoveAttackBonus(unitA);
+            GrantMoveAttackBonus(unitB);
+            OnUnitRelocated(unitA, slotA);
+            OnUnitRelocated(unitB, slotB);
+            return true;
+        }
+
+        public bool PullUnitOpposite(BoardUnit sourceUnit, BoardUnit targetUnit)
+        {
+            if (sourceUnit == null || targetUnit == null || sourceUnit.Owner == targetUnit.Owner || targetUnit.HasKeyword(Keyword.Unmoving, state))
+            {
+                return false;
+            }
+
+            if (state.Board.GetUnit(targetUnit.Owner, sourceUnit.SlotIndex) != null)
+            {
+                return false;
+            }
+
+            MoveOnBoard(targetUnit, sourceUnit.SlotIndex, false);
+            return true;
+        }
+
+        private bool TrySlippyDodge(BoardUnit defender)
+        {
+            if (!defender.HasKeyword(Keyword.Slippy, state) || defender.HasKeyword(Keyword.Unmoving, state))
+            {
+                return false;
+            }
+
+            int fromSlot = defender.SlotIndex;
+
+            if (fromSlot > 0 && state.Board.GetUnit(defender.Owner, fromSlot - 1) == null)
+            {
+                MoveOnBoard(defender, fromSlot - 1, false);
+                return true;
+            }
+
+            if (fromSlot < Board.SlotsPerSide - 1 && state.Board.GetUnit(defender.Owner, fromSlot + 1) == null)
+            {
+                MoveOnBoard(defender, fromSlot + 1, false);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void MoveOnBoard(BoardUnit unit, int toSlot, bool grantsMoveAttackBonus = true)
+        {
+            int fromSlot = unit.SlotIndex;
+
+            state.Board.RemoveUnit(unit.Owner, fromSlot);
+            state.Board.PlaceUnit(unit.Owner, toSlot, unit);
+
+            if (grantsMoveAttackBonus)
+            {
+                GrantMoveAttackBonus(unit);
+            }
+
+            OnUnitRelocated(unit, fromSlot);
+        }
+
+        private void GrantMoveAttackBonus(BoardUnit unit)
+        {
+            LeaderData leader = state.GetPlayer(unit.Owner).Leader;
+
+            if (unit.Owner == state.ActivePlayer && leader != null && leader.MoveTemporaryAttackBonus > 0)
+            {
+                unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttack, 1, leader.MoveTemporaryAttackBonus));
+            }
+        }
+
+        private void OnUnitRelocated(BoardUnit unit, int originSlot)
+        {
+            state.RaiseUnitMoved(unit);
+
+            if (unit.IsSilenced)
+            {
+                return;
+            }
+
+            BoardUnit follower = state.Board.GetUnit(unit.Owner.Opposite(), originSlot);
+
+            if (follower == null || !follower.HasKeyword(Keyword.Relentless, state) || follower.HasKeyword(Keyword.Unmoving, state))
+            {
+                return;
+            }
+
+            if (originSlot != unit.SlotIndex && state.Board.GetUnit(follower.Owner, unit.SlotIndex) == null)
+            {
+                MoveOnBoard(follower, unit.SlotIndex, false);
+            }
         }
 
         public void EnterTurnEndPhase()
@@ -1845,12 +1637,7 @@ namespace DDD.TNFY.TCG.Core
         {
             if (HasUnresolvedActions)
             {
-                if (!IsEndTurnQueued)
-                {
-                    IsEndTurnQueued = true;
-                    Debug.Log($"[PhaseManager] EndActionPhase queued for {state.ActivePlayer}: {unresolvedActionCount} play/attack(s) still resolving. The turn will end once they finish.");
-                }
-
+                IsEndTurnQueued = true;
                 return;
             }
 
@@ -1858,32 +1645,14 @@ namespace DDD.TNFY.TCG.Core
 
             if (HasBlockingPendingTargetedEffect())
             {
-                if (IsEndTurnQueued)
-                {
-                    Debug.Log("[PhaseManager] Queued end turn is waiting on a target/card choice created by a resolved play - it will run as soon as that choice is made.");
-                    return;
-                }
-
-                Debug.LogWarning("[PhaseManager] EndActionPhase blocked: an On-Play effect is still awaiting a target.");
                 return;
             }
 
             IsEndTurnQueued = false;
-            ClearLastPlayedRecord();
-
-            if (state.HasPendingFreeMove)
-            {
-                Debug.Log("[PhaseManager] Unused pending free move expired at end of turn.");
-            }
+            lastPlayedUnit = null;
 
             state.HasPendingFreeMove = false;
             state.PendingFreeMoveExcludedUnit = null;
-
-            if (state.HasPendingEnemyMoveGrantOnPlay)
-            {
-                Debug.Log($"[PhaseManager] Unused pending On-Play enemy move for {state.PendingEnemyMoveGrantTarget?.SourceCard?.CardName} expired at end of turn.");
-            }
-
             state.HasPendingEnemyMoveGrantOnPlay = false;
             state.PendingEnemyMoveGrantTarget = null;
 
@@ -1893,58 +1662,37 @@ namespace DDD.TNFY.TCG.Core
 
         public void EndTurn()
         {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
+            foreach (BoardUnit unit in state.Board.GetUnits(state.ActivePlayer))
             {
-                BoardUnit unit = state.Board.GetUnit(state.ActivePlayer, i);
-                if (unit != null)
+                unit.PlacedThisTurn = false;
+                unit.HasMovedThisTurn = false;
+                unit.HasAttackedThisTurn = false;
+                unit.HasUsedGrantedEnemyMoveThisTurn = false;
+
+                ActiveStatusEffect silence = unit.Statuses.Find(status => status.Type == StatusEffectType.Silenced);
+
+                if (silence != null && --silence.RemainingTriggers <= 0)
                 {
-                    unit.PlacedThisTurn = false;
-                    unit.HasMovedThisTurn = false;
-                    unit.HasAttackedThisTurn = false;
-                    unit.HasUsedGrantedEnemyMoveThisTurn = false;
-
-                    if (unit.IsSilenced)
-                    {
-                        ActiveStatusEffect silence = unit.Statuses.Find(status => status.Type == StatusEffectType.Silenced);
-
-                        if (silence != null)
-                        {
-                            silence.RemainingTriggers--;
-
-                            if (silence.RemainingTriggers <= 0)
-                            {
-                                unit.Statuses.Remove(silence);
-                                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence wore off at the end of {state.ActivePlayer}'s turn.");
-                            }
-                            else
-                            {
-                                Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Silence has {silence.RemainingTriggers} of {state.ActivePlayer}'s turn(s) left.");
-                            }
-                        }
-                    }
-
-                    if (unit.IsStunned)
-                    {
-                        unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Stunned);
-                        Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s Stun wore off at the end of {state.ActivePlayer}'s turn.");
-                    }
+                    unit.Statuses.Remove(silence);
                 }
+
+                unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.Stunned);
             }
 
-            ExpireEndOfTurnStatuses();
+            foreach (PlayerSide side in Sides)
+            {
+                foreach (BoardUnit unit in state.Board.GetUnits(side))
+                {
+                    unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.DoubleAttackNextAttack || status.Type == StatusEffectType.TemporaryAttack);
+                }
+            }
 
             state.HasUsedMoveThisTurn = false;
             state.PlayerA.TriggeredOncePerTurnEffects.Clear();
             state.PlayerB.TriggeredOncePerTurnEffects.Clear();
+            state.GetActivePlayerData().HasNextItemDoubled = false;
 
-            Player endingPlayer = state.GetPlayer(state.ActivePlayer);
-            if (endingPlayer.HasNextItemDoubled)
-            {
-                Debug.Log("[PhaseManager] Unused item-doubling bonus expired at end of turn.");
-            }
-            endingPlayer.HasNextItemDoubled = false;
-
-            if (state.ActivePlayer == state.FirstPlayer.Opposite())
+            if (state.ActivePlayer != state.FirstPlayer)
             {
                 state.TurnNumber++;
             }
@@ -1953,260 +1701,54 @@ namespace DDD.TNFY.TCG.Core
             EnterDrawPhase();
         }
 
-        private void ExpireEndOfTurnStatuses()
+        private void Execute(CardEffect effect, PlayerSide owner, BoardUnit sourceUnit, EffectTarget target, int? runtimeAmount = null)
         {
-            ExpireEndOfTurnStatusesFor(PlayerSide.PlayerA);
-            ExpireEndOfTurnStatusesFor(PlayerSide.PlayerB);
+            EffectExecutor.Execute(effect, new EffectContext(state, owner, sourceUnit, target), this, runtimeAmount);
         }
 
-        private void ExpireEndOfTurnStatusesFor(PlayerSide side)
+        private void ResolveEffect(CardEffect effect, BoardUnit sourceUnit, PlayerSide owner)
         {
-            for (int slot = 0; slot < Board.SlotsPerSide; slot++)
-            {
-                BoardUnit unit = state.Board.GetUnit(side, slot);
-
-                if (unit == null)
-                {
-                    continue;
-                }
-
-                int removedDoubleAttacks = unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.DoubleAttackNextAttack);
-
-                if (removedDoubleAttacks > 0)
-                {
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s unused Double Attack ({side} slot {slot}) expired at the end of {state.ActivePlayer}'s turn.");
-                }
-
-                int removedTemporaryAttacks = unit.Statuses.RemoveAll(status => status.Type == StatusEffectType.TemporaryAttack);
-
-                if (removedTemporaryAttacks > 0)
-                {
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s {removedTemporaryAttacks} Temporary Attack bonus(es) ({side} slot {slot}) wore off at the end of {state.ActivePlayer}'s turn. Attack is now {unit.GetCurrentAttack(state)}.");
-                }
-            }
-        }
-
-        public EffectTarget ResolveItemEffectTarget(CardEffect effect, EffectTarget target)
-        {
-            if (effect == null || EffectTargeting.RequiresClick(effect.targetType))
-            {
-                return target;
-            }
-
-            switch (effect.targetType)
-            {
-                case TargetType.AllyLeader:
-                case TargetType.EnemyLeader:
-                case TargetType.LowestHealthEnemy:
-                case TargetType.RandomUnitEitherSide:
-                    if (target.Kind != EffectTargetKind.None && EffectTargeting.IsValidTarget(effect.targetType, target, state))
-                    {
-                        return target;
-                    }
-
-                    return EffectTargeting.ResolveImmediateTarget(effect.targetType, null, state.ActivePlayer, state);
-
-                default:
-                    return target;
-            }
-        }
-
-        public bool TryPlayItem(ItemCardData card, EffectTarget target)
-        {
-            CardEffect effect = card.PrimaryEffect;
-            EffectTarget effectiveTarget = ResolveItemEffectTarget(effect, target);
-
-            if (!IsItemPlayLegal(card, effectiveTarget)) return false;
-
-            CancelPendingTargetedEffectIfNonMandatory();
-
-            Player active = state.GetActivePlayerData();
-            int manaShort = card.ManaCost - active.CurrentMana;
-
-            if (manaShort > 0 && AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out int healthCost))
-            {
-                Debug.Log($"[PhaseManager] {active.Side} converting {healthCost} health into {manaShort} mana to afford {card.CardName}.");
-                DamageLeader(active.Side, healthCost);
-                active.CurrentMana += manaShort;
-            }
-
-            active.CurrentMana -= card.ManaCost;
-            active.Hand.Remove(card);
-
-            bool isDoubled = active.HasNextItemDoubled;
-            active.HasNextItemDoubled = false;
-
             if (EffectTargeting.IsGroupTarget(effect.targetType))
             {
-                List<BoardUnit> groupTargets = EffectTargeting.ResolveGroupTargets(effect.targetType, null, state.ActivePlayer, state);
-                int passes = isDoubled ? 2 : 1;
-
-                for (int pass = 0; pass < passes; pass++)
+                foreach (BoardUnit target in EffectTargeting.ResolveGroupTargets(effect.targetType, sourceUnit, owner, state))
                 {
-                    if (pass == 1)
-                    {
-                        Debug.Log($"[PhaseManager] {card.CardName} played twice due to Bobby H. Chicago's bonus.");
-                    }
-
-                    foreach (BoardUnit groupUnit in groupTargets)
-                    {
-                        EffectContext groupContext = new EffectContext(state, state.ActivePlayer, null, EffectTarget.ForUnit(groupUnit));
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
+                    Execute(effect, owner, sourceUnit, EffectTarget.ForUnit(target));
                 }
-
-                return true;
             }
-
-            if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
+            else if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
             {
-                List<EffectTarget> slotTargets = EffectTargeting.ResolveGroupSlotTargets(effect.targetType, null, state);
-                int slotPasses = isDoubled ? 2 : 1;
-
-                for (int pass = 0; pass < slotPasses; pass++)
+                foreach (EffectTarget target in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, sourceUnit, state))
                 {
-                    if (pass == 1)
-                    {
-                        Debug.Log($"[PhaseManager] {card.CardName} played twice due to Bobby H. Chicago's bonus.");
-                    }
-
-                    foreach (EffectTarget slotTarget in slotTargets)
-                    {
-                        EffectContext groupContext = new EffectContext(state, state.ActivePlayer, null, slotTarget);
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
+                    Execute(effect, owner, sourceUnit, target);
                 }
-
-                return true;
             }
-
-            EffectContext context = new EffectContext(state, state.ActivePlayer, null, effectiveTarget);
-            EffectExecutor.Execute(effect, context, this);
-
-            if (isDoubled)
+            else
             {
-                Debug.Log($"[PhaseManager] {card.CardName} played twice due to Bobby H. Chicago's bonus.");
-                EffectExecutor.Execute(effect, context, this);
+                Execute(effect, owner, sourceUnit, EffectTargeting.ResolveImmediateTarget(effect.targetType, sourceUnit, owner, state));
             }
-
-            return true;
         }
 
-        public bool CanPlayItem(ItemCardData card, EffectTarget target)
+        private void TriggerUnitEffects(BoardUnit unit, EffectTriggerType trigger)
         {
-            if (IsEndTurnQueued)
+            if (unit.IsSilenced)
             {
-                return false;
-            }
-
-            return IsItemPlayLegal(card, target);
-        }
-
-        private bool IsItemPlayLegal(ItemCardData card, EffectTarget target)
-        {
-            if (HasBlockingPendingTargetedEffect())
-            {
-                return false;
-            }
-
-            Player active = state.GetActivePlayerData();
-            int manaShort = card.ManaCost - active.CurrentMana;
-
-            if (manaShort > 0 && !AuraCalculator.TryGetHealthCostForManaShortfall(active, manaShort, out _))
-            {
-                return false;
-            }
-            if (!active.Hand.Contains(card))
-            {
-                return false;
-            }
-            if (state.CurrentPhase != TurnPhase.Action)
-            {
-                return false;
-            }
-
-            CardEffect effect = card.PrimaryEffect;
-            if (effect == null)
-            {
-                return false;
-            }
-
-            bool valid = EffectTargeting.IsValidTarget(effect.targetType, target, state);
-
-            return valid;
-        }
-
-        public bool TryPlayItemAnimated(ItemCardData card, EffectTarget target, System.Action onFullyResolved = null)
-        {
-            EffectTarget effectiveTarget = ResolveItemEffectTarget(card.PrimaryEffect, target);
-
-            if (!CanPlayItem(card, effectiveTarget)) return false;
-
-            PlayerSide side = state.ActivePlayer;
-            int handIndex = state.GetPlayer(side).Hand.IndexOf(card);
-
-            if (coroutineRunner == null)
-            {
-                bool resolvedImmediately = TryPlayItem(card, effectiveTarget);
-                onFullyResolved?.Invoke();
-                return resolvedImmediately;
-            }
-
-            System.Action trackedCallback = BeginUnresolvedAction($"play item {card.CardName} ({side})", onFullyResolved);
-            state.RaiseItemPlayAnimationRequested(card, side, handIndex, effectiveTarget);
-            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, effectiveTarget, side, handIndex, trackedCallback));
-            return true;
-        }
-
-        public void ResolveItemPlayAfterAnimation(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved = null)
-        {
-            if (coroutineRunner == null)
-            {
-                TryPlayItem(card, target);
-                onFullyResolved?.Invoke();
                 return;
             }
 
-            System.Action trackedCallback = BeginUnresolvedAction($"play item {card.CardName} ({side})", onFullyResolved);
-            coroutineRunner.StartCoroutine(WaitForItemPlayAnimationThenResolve(card, target, side, handIndex, trackedCallback));
-        }
-
-        private IEnumerator WaitForItemPlayAnimationThenResolve(ItemCardData card, EffectTarget target, PlayerSide side, int handIndex, System.Action onFullyResolved)
-        {
-            yield return WaitForItemPlayAnimationFinished(side, handIndex);
-
-            bool resolved = TryPlayItem(card, target);
-            Debug.Log($"[PhaseManager] TryPlayItem resolved={resolved} for {card.CardName} (post-animation), target.Kind={target.Kind}, targetUnit={target.Unit?.SourceCard?.CardName}, targetLeaderSide={target.LeaderSide}. ActivePlayer={state.ActivePlayer}, phase={state.CurrentPhase}, playingSide={side}.");
-            onFullyResolved?.Invoke();
-        }
-
-        private IEnumerator WaitForItemPlayAnimationFinished(PlayerSide side, int handIndex)
-        {
-            bool finished = false;
-
-            void OnFinished(PlayerSide finishedSide, int finishedHandIndex)
+            foreach (CardEffect effect in unit.SourceCard.Effects)
             {
-                if (finishedSide == side && finishedHandIndex == handIndex)
+                if (effect.trigger == trigger && !EffectTargeting.RequiresClick(effect.targetType))
                 {
-                    finished = true;
+                    ResolveEffect(effect, unit, unit.Owner);
                 }
             }
+        }
 
-            state.ItemPlayAnimationFinished += OnFinished;
-
-            float elapsed = 0f;
-
-            while (!finished && elapsed < PlayAnimationTimeout)
+        private void TriggerOnMove(BoardUnit unit)
+        {
+            if (unit != null && IsOnBoard(unit))
             {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            state.ItemPlayAnimationFinished -= OnFinished;
-
-            if (!finished)
-            {
-                Debug.LogWarning($"[PhaseManager] WaitForItemPlayAnimationFinished: timed out after {elapsed:F2}s for {side} handIndex={handIndex} - proceeding anyway.");
+                TriggerUnitEffects(unit, EffectTriggerType.OnMove);
             }
         }
 
@@ -2219,33 +1761,9 @@ namespace DDD.TNFY.TCG.Core
                     continue;
                 }
 
-                if (effect.action == EffectActionType.ChooseXCards)
+                if (effect.action == EffectActionType.ChooseXCards || effect.action == EffectActionType.ChooseFixedCard)
                 {
-                    DeferCardPoolChoice(effect, unit);
-                    continue;
-                }
-
-                if (effect.action == EffectActionType.ChooseFixedCard)
-                {
-                    DeferFixedCardChoice(effect, unit);
-                    continue;
-                }
-
-                if (EffectTargeting.IsGroupTarget(effect.targetType))
-                {
-                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, unit, unit.Owner, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, EffectTarget.ForUnit(groupUnit));
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-                }
-                else if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                {
-                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, unit, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, unit.Owner, unit, slotTarget);
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
+                    DeferCardChoice(effect, unit);
                 }
                 else if (EffectTargeting.RequiresClick(effect.targetType))
                 {
@@ -2253,318 +1771,35 @@ namespace DDD.TNFY.TCG.Core
                 }
                 else
                 {
-                    EffectTarget immediateTarget = EffectTargeting.ResolveImmediateTarget(effect.targetType, unit, unit.Owner, state);
-                    Debug.Log($"[PhaseManager] {unit.SourceCard.CardName}'s OnPlay effect (targetType={effect.targetType}) resolved immediately, target.Kind={immediateTarget.Kind}, LeaderSide={immediateTarget.LeaderSide}.");
-                    EffectContext immediateContext = new EffectContext(state, unit.Owner, unit, immediateTarget);
-                    EffectExecutor.Execute(effect, immediateContext, this);
+                    ResolveEffect(effect, unit, unit.Owner);
                 }
             }
 
-            TriggerLeaderEffects(EffectTriggerType.OnPlay, unit.Owner, unit);
+            TriggerLeaderEffects(EffectTriggerType.OnPlay, unit);
         }
 
-        private void DeferCardPoolChoice(CardEffect effect, BoardUnit sourceUnit)
+        private void TriggerOnDraw(Player player, CardData card)
         {
-            Player owner = state.GetPlayer(sourceUnit.Owner);
-            List<CardData> eligibleCards = owner.Deck.FindAll(card => MatchesCardCategory(card, effect.cardCategory));
-
-            if (eligibleCards.Count == 0)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s ChooseXCards effect has no eligible cards to offer — fizzling.");
-                return;
-            }
-
-            List<CardData> shuffledCopy = new List<CardData>(eligibleCards);
-            ListShuffler.Shuffle(shuffledCopy);
-
-            int offerCount = Mathf.Min(effect.amount, shuffledCopy.Count);
-            List<CardData> offeredCards = shuffledCopy.GetRange(0, offerCount);
-
-            state.PendingCardChoiceOptions = offeredCards;
-            state.PendingCardChoiceSource = sourceUnit;
-
-            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName} is now awaiting a card choice from {offerCount} option(s): {string.Join(", ", offeredCards.ConvertAll(c => c.CardName))}.");
-        }
-
-        private void DeferFixedCardChoice(CardEffect effect, BoardUnit sourceUnit)
-        {
-            if (effect.fixedChoiceOptions == null || effect.fixedChoiceOptions.Length == 0)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s ChooseFixedCard effect has no fixedChoiceOptions configured on the asset — fizzling.");
-                return;
-            }
-
-            List<CardData> offeredCards = new List<CardData>(effect.fixedChoiceOptions);
-
-            state.PendingCardChoiceOptions = offeredCards;
-            state.PendingCardChoiceSource = sourceUnit;
-
-            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName} is now awaiting a fixed card choice from {offeredCards.Count} option(s): {string.Join(", ", offeredCards.ConvertAll(c => c.CardName))}.");
-        }
-
-        public static bool MatchesCardCategory(CardData card, CardCategory category)
-        {
-            switch (category)
-            {
-                case CardCategory.Unit:
-                    return card is UnitCardData;
-                case CardCategory.Item:
-                    return card is ItemCardData;
-                default:
-                    return true;
-            }
-        }
-
-        public bool TryResolvePendingCardChoice(CardData chosenCard)
-        {
-            if (state.PendingCardChoiceOptions == null || state.PendingCardChoiceSource == null)
-            {
-                Debug.Log("[PhaseManager] TryResolvePendingCardChoice FAIL: no pending card choice.");
-                return false;
-            }
-
-            if (!state.PendingCardChoiceOptions.Contains(chosenCard))
-            {
-                Debug.Log($"[PhaseManager] TryResolvePendingCardChoice FAIL: {chosenCard?.CardName} was not one of the offered options.");
-                return false;
-            }
-
-            BoardUnit sourceUnit = state.PendingCardChoiceSource;
-            Player owner = state.GetPlayer(sourceUnit.Owner);
-
-            state.PendingCardChoiceOptions = null;
-            state.PendingCardChoiceSource = null;
-
-            bool cameFromDeck = owner.Deck.Contains(chosenCard);
-
-            if (cameFromDeck)
-            {
-                owner.Deck.Remove(chosenCard);
-            }
-
-            bool added = owner.TryAddCardToHand(chosenCard);
-
-            if (!added)
-            {
-                BurnUndrawableCard(chosenCard, owner.Side);
-                TryRunQueuedEndTurn();
-                return true;
-            }
-
-            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s card choice resolved: {chosenCard.CardName} added to {owner.Side}'s hand.");
-
-            TryRunQueuedEndTurn();
-
-            return true;
-        }
-
-        private void DeferTargetedEffect(CardEffect effect, BoardUnit sourceUnit, EffectTriggerType trigger, bool excludeSource = true)
-        {
-            BoardUnit excludingUnit = excludeSource ? sourceUnit : null;
-            bool hasValidTarget = BoardHasValidTarget(effect.targetType, sourceUnit.Owner, excludingUnit);
-
-            if (!hasValidTarget)
-            {
-                Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s {trigger} effect has no valid target on board — fizzling.");
-                return;
-            }
-
-            state.PendingTargetedEffect = effect;
-            state.PendingTargetedEffectSource = sourceUnit;
-            state.PendingTargetedEffectTrigger = trigger;
-            Debug.Log($"[PhaseManager] {sourceUnit.SourceCard.CardName}'s {trigger} effect is now awaiting a target click.");
-        }
-
-        private bool BoardHasValidTarget(TargetType targetType, PlayerSide sourceOwner, BoardUnit excludingUnit = null)
-        {
-            for (int i = 0; i < Board.SlotsPerSide; i++)
-            {
-                BoardUnit candidateA = state.Board.GetUnit(PlayerSide.PlayerA, i);
-                if (candidateA != null && candidateA != excludingUnit && EffectTargeting.IsValidTarget(targetType, EffectTarget.ForUnit(candidateA), state))
-                {
-                    return true;
-                }
-
-                BoardUnit candidateB = state.Board.GetUnit(PlayerSide.PlayerB, i);
-                if (candidateB != null && candidateB != excludingUnit && EffectTargeting.IsValidTarget(targetType, EffectTarget.ForUnit(candidateB), state))
-                {
-                    return true;
-                }
-            }
-
-            if (EffectTargeting.IsValidTarget(targetType, EffectTarget.ForLeader(PlayerSide.PlayerA), state))
-            {
-                return true;
-            }
-
-            if (EffectTargeting.IsValidTarget(targetType, EffectTarget.ForLeader(PlayerSide.PlayerB), state))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        public bool TryResolvePendingTargetedEffect(EffectTarget chosenTarget)
-        {
-            if (state.PendingTargetedEffect == null || state.PendingTargetedEffectSource == null)
-            {
-                Debug.Log("[PhaseManager] TryResolvePendingTargetedEffect FAIL: no pending effect.");
-                return false;
-            }
-
-            bool cameFromTurnStart = state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
-
-            if (state.IsExcludedAsSelfTarget(chosenTarget.Kind == EffectTargetKind.Unit ? chosenTarget.Unit : null))
-            {
-                Debug.Log("[PhaseManager] TryResolvePendingTargetedEffect FAIL: clicked the source unit itself.");
-                return false;
-            }
-
-            if (!EffectTargeting.IsValidTarget(state.PendingTargetedEffect.targetType, chosenTarget, state))
-            {
-                Debug.Log($"[PhaseManager] TryResolvePendingTargetedEffect FAIL: target invalid for targetType={state.PendingTargetedEffect.targetType}, chosenTarget.Kind={chosenTarget.Kind}");
-                return false;
-            }
-
-            CardEffect effect = state.PendingTargetedEffect;
-            BoardUnit sourceUnit = state.PendingTargetedEffectSource;
-            PlayerSide sourceOwner = sourceUnit.Owner;
-
-            state.PendingTargetedEffect = null;
-            state.PendingTargetedEffectSource = null;
-            state.PendingTargetedEffectTrigger = null;
-
-            EffectContext context = new EffectContext(state, sourceUnit.Owner, sourceUnit, chosenTarget);
-            EffectExecutor.Execute(effect, context, this);
-
-            Debug.Log($"[PhaseManager] TryResolvePendingTargetedEffect SUCCESS: {effect.action} resolved.");
-
-            if (cameFromTurnStart && state.IsResolvingTurnStartEffects)
-            {
-                ContinueTurnStartScan(state.GetPlayer(sourceOwner), state.TurnStartScanSlot);
-            }
-
-            TryRunQueuedEndTurn();
-
-            return true;
-        }
-
-        public bool TryReturnPendingOnPlayCardToHand()
-        {
-            BoardUnit source = state.PendingTargetedEffectSource;
-
-            if (state.PendingTargetedEffect == null || source == null || state.PendingTargetedEffectTrigger != EffectTriggerType.OnPlay)
-            {
-                Debug.Log($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: no pending On-Play target (hasEffect={state.PendingTargetedEffect != null}, source={source?.SourceCard?.CardName}, trigger={state.PendingTargetedEffectTrigger}).");
-                return false;
-            }
-
-            if (source != lastPlayedUnit || lastPlayedCard == null)
-            {
-                Debug.LogWarning($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: {source.SourceCard.CardName} isn't the last unit played this turn (lastPlayedUnit={lastPlayedUnit?.SourceCard?.CardName}) - no payment record to undo.");
-                return false;
-            }
-
-            if (state.Board.GetUnit(source.Owner, source.SlotIndex) != source)
-            {
-                Debug.LogWarning($"[PhaseManager] TryReturnPendingOnPlayCardToHand FAIL: {source.SourceCard.CardName} is no longer on the board at slot {source.SlotIndex}.");
-                return false;
-            }
-
-            PlayerSide ownerSide = source.Owner;
-            int slotIndex = source.SlotIndex;
-            Player owner = state.GetPlayer(ownerSide);
-
-            state.PendingTargetedEffect = null;
-            state.PendingTargetedEffectSource = null;
-            state.PendingTargetedEffectTrigger = null;
-
-            state.Board.RemoveUnit(ownerSide, slotIndex);
-
-            if (lastPlayedAbsorbedUnit != null)
-            {
-                state.Board.PlaceUnit(ownerSide, slotIndex, lastPlayedAbsorbedUnit);
-                Debug.Log($"[PhaseManager] Restored {lastPlayedAbsorbedUnit.SourceCard.CardName} to {ownerSide} slot {slotIndex} (it had been absorbed by {lastPlayedCard.CardName}).");
-            }
-
-            owner.CurrentMana += lastPlayedManaSpent;
-
-            if (lastPlayedHealthPaid > 0)
-            {
-                HealLeader(ownerSide, lastPlayedHealthPaid);
-            }
-
-            bool returnedToHand = owner.TryAddCardToHand(lastPlayedCard);
-
-            Debug.Log($"[PhaseManager] Target not chosen in time - {lastPlayedCard.CardName} removed from {ownerSide} slot {slotIndex}. returnedToHand={returnedToHand}, refunded mana={lastPlayedManaSpent} (now {owner.CurrentMana}), refunded health={lastPlayedHealthPaid} (leader now {owner.LeaderHealth}). Effects that already fired from this play are NOT undone.");
-
-            if (!returnedToHand)
-            {
-                Debug.Log($"[PhaseManager] {lastPlayedCard.CardName} could not be returned - {ownerSide}'s hand is at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
-                state.RaiseCardBurnAnimationRequested(lastPlayedCard, ownerSide);
-            }
-
-            ClearLastPlayedRecord();
-            SyncQualifyingEnemyAuraHealth();
-            TryRunQueuedEndTurn();
-
-            return true;
-        }
-
-        private void ClearLastPlayedRecord()
-        {
-            lastPlayedUnit = null;
-            lastPlayedCard = null;
-            lastPlayedAbsorbedUnit = null;
-            lastPlayedManaSpent = 0;
-            lastPlayedHealthPaid = 0;
-        }
-
-        public bool HasBlockingPendingTargetedEffect()
-        {
-            CardEffect pendingEffect = state.PendingTargetedEffect;
-            bool isTurnStartSelection = state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
-            bool hasBlockingTargetedEffect = pendingEffect != null && (pendingEffect.mandatoryTarget || isTurnStartSelection);
-            bool hasBlockingCardChoice = state.PendingCardChoiceOptions != null;
-
-            return hasBlockingTargetedEffect || hasBlockingCardChoice;
-        }
-
-        public void CancelPendingTargetedEffectIfNonMandatory()
-        {
-            if (state.PendingTargetedEffect == null)
+            if (!(card is UnitCardData unitCard) || !unitCard.Effects.Any(effect => effect.trigger == EffectTriggerType.OnDraw && effect.action == EffectActionType.RandomizeStatsOnDraw))
             {
                 return;
             }
 
-            if (state.PendingTargetedEffect.mandatoryTarget)
+            int handIndex = player.Hand.IndexOf(card);
+
+            if (handIndex >= 0)
             {
-                return;
-            }
-
-            Debug.Log($"[PhaseManager] Non-mandatory pending effect on {state.PendingTargetedEffectSource?.SourceCard?.CardName} was cancelled.");
-
-            bool cameFromTurnStart = state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
-            PlayerSide? sourceOwner = state.PendingTargetedEffectSource?.Owner;
-
-            state.PendingTargetedEffect = null;
-            state.PendingTargetedEffectSource = null;
-            state.PendingTargetedEffectTrigger = null;
-
-            if (cameFromTurnStart && state.IsResolvingTurnStartEffects && sourceOwner.HasValue)
-            {
-                ContinueTurnStartScan(state.GetPlayer(sourceOwner.Value), state.TurnStartScanSlot);
+                player.Hand[handIndex] = unitCard.CreateSyncedClone(rng.Next(1, 7), rng.Next(1, 7), rng.Next(1, 7));
             }
         }
 
-        private void TriggerLeaderEffects(EffectTriggerType trigger, PlayerSide triggeringPlayer, BoardUnit sourceUnit)
+        private void TriggerLeaderEffects(EffectTriggerType trigger, BoardUnit sourceUnit)
         {
-            TriggerLeaderEffectsFor(state.PlayerA, trigger, triggeringPlayer, sourceUnit);
-            TriggerLeaderEffectsFor(state.PlayerB, trigger, triggeringPlayer, sourceUnit);
+            TriggerLeaderEffectsFor(state.PlayerA, trigger, sourceUnit);
+            TriggerLeaderEffectsFor(state.PlayerB, trigger, sourceUnit);
         }
 
-        private void TriggerLeaderEffectsFor(Player leaderOwner, EffectTriggerType trigger, PlayerSide triggeringPlayer, BoardUnit sourceUnit)
+        private void TriggerLeaderEffectsFor(Player leaderOwner, EffectTriggerType trigger, BoardUnit sourceUnit)
         {
             if (leaderOwner.Leader == null)
             {
@@ -2573,61 +1808,28 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (CardEffect effect in leaderOwner.Leader.Effects)
             {
-                if (effect.trigger != trigger)
+                if (effect.trigger != trigger || (effect.oncePerTurn && leaderOwner.TriggeredOncePerTurnEffects.Contains(effect)))
                 {
                     continue;
                 }
 
-                if (effect.oncePerTurn && leaderOwner.TriggeredOncePerTurnEffects.Contains(effect))
+                if (EffectTargeting.IsGroupTarget(effect.targetType) || EffectTargeting.IsGroupSlotTarget(effect.targetType))
                 {
-                    continue;
+                    ResolveEffect(effect, sourceUnit, leaderOwner.Side);
                 }
-
-                if (EffectTargeting.IsGroupTarget(effect.targetType))
+                else
                 {
-                    foreach (BoardUnit groupUnit in EffectTargeting.ResolveGroupTargets(effect.targetType, sourceUnit, leaderOwner.Side, state))
+                    EffectTarget target = effect.targetType == TargetType.None || (effect.targetType == TargetType.Self && sourceUnit == null)
+                        ? EffectTarget.ForLeader(leaderOwner.Side)
+                        : EffectTargeting.ResolveImmediateTarget(effect.targetType, sourceUnit, leaderOwner.Side, state);
+
+                    if (target.Kind == EffectTargetKind.None || (target.Kind == EffectTargetKind.Unit && target.Unit == null))
                     {
-                        EffectContext groupContext = new EffectContext(state, leaderOwner.Side, sourceUnit, EffectTarget.ForUnit(groupUnit), triggeringPlayer);
-                        EffectExecutor.Execute(effect, groupContext, this);
+                        continue;
                     }
 
-                    if (effect.oncePerTurn)
-                    {
-                        leaderOwner.TriggeredOncePerTurnEffects.Add(effect);
-                    }
-
-                    continue;
+                    Execute(effect, leaderOwner.Side, sourceUnit, target);
                 }
-
-                if (EffectTargeting.IsGroupSlotTarget(effect.targetType))
-                {
-                    foreach (EffectTarget slotTarget in EffectTargeting.ResolveGroupSlotTargets(effect.targetType, sourceUnit, state))
-                    {
-                        EffectContext groupContext = new EffectContext(state, leaderOwner.Side, sourceUnit, slotTarget, triggeringPlayer);
-                        EffectExecutor.Execute(effect, groupContext, this);
-                    }
-
-                    if (effect.oncePerTurn)
-                    {
-                        leaderOwner.TriggeredOncePerTurnEffects.Add(effect);
-                    }
-
-                    continue;
-                }
-
-                EffectTarget resolvedTarget = (effect.targetType == TargetType.None || (effect.targetType == TargetType.Self && sourceUnit == null))
-                    ? EffectTarget.ForLeader(leaderOwner.Side)
-                    : EffectTargeting.ResolveImmediateTarget(effect.targetType, sourceUnit, leaderOwner.Side, state);
-
-                if (resolvedTarget.Kind == EffectTargetKind.None || (resolvedTarget.Kind == EffectTargetKind.Unit && resolvedTarget.Unit == null))
-                {
-                    Debug.LogWarning($"[PhaseManager] {leaderOwner.Side}'s leader effect (trigger={trigger}, action={effect.action}, targetType={effect.targetType}) could not resolve a target — skipped.");
-                    continue;
-                }
-
-                EffectContext context = new EffectContext(state, leaderOwner.Side, sourceUnit, resolvedTarget, triggeringPlayer);
-
-                EffectExecutor.Execute(effect, context, this);
 
                 if (effect.oncePerTurn)
                 {
@@ -2636,57 +1838,192 @@ namespace DDD.TNFY.TCG.Core
             }
         }
 
-        private void TriggerOnDraw(PlayerSide side, CardData card)
+        private void DeferCardChoice(CardEffect effect, BoardUnit sourceUnit)
         {
-            if (!(card is UnitCardData unitCard))
+            List<CardData> options;
+
+            if (effect.action == EffectActionType.ChooseFixedCard)
+            {
+                options = new List<CardData>(effect.fixedChoiceOptions ?? new CardData[0]);
+            }
+            else
+            {
+                options = state.GetPlayer(sourceUnit.Owner).Deck.FindAll(card => MatchesCardCategory(card, effect.cardCategory));
+                ListShuffler.Shuffle(options);
+                options = options.GetRange(0, Mathf.Min(effect.amount, options.Count));
+            }
+
+            if (options.Count > 0)
+            {
+                state.PendingCardChoiceOptions = options;
+                state.PendingCardChoiceSource = sourceUnit;
+            }
+        }
+
+        public static bool MatchesCardCategory(CardData card, CardCategory category) => category switch
+        {
+            CardCategory.Unit => card is UnitCardData,
+            CardCategory.Item => card is ItemCardData,
+            _ => true
+        };
+
+        public bool TryResolvePendingCardChoice(CardData chosenCard)
+        {
+            if (state.PendingCardChoiceOptions == null || state.PendingCardChoiceSource == null || !state.PendingCardChoiceOptions.Contains(chosenCard))
+            {
+                return false;
+            }
+
+            Player owner = state.GetPlayer(state.PendingCardChoiceSource.Owner);
+            state.PendingCardChoiceOptions = null;
+            state.PendingCardChoiceSource = null;
+
+            owner.Deck.Remove(chosenCard);
+
+            if (!owner.TryAddCardToHand(chosenCard))
+            {
+                state.RaiseCardBurnAnimationRequested(chosenCard, owner.Side);
+            }
+
+            TryRunQueuedEndTurn();
+            return true;
+        }
+
+        private void DeferTargetedEffect(CardEffect effect, BoardUnit sourceUnit, EffectTriggerType trigger, bool excludeSource = true)
+        {
+            if (!BoardHasValidTarget(effect.targetType, excludeSource ? sourceUnit : null))
             {
                 return;
             }
 
-            CardEffect randomizeEffect = null;
+            state.PendingTargetedEffect = effect;
+            state.PendingTargetedEffectSource = sourceUnit;
+            state.PendingTargetedEffectTrigger = trigger;
+        }
 
-            foreach (CardEffect effect in unitCard.Effects)
+        private bool BoardHasValidTarget(TargetType targetType, BoardUnit excludingUnit)
+        {
+            foreach (PlayerSide side in Sides)
             {
-                if (effect.trigger == EffectTriggerType.OnDraw && effect.action == EffectActionType.RandomizeStatsOnDraw)
+                if (EffectTargeting.IsValidTarget(targetType, EffectTarget.ForLeader(side), state))
                 {
-                    randomizeEffect = effect;
-                    break;
+                    return true;
+                }
+
+                foreach (BoardUnit unit in state.Board.GetUnits(side))
+                {
+                    if (unit != excludingUnit && EffectTargeting.IsValidTarget(targetType, EffectTarget.ForUnit(unit), state))
+                    {
+                        return true;
+                    }
                 }
             }
 
-            if (randomizeEffect == null)
+            return false;
+        }
+
+        private void ClearPendingTargetedEffect()
+        {
+            state.PendingTargetedEffect = null;
+            state.PendingTargetedEffectSource = null;
+            state.PendingTargetedEffectTrigger = null;
+        }
+
+        public bool TryResolvePendingTargetedEffect(EffectTarget chosenTarget)
+        {
+            CardEffect effect = state.PendingTargetedEffect;
+            BoardUnit sourceUnit = state.PendingTargetedEffectSource;
+
+            if (effect == null || sourceUnit == null)
+            {
+                return false;
+            }
+
+            if (state.IsExcludedAsSelfTarget(chosenTarget.Kind == EffectTargetKind.Unit ? chosenTarget.Unit : null) || !EffectTargeting.IsValidTarget(effect.targetType, chosenTarget, state))
+            {
+                return false;
+            }
+
+            bool cameFromTurnStart = state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
+            ClearPendingTargetedEffect();
+            Execute(effect, sourceUnit.Owner, sourceUnit, chosenTarget);
+
+            if (cameFromTurnStart && state.IsResolvingTurnStartEffects)
+            {
+                ContinueTurnStartScan(state.GetPlayer(sourceUnit.Owner), state.TurnStartScanSlot);
+            }
+
+            TryRunQueuedEndTurn();
+            return true;
+        }
+
+        public bool TryReturnPendingOnPlayCardToHand()
+        {
+            BoardUnit source = state.PendingTargetedEffectSource;
+
+            if (state.PendingTargetedEffect == null || source == null || state.PendingTargetedEffectTrigger != EffectTriggerType.OnPlay || source != lastPlayedUnit || !IsOnBoard(source))
+            {
+                return false;
+            }
+
+            Player owner = state.GetPlayer(source.Owner);
+            ClearPendingTargetedEffect();
+
+            state.Board.RemoveUnit(source.Owner, source.SlotIndex);
+
+            if (lastPlayedAbsorbedUnit != null)
+            {
+                state.Board.PlaceUnit(source.Owner, source.SlotIndex, lastPlayedAbsorbedUnit);
+            }
+
+            owner.CurrentMana += lastPlayedManaSpent;
+
+            if (lastPlayedHealthPaid > 0)
+            {
+                HealLeader(source.Owner, lastPlayedHealthPaid);
+            }
+
+            if (!owner.TryAddCardToHand(lastPlayedCard))
+            {
+                state.RaiseCardBurnAnimationRequested(lastPlayedCard, source.Owner);
+            }
+
+            lastPlayedUnit = null;
+            SyncQualifyingEnemyAuraHealth();
+            TryRunQueuedEndTurn();
+            return true;
+        }
+
+        public bool HasBlockingPendingTargetedEffect()
+        {
+            CardEffect pending = state.PendingTargetedEffect;
+            bool blockingTarget = pending != null && (pending.mandatoryTarget || state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart);
+            return blockingTarget || state.PendingCardChoiceOptions != null;
+        }
+
+        public void CancelPendingTargetedEffectIfNonMandatory()
+        {
+            if (state.PendingTargetedEffect == null || state.PendingTargetedEffect.mandatoryTarget)
             {
                 return;
             }
 
-            Player player = state.GetPlayer(side);
-            int handIndex = player.Hand.IndexOf(card);
+            bool cameFromTurnStart = state.PendingTargetedEffectTrigger == EffectTriggerType.OnTurnStart;
+            BoardUnit source = state.PendingTargetedEffectSource;
+            ClearPendingTargetedEffect();
 
-            if (handIndex < 0)
+            if (cameFromTurnStart && state.IsResolvingTurnStartEffects && source != null)
             {
-                return;
+                ContinueTurnStartScan(state.GetPlayer(source.Owner), state.TurnStartScanSlot);
             }
-
-            System.Random rng = new System.Random();
-            UnitCardData randomizedClone = unitCard.CreateRandomizedClone(1, 6, rng);
-
-            player.Hand[handIndex] = randomizedClone;
-
-            Debug.Log($"[PhaseManager] {unitCard.CardName} randomized on draw: Cost={randomizedClone.ManaCost}, Attack={randomizedClone.Attack}, Health={randomizedClone.Health}");
         }
 
         public void DeclareSurrender(PlayerSide surrenderingSide)
         {
-            if (state.IsGameOver)
+            if (!state.IsGameOver)
             {
-                return;
+                EndGame(surrenderingSide.Opposite());
             }
-
-            state.IsGameOver = true;
-            state.Winner = surrenderingSide.Opposite();
-
-            Debug.Log($"[PhaseManager] {surrenderingSide} surrendered. Winner: {state.Winner}.");
-            state.RaiseGameOver();
         }
 
         private void CheckWinCondition()
@@ -2698,20 +2035,19 @@ namespace DDD.TNFY.TCG.Core
 
             if (state.PlayerA.LeaderHealth <= 0)
             {
-                state.IsGameOver = true;
-                state.Winner = PlayerSide.PlayerB;
+                EndGame(PlayerSide.PlayerB);
             }
             else if (state.PlayerB.LeaderHealth <= 0)
             {
-                state.IsGameOver = true;
-                state.Winner = PlayerSide.PlayerA;
+                EndGame(PlayerSide.PlayerA);
             }
+        }
 
-            if (state.IsGameOver)
-            {
-                Debug.Log($"[PhaseManager] Game over. Winner: {state.Winner}.");
-                state.RaiseGameOver();
-            }
+        private void EndGame(PlayerSide winner)
+        {
+            state.IsGameOver = true;
+            state.Winner = winner;
+            state.RaiseGameOver();
         }
     }
 }

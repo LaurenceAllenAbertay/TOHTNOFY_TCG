@@ -96,10 +96,4 @@ namespace DDD.TNFY.TCG.Effects
         Always,
         OnceMaxManaReached
     }
-
-    public enum DamageSourceType
-    {
-        Combat,
-        Effect
-    }
 }

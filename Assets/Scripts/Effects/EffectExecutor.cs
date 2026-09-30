@@ -10,531 +10,232 @@ namespace DDD.TNFY.TCG.Effects
 
         public static void Execute(CardEffect effect, EffectContext context, PhaseManager phases, int? runtimeAmount = null)
         {
+            GameState state = context.GameState;
+            Player owner = state.GetPlayer(context.SourceOwner);
+            Player opponent = state.GetPlayer(context.SourceOwner.Opposite());
+            EffectTarget target = context.ChosenTarget;
+            BoardUnit unit = target.Kind == EffectTargetKind.Unit ? target.Unit : null;
+            BoardUnit source = context.SourceUnit;
+
             switch (effect.action)
             {
                 case EffectActionType.DrawCard:
-                    ExecuteDrawCard(effect, context);
+                    for (int i = 0; i < effect.amount; i++)
+                    {
+                        CardData drawn = owner.DrawCard(out bool addedToHand);
+
+                        if (drawn != null && !addedToHand)
+                        {
+                            state.RaiseCardBurnAnimationRequested(drawn, owner.Side);
+                        }
+                    }
                     break;
 
                 case EffectActionType.GainMana:
-                    ExecuteGainMana(effect, context);
+                    owner.CurrentMana += effect.amount;
                     break;
 
                 case EffectActionType.StunUnit:
-                    ExecuteStunUnit(effect, context);
+                    unit?.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Stunned, 1));
                     break;
 
                 case EffectActionType.HealTarget:
-                    ExecuteHealTarget(effect, context, phases);
+                    if (unit != null)
+                    {
+                        phases.HealUnit(unit, effect.amount);
+                    }
+                    else if (target.Kind == EffectTargetKind.Leader)
+                    {
+                        phases.HealLeader(target.LeaderSide, effect.amount);
+                    }
                     break;
 
                 case EffectActionType.BuffAttack:
-                    ExecuteBuffAttack(effect, context);
+                    if (unit != null)
+                    {
+                        unit.BonusAttack += effect.amount;
+                    }
                     break;
 
                 case EffectActionType.AddTemporaryAttack:
-                    ExecuteAddTemporaryAttack(effect, context);
+                    unit?.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttack, 1, effect.amount));
                     break;
 
                 case EffectActionType.BuffMaxHealth:
-                    ExecuteBuffMaxHealth(effect, context, phases);
+                    if (unit != null)
+                    {
+                        unit.MaxHealth += effect.amount;
+                        unit.CurrentHealth += effect.amount;
+                        phases.SyncQualifyingEnemyAuraHealth();
+                    }
                     break;
 
                 case EffectActionType.GrantDoubleAttack:
-                    ExecuteGrantDoubleAttack(context);
+                    unit?.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DoubleAttackNextAttack, 1));
                     break;
 
                 case EffectActionType.ApplyDelayedKill:
-                    ExecuteApplyDelayedKill(effect, context);
+                    unit?.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DelayedKill, effect.amount, 0, context.SourceOwner));
                     break;
 
                 case EffectActionType.BounceUnit:
-                    ExecuteBounceUnit(context, phases);
+                    if (unit != null)
+                    {
+                        phases.BounceUnit(unit);
+                    }
                     break;
 
                 case EffectActionType.SilenceUnit:
-                    ExecuteSilenceUnit(effect, context, phases);
+                    phases.SilenceUnit(unit, Mathf.Max(1, effect.amount));
                     break;
 
                 case EffectActionType.SwapAttackAndHealth:
-                    ExecuteSwapAttackAndHealth(context, phases);
+                    phases.SwapAttackAndHealth(unit);
                     break;
 
                 case EffectActionType.GrantRush:
-                    ExecuteGrantRush(context);
+                    unit?.GrantKeyword(Keyword.Rush);
                     break;
 
                 case EffectActionType.GrantKeyword:
-                    ExecuteGrantKeyword(effect, context);
+                    unit?.GrantKeyword(effect.keyword);
                     break;
 
                 case EffectActionType.ApplyShield:
-                    ExecuteApplyShield(effect, context);
+                    if (unit != null)
+                    {
+                        unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
+                    }
+                    else if (target.Kind == EffectTargetKind.Leader)
+                    {
+                        state.GetPlayer(target.LeaderSide).Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
+                    }
                     break;
 
                 case EffectActionType.DealDamage:
-                    ExecuteDealDamage(effect, context, phases);
+                    if (unit != null)
+                    {
+                        phases.DamageUnit(unit, effect.amount, context.SourceOwner);
+                    }
+                    else if (target.Kind == EffectTargetKind.Leader)
+                    {
+                        phases.DamageLeader(target.LeaderSide, effect.amount);
+                    }
                     break;
 
                 case EffectActionType.ReduceOpponentMana:
-                    ExecuteReduceOpponentMana(effect, context);
-                    break;
-
-                case EffectActionType.MoveAllyUnit:
-                    ExecuteMoveAllyUnit(context);
-                    break;
-
-                case EffectActionType.SwapUnitSlot:
-                    ExecuteSwapUnitSlot(context, phases);
-                    break;
-
-                case EffectActionType.PullUnitOpposite:
-                    ExecutePullUnitOpposite(context, phases);
-                    break;
-
-                case EffectActionType.ApplyDecay:
-                    ExecuteApplyDecay(effect, context);
-                    break;
-
-                case EffectActionType.HealSelfByDamageDealt:
-                    ExecuteHealSelfByDamageDealt(context, phases, runtimeAmount);
-                    break;
-
-                case EffectActionType.GrantNextItemDoubled:
-                    ExecuteGrantNextItemDoubled(context);
-                    break;
-
-                case EffectActionType.PushAlliesAway:
-                    ExecutePushAlliesAway(context, phases);
-                    break;
-
-                case EffectActionType.AddCardToHand:
-                    ExecuteAddCardToHand(effect, context);
-                    break;
-
-                case EffectActionType.StealRandomCard:
-                    ExecuteStealRandomCard(context);
-                    break;
-
-                case EffectActionType.TransformCard:
-                    ExecuteTransformCard(effect, context, phases);
-                    break;
-
-                case EffectActionType.HookClosestAllyLeft:
-                    ExecuteHookClosestAllyLeft(context, phases);
-                    break;
-
-                case EffectActionType.RandomizeStats:
-                    ExecuteRandomizeStats(effect, context, phases);
-                    break;
-
-                case EffectActionType.MoveUnitToUnblockedSlot:
-                    ExecuteMoveUnitToUnblockedSlot(context, phases);
+                    opponent.Statuses.Add(new ActiveStatusEffect(StatusEffectType.OpponentManaReduction, 1, effect.amount));
                     break;
 
                 case EffectActionType.SpawnUnit:
-                    ExecuteSpawnUnit(effect, context, phases);
+                    if (target.Kind == EffectTargetKind.Slot && effect.relevantCard is UnitCardData spawnCard)
+                    {
+                        phases.SpawnUnit(target.SlotSide, target.SlotIndex, spawnCard);
+                    }
                     break;
-            }
-        }
-
-        private static void ExecuteDrawCard(CardEffect effect, EffectContext context)
-        {
-            Player owner = context.GameState.GetPlayer(context.SourceOwner);
-
-            for (int i = 0; i < effect.amount; i++)
-            {
-                CardData drawn = owner.DrawCard(out bool addedToHand);
-
-                if (drawn != null && !addedToHand)
-                {
-                    Debug.Log($"[EffectExecutor] {drawn.CardName} was drawn but {owner.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
-                    context.GameState.RaiseCardBurnAnimationRequested(drawn, owner.Side);
-                }
-            }
-        }
-
-        private static void ExecuteGainMana(CardEffect effect, EffectContext context)
-        {
-            Player owner = context.GameState.GetPlayer(context.SourceOwner);
-            owner.CurrentMana += effect.amount;
-        }
-
-        private static void ExecuteStunUnit(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Stunned, 1));
-        }
-
-        private static void ExecuteHealTarget(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind == EffectTargetKind.Unit)
-            {
-                phases.HealUnit(context.ChosenTarget.Unit, effect.amount);
-            }
-            else if (context.ChosenTarget.Kind == EffectTargetKind.Leader)
-            {
-                phases.HealLeader(context.ChosenTarget.LeaderSide, effect.amount);
-            }
-        }
-
-        private static void ExecuteBuffAttack(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.BonusAttack += effect.amount;
-        }
-
-        private static void ExecuteAddTemporaryAttack(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.TemporaryAttack, 1, effect.amount));
-        }
-
-        private static void ExecuteBuffMaxHealth(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            BoardUnit unit = context.ChosenTarget.Unit;
-            unit.MaxHealth += effect.amount;
-            unit.CurrentHealth += effect.amount;
-
-            phases.SyncQualifyingEnemyAuraHealth();
-        }
-
-        private static void ExecuteGrantDoubleAttack(EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DoubleAttackNextAttack, 1));
-        }
-
-        private static void ExecuteApplyDelayedKill(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.DelayedKill, effect.amount, sourceOwner: context.SourceOwner));
-        }
-
-        private static void ExecuteBounceUnit(EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            phases.BounceUnit(context.ChosenTarget.Unit);
-        }
-
-        private static void ExecuteSilenceUnit(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            int duration = System.Math.Max(1, effect.amount);
-            phases.SilenceUnit(context.ChosenTarget.Unit, duration);
-        }
-
-        private static void ExecuteSwapAttackAndHealth(EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            phases.SwapAttackAndHealth(context.ChosenTarget.Unit);
-        }
-
-        private static void ExecuteGrantRush(EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.GrantKeyword(Keyword.Rush);
-        }
-
-        private static void ExecuteGrantKeyword(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            context.ChosenTarget.Unit.GrantKeyword(effect.keyword);
-        }
-
-        private static void ExecuteApplyShield(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind == EffectTargetKind.Unit)
-            {
-                context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
-                return;
-            }
-
-            if (context.ChosenTarget.Kind == EffectTargetKind.Leader)
-            {
-                Player player = context.GameState.GetPlayer(context.ChosenTarget.LeaderSide);
-                player.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Shield, 1));
-            }
-        }
-
-        private static void ExecuteDealDamage(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind == EffectTargetKind.Unit)
-            {
-                phases.DamageUnit(context.ChosenTarget.Unit, effect.amount, context.SourceOwner, DamageSourceType.Effect);
-            }
-            else if (context.ChosenTarget.Kind == EffectTargetKind.Leader)
-            {
-                phases.DamageLeader(context.ChosenTarget.LeaderSide, effect.amount);
-            }
-        }
-
-        private static void ExecuteReduceOpponentMana(CardEffect effect, EffectContext context)
-        {
-            Player opponent = context.GameState.GetPlayer(context.SourceOwner.Opposite());
-            opponent.Statuses.Add(new ActiveStatusEffect(StatusEffectType.OpponentManaReduction, 1, effect.amount));
-        }
-
-        private static void ExecuteSpawnUnit(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Slot)
-            {
-                return;
-            }
-
-            if (!(effect.relevantCard is UnitCardData spawnCard))
-            {
-                Debug.Log("[EffectExecutor] SpawnUnit FAIL: effect has no UnitCardData set as relevantCard.");
-                return;
-            }
-
-            phases.SpawnUnit(context.ChosenTarget.SlotSide, context.ChosenTarget.SlotIndex, spawnCard);
-        }
-
-        private static void ExecuteMoveAllyUnit(EffectContext context)
-        {
-            context.GameState.HasPendingFreeMove = true;
-            context.GameState.PendingFreeMoveExcludedUnit = context.SourceUnit;
-            Debug.Log($"[EffectExecutor] Pending free move granted, excluding {context.SourceUnit?.SourceCard?.CardName}");
-        }
-
-        private static void ExecuteMoveUnitToUnblockedSlot(EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                Debug.Log("[EffectExecutor] MoveUnitToUnblockedSlot: no unit found — fizzling.");
-                return;
-            }
-
-            BoardUnit target = context.ChosenTarget.Unit;
-
-            if (!phases.HasAnyLegalUnblockedSlot(target.Owner, target.SlotIndex))
-            {
-                Debug.Log($"[EffectExecutor] MoveUnitToUnblockedSlot: {target.SourceCard.CardName} has no legal unblocked slot to move to — fizzling.");
-                return;
-            }
-
-            context.GameState.HasPendingEnemyMoveGrantOnPlay = true;
-            context.GameState.PendingEnemyMoveGrantTarget = target;
-
-            Debug.Log($"[EffectExecutor] MoveUnitToUnblockedSlot: pending grant armed for {target.SourceCard.CardName} at slot {target.SlotIndex}.");
-        }
-
-        private static void ExecuteSwapUnitSlot(EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            phases.SwapUnitSlots(context.SourceUnit, context.ChosenTarget.Unit);
-        }
-
-        private static void ExecutePullUnitOpposite(EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            phases.PullUnitOpposite(context.SourceUnit, context.ChosenTarget.Unit);
-        }
-
-        private static void ExecuteApplyDecay(CardEffect effect, EffectContext context)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            int stacksToApply = System.Math.Max(1, effect.amount);
-
-            for (int i = 0; i < stacksToApply; i++)
-            {
-                context.ChosenTarget.Unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Decaying, 1, 1, context.SourceOwner));
-            }
-        }
-
-        private static void ExecuteHealSelfByDamageDealt(EffectContext context, PhaseManager phases, int? runtimeAmount)
-        {
-            if (context.SourceUnit == null || runtimeAmount == null)
-            {
-                return;
-            }
-
-            phases.HealUnit(context.SourceUnit, runtimeAmount.Value);
-        }
-
-        private static void ExecuteGrantNextItemDoubled(EffectContext context)
-        {
-            Player owner = context.GameState.GetPlayer(context.SourceOwner);
-            owner.HasNextItemDoubled = true;
-        }
-
-        private static void ExecutePushAlliesAway(EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            phases.PushAlliesAwayFrom(context.SourceUnit);
-        }
-
-        private static void ExecuteHookClosestAllyLeft(EffectContext context, PhaseManager phases)
-        {
-            if (context.SourceUnit == null)
-            {
-                return;
-            }
-
-            phases.HookClosestAllyLeft(context.SourceUnit);
-        }
-
-        private static void ExecuteRandomizeStats(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            BoardUnit unit = context.ChosenTarget.Unit;
-
-            int newAttack = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
-            int newHealth = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
-
-            unit.BonusAttack = newAttack - unit.SourceCard.Attack;
-            unit.MaxHealth = newHealth;
-            unit.CurrentHealth = newHealth;
-            unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, context.GameState);
-
-            Debug.Log($"[EffectExecutor] RandomizeStats: {unit.SourceCard.CardName} (slot {unit.SlotIndex}) rolled Attack={newAttack}, Health={newHealth}.");
-
-            phases.SyncQualifyingEnemyAuraHealth();
-        }
-
-        private static void ExecuteAddCardToHand(CardEffect effect, EffectContext context)
-        {
-            if (effect.relevantCard == null)
-            {
-                return;
-            }
-
-            if (context.ChosenTarget.Kind != EffectTargetKind.Leader)
-            {
-                Debug.Log($"[EffectExecutor] AddCardToHand FAIL: {effect.relevantCard.CardName}'s effect needs targetType AllyLeader or EnemyLeader, but resolved target.Kind={context.ChosenTarget.Kind} — fizzling.");
-                return;
-            }
-
-            PlayerSide recipientSide = context.ChosenTarget.LeaderSide;
-            Player recipient = context.GameState.GetPlayer(recipientSide);
-
-            int copies = Mathf.Max(1, effect.amount);
-
-            for (int i = 0; i < copies; i++)
-            {
-                if (!recipient.TryAddCardToHand(effect.relevantCard))
-                {
-                    Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} could not be added — {recipient.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max, card is burned.");
-                    context.GameState.RaiseCardBurnAnimationRequested(effect.relevantCard, recipient.Side);
-                    continue;
-                }
-
-                if (effect.trigger == EffectTriggerType.OnGameStart)
-                {
-                    recipient.GameStartBonusCards.Add(effect.relevantCard);
-                    Debug.Log($"[EffectExecutor] {effect.relevantCard.CardName} added to {recipient.Side}'s hand via OnGameStart - marking it exempt from mulligan.");
-                }
-            }
-        }
-
-        private static void ExecuteTransformCard(CardEffect effect, EffectContext context, PhaseManager phases)
-        {
-            if (context.ChosenTarget.Kind != EffectTargetKind.Unit)
-            {
-                return;
-            }
-
-            if (!(effect.relevantCard is UnitCardData transformCard))
-            {
-                return;
-            }
-
-            phases.TransformUnit(context.ChosenTarget.Unit, transformCard);
-        }
-
-        private static void ExecuteStealRandomCard(EffectContext context)
-        {
-            Player thief = context.GameState.GetPlayer(context.SourceOwner);
-            Player victim = context.GameState.GetPlayer(context.SourceOwner.Opposite());
-
-            if (victim.Hand.Count == 0)
-            {
-                return;
-            }
-
-            CardData stolen = victim.Hand[rng.Next(victim.Hand.Count)];
-            victim.Hand.Remove(stolen);
-
-            if (!thief.TryAddCardToHand(stolen))
-            {
-                Debug.Log($"[EffectExecutor] {stolen.CardName} was stolen but burned — {thief.Side}'s hand is already at the {Player.AbsoluteMaxHandSize}-card max.");
-                context.GameState.RaiseCardBurnAnimationRequested(stolen, thief.Side);
+
+                case EffectActionType.MoveAllyUnit:
+                    state.HasPendingFreeMove = true;
+                    state.PendingFreeMoveExcludedUnit = source;
+                    break;
+
+                case EffectActionType.MoveUnitToUnblockedSlot:
+                    if (unit != null && phases.HasAnyLegalUnblockedSlot(unit.Owner, unit.SlotIndex))
+                    {
+                        state.HasPendingEnemyMoveGrantOnPlay = true;
+                        state.PendingEnemyMoveGrantTarget = unit;
+                    }
+                    break;
+
+                case EffectActionType.SwapUnitSlot:
+                    phases.SwapUnitSlots(source, unit);
+                    break;
+
+                case EffectActionType.PullUnitOpposite:
+                    phases.PullUnitOpposite(source, unit);
+                    break;
+
+                case EffectActionType.ApplyDecay:
+                    for (int i = 0; unit != null && i < Mathf.Max(1, effect.amount); i++)
+                    {
+                        unit.Statuses.Add(new ActiveStatusEffect(StatusEffectType.Decaying, 1, 1, context.SourceOwner));
+                    }
+                    break;
+
+                case EffectActionType.HealSelfByDamageDealt:
+                    if (source != null && runtimeAmount != null)
+                    {
+                        phases.HealUnit(source, runtimeAmount.Value);
+                    }
+                    break;
+
+                case EffectActionType.GrantNextItemDoubled:
+                    owner.HasNextItemDoubled = true;
+                    break;
+
+                case EffectActionType.PushAlliesAway:
+                    phases.PushAlliesAwayFrom(source);
+                    break;
+
+                case EffectActionType.HookClosestAllyLeft:
+                    phases.HookClosestAllyLeft(source);
+                    break;
+
+                case EffectActionType.AddCardToHand:
+                    if (effect.relevantCard == null || target.Kind != EffectTargetKind.Leader)
+                    {
+                        break;
+                    }
+
+                    Player recipient = state.GetPlayer(target.LeaderSide);
+
+                    for (int i = 0; i < Mathf.Max(1, effect.amount); i++)
+                    {
+                        if (!recipient.TryAddCardToHand(effect.relevantCard))
+                        {
+                            state.RaiseCardBurnAnimationRequested(effect.relevantCard, recipient.Side);
+                        }
+                        else if (effect.trigger == EffectTriggerType.OnGameStart)
+                        {
+                            recipient.GameStartBonusCards.Add(effect.relevantCard);
+                        }
+                    }
+                    break;
+
+                case EffectActionType.StealRandomCard:
+                    if (opponent.Hand.Count == 0)
+                    {
+                        break;
+                    }
+
+                    CardData stolen = opponent.Hand[rng.Next(opponent.Hand.Count)];
+                    opponent.Hand.Remove(stolen);
+
+                    if (!owner.TryAddCardToHand(stolen))
+                    {
+                        state.RaiseCardBurnAnimationRequested(stolen, owner.Side);
+                    }
+                    break;
+
+                case EffectActionType.TransformCard:
+                    phases.TransformUnit(unit, effect.relevantCard as UnitCardData);
+                    break;
+
+                case EffectActionType.RandomizeStats:
+                    if (unit == null)
+                    {
+                        break;
+                    }
+
+                    int newAttack = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+                    int newHealth = rng.Next(effect.randomizeMin, effect.randomizeMax + 1);
+
+                    unit.BonusAttack = newAttack - unit.SourceCard.Attack;
+                    unit.MaxHealth = newHealth;
+                    unit.CurrentHealth = newHealth;
+                    unit.LastSyncedAuraHealthBonus = AuraCalculator.GetQualifyingEnemyAuraHealthBonus(unit, state);
+                    phases.SyncQualifyingEnemyAuraHealth();
+                    break;
             }
         }
     }

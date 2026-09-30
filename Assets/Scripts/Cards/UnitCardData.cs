@@ -24,24 +24,13 @@ namespace DDD.TNFY.TCG.Cards
 
         public bool HasKeyword(Keyword keyword) => (keywords & keyword) != 0;
 
-        public UnitCardData CreateRandomizedClone(int minInclusive, int maxInclusive, System.Random rng)
-        {
-            return CreateSyncedClone(rng.Next(minInclusive, maxInclusive + 1), rng.Next(minInclusive, maxInclusive + 1), rng.Next(minInclusive, maxInclusive + 1));
-        }
-
-        public UnitCardData CreateStatOverrideClone(int newAttack, int newHealth, int newCurrentHealth)
-        {
-            UnitCardData clone = CreateSyncedClone(manaCost, newAttack, newHealth);
-            clone.pendingCurrentHealth = newCurrentHealth;
-            return clone;
-        }
-
-        public UnitCardData CreateSyncedClone(int newManaCost, int newAttack, int newHealth)
+        public UnitCardData CreateSyncedClone(int newManaCost, int newAttack, int newHealth, int newPendingCurrentHealth = 0)
         {
             UnitCardData clone = Instantiate(this);
             clone.manaCost = newManaCost;
             clone.attack = newAttack;
             clone.health = newHealth;
+            clone.pendingCurrentHealth = newPendingCurrentHealth;
             return clone;
         }
     }

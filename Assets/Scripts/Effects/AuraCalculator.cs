@@ -9,178 +9,27 @@ namespace DDD.TNFY.TCG.Effects
     {
         public static int GetAttackBonus(BoardUnit unit, GameState state)
         {
-            int bonus = 0;
-
-            foreach (LeaderAura aura in GetActiveAuras(unit, state))
-            {
-                if (aura.grant.action == EffectActionType.BuffAttack)
-                {
-                    bonus += aura.grant.amount;
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
-                {
-                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath)
-                {
-                    bonus += CountAlliedDeathStacks(unit.Owner, state, aura.grant.amount);
-                }
-            }
-
-            return bonus;
+            return SumBonus(GetActiveAuras(unit, state), unit, unit.Owner, state, EffectActionType.BuffAttack);
         }
 
         public static int GetEffectiveMaxHealth(BoardUnit unit, GameState state)
         {
-            int bonus = 0;
-
-            foreach (LeaderAura aura in GetActiveAuras(unit, state))
-            {
-                if (aura.grant.action == EffectActionType.BuffMaxHealth)
-                {
-                    bonus += aura.grant.amount;
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
-                {
-                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath)
-                {
-                    bonus += CountAlliedDeathStacks(unit.Owner, state, aura.grant.amount);
-                }
-            }
-
-            return unit.MaxHealth + bonus;
+            return unit.MaxHealth + SumBonus(GetActiveAuras(unit, state), unit, unit.Owner, state, EffectActionType.BuffMaxHealth);
         }
 
         public static int GetQualifyingEnemyAuraHealthBonus(BoardUnit unit, GameState state)
         {
-            int bonus = 0;
-
-            foreach (LeaderAura aura in GetActiveAuras(unit, state))
-            {
-                if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy)
-                {
-                    bonus += CountQualifyingEnemies(unit, state, aura.grant.amount);
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath)
-                {
-                    bonus += CountAlliedDeathStacks(unit.Owner, state, aura.grant.amount);
-                }
-            }
-
-            return bonus;
-        }
-
-        private static int CountAlliedDeathStacks(PlayerSide side, GameState state, int deathsPerStack)
-        {
-            if (deathsPerStack <= 0)
-            {
-                return 0;
-            }
-
-            Player owner = state.GetPlayer(side);
-            return owner.AlliedUnitsDied / deathsPerStack;
-        }
-
-        private static int CountQualifyingEnemies(BoardUnit unit, GameState state, int healthThreshold)
-        {
-            PlayerSide enemySide = unit.Owner.Opposite();
-            int qualifyingCount = 0;
-
-            foreach (BoardUnit enemyUnit in state.Board.GetUnits(enemySide))
-            {
-                int enemyResolvedMaxHealth = enemyUnit.MaxHealth + enemyUnit.LastSyncedAuraHealthBonus;
-
-                if (enemyResolvedMaxHealth >= healthThreshold)
-                {
-                    qualifyingCount++;
-                }
-            }
-
-            return qualifyingCount;
+            return SumBonus(GetActiveAuras(unit, state), unit, unit.Owner, state, null);
         }
 
         public static int GetPreviewAttackBonus(PlayerSide side, GameState state, UnitCardData previewedCard = null)
         {
-            int bonus = 0;
-
-            foreach (LeaderAura aura in GetPreviewableAuras(side, state, previewedCard))
-            {
-                if (aura.grant.action == EffectActionType.BuffAttack)
-                {
-                    bonus += aura.grant.amount;
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath)
-                {
-                    bonus += CountAlliedDeathStacks(side, state, aura.grant.amount);
-                }
-            }
-
-            return bonus;
+            return SumBonus(GetPreviewableAuras(side, state, previewedCard), null, side, state, EffectActionType.BuffAttack);
         }
 
         public static int GetPreviewMaxHealthBonus(PlayerSide side, GameState state, UnitCardData previewedCard = null)
         {
-            int bonus = 0;
-
-            foreach (LeaderAura aura in GetPreviewableAuras(side, state, previewedCard))
-            {
-                if (aura.grant.action == EffectActionType.BuffMaxHealth)
-                {
-                    bonus += aura.grant.amount;
-                }
-                else if (aura.grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath)
-                {
-                    bonus += CountAlliedDeathStacks(side, state, aura.grant.amount);
-                }
-            }
-
-            return bonus;
-        }
-
-        private static IEnumerable<LeaderAura> GetPreviewableAuras(PlayerSide side, GameState state, UnitCardData previewedCard)
-        {
-            Player owner = state.GetPlayer(side);
-            LeaderData leader = owner.Leader;
-
-            if (leader != null)
-            {
-                foreach (LeaderAura aura in leader.Auras)
-                {
-                    if (aura.scope != AuraScope.AllOwnUnits)
-                    {
-                        continue;
-                    }
-
-                    if (!IsConditionMet(aura.activationCondition, owner))
-                    {
-                        continue;
-                    }
-
-                    yield return aura;
-                }
-            }
-
-            if (previewedCard == null || previewedCard.Auras == null)
-            {
-                yield break;
-            }
-
-            foreach (LeaderAura aura in previewedCard.Auras)
-            {
-                if (aura.scope != AuraScope.Self && aura.scope != AuraScope.AllOwnUnits)
-                {
-                    continue;
-                }
-
-                if (!IsConditionMet(aura.activationCondition, owner))
-                {
-                    continue;
-                }
-
-                yield return aura;
-            }
+            return SumBonus(GetPreviewableAuras(side, state, previewedCard), null, side, state, EffectActionType.BuffMaxHealth);
         }
 
         public static bool HasAuraKeyword(BoardUnit unit, GameState state, Keyword keyword)
@@ -196,8 +45,6 @@ namespace DDD.TNFY.TCG.Effects
             return false;
         }
 
-        // --- Player-scoped leader rules (not unit auras, but computed live for the same reason) ---
-
         public static int GetUnitCost(UnitCardData card, Player player)
         {
             return card.ManaCost;
@@ -207,90 +54,111 @@ namespace DDD.TNFY.TCG.Effects
         {
             healthCost = 0;
 
-            if (manaShort <= 0)
-            {
-                return false;
-            }
-
-            if (player.Leader == null || player.Leader.HealthToManaRatio <= 0)
-            {
-                return false;
-            }
-
-            if (player.HasStatus(StatusEffectType.Shield))
+            if (manaShort <= 0 || player.Leader == null || player.Leader.HealthToManaRatio <= 0 || player.HasStatus(StatusEffectType.Shield))
             {
                 return false;
             }
 
             healthCost = manaShort * player.Leader.HealthToManaRatio;
-
-            if (player.LeaderHealth - healthCost <= 0)
-            {
-                return false;
-            }
-
-            return true;
+            return player.LeaderHealth - healthCost > 0;
         }
 
-        private static System.Collections.Generic.IEnumerable<LeaderAura> GetActiveAuras(BoardUnit unit, GameState state)
+        private static int SumBonus(IEnumerable<LeaderAura> auras, BoardUnit unit, PlayerSide side, GameState state, EffectActionType? flatBonusAction)
         {
-            Player owner = state.GetPlayer(unit.Owner);
-            LeaderData leader = owner.Leader;
+            int bonus = 0;
 
-            if (leader != null)
+            foreach (LeaderAura aura in auras)
             {
-                foreach (LeaderAura aura in leader.Auras)
+                AuraGrant grant = aura.grant;
+
+                if (grant.action == flatBonusAction)
                 {
-                    if (!IsConditionMet(aura.activationCondition, owner))
-                    {
-                        continue;
-                    }
-
-                    if (!IsInScope(aura.scope, unit, state, null))
-                    {
-                        continue;
-                    }
-
-                    yield return aura;
+                    bonus += grant.amount;
+                }
+                else if (grant.action == EffectActionType.BuffAttackAndHealthPerAlliedDeath && grant.amount > 0)
+                {
+                    bonus += state.GetPlayer(side).AlliedUnitsDied / grant.amount;
+                }
+                else if (grant.action == EffectActionType.BuffAttackAndHealthPerQualifyingEnemy && unit != null)
+                {
+                    bonus += CountQualifyingEnemies(unit, state, grant.amount);
                 }
             }
 
-            for (int i = 0; i < Board.SlotsPerSide; i++)
+            return bonus;
+        }
+
+        private static int CountQualifyingEnemies(BoardUnit unit, GameState state, int healthThreshold)
+        {
+            int count = 0;
+
+            foreach (BoardUnit enemy in state.Board.GetUnits(unit.Owner.Opposite()))
             {
-                BoardUnit sourceUnit = state.Board.GetUnit(unit.Owner, i);
-
-                if (sourceUnit == null)
+                if (enemy.MaxHealth + enemy.LastSyncedAuraHealthBonus >= healthThreshold)
                 {
-                    continue;
+                    count++;
                 }
+            }
 
-                if (sourceUnit.IsSilenced)
+            return count;
+        }
+
+        private static IEnumerable<LeaderAura> GetActiveAuras(BoardUnit unit, GameState state)
+        {
+            Player owner = state.GetPlayer(unit.Owner);
+
+            if (owner.Leader != null)
+            {
+                foreach (LeaderAura aura in owner.Leader.Auras)
                 {
-                    continue;
-                }
-
-                IReadOnlyList<LeaderAura> unitAuras = sourceUnit.SourceCard.Auras;
-
-                if (unitAuras == null)
-                {
-                    continue;
-                }
-
-                foreach (LeaderAura aura in unitAuras)
-                {
-                    bool conditionMet = IsConditionMet(aura.activationCondition, owner);
-                    bool inScope = conditionMet && IsInScope(aura.scope, unit, state, sourceUnit);
-
-                    if (!conditionMet)
+                    if (IsConditionMet(aura.activationCondition, owner) && IsInScope(aura.scope, unit, null))
                     {
-                        continue;
+                        yield return aura;
                     }
+                }
+            }
 
-                    if (!inScope)
+            foreach (BoardUnit source in state.Board.GetUnits(unit.Owner))
+            {
+                if (source.IsSilenced)
+                {
+                    continue;
+                }
+
+                foreach (LeaderAura aura in source.SourceCard.Auras)
+                {
+                    if (IsConditionMet(aura.activationCondition, owner) && IsInScope(aura.scope, unit, source))
                     {
-                        continue;
+                        yield return aura;
                     }
+                }
+            }
+        }
 
+        private static IEnumerable<LeaderAura> GetPreviewableAuras(PlayerSide side, GameState state, UnitCardData previewedCard)
+        {
+            Player owner = state.GetPlayer(side);
+
+            if (owner.Leader != null)
+            {
+                foreach (LeaderAura aura in owner.Leader.Auras)
+                {
+                    if (aura.scope == AuraScope.AllOwnUnits && IsConditionMet(aura.activationCondition, owner))
+                    {
+                        yield return aura;
+                    }
+                }
+            }
+
+            if (previewedCard == null)
+            {
+                yield break;
+            }
+
+            foreach (LeaderAura aura in previewedCard.Auras)
+            {
+                if ((aura.scope == AuraScope.Self || aura.scope == AuraScope.AllOwnUnits) && IsConditionMet(aura.activationCondition, owner))
+                {
                     yield return aura;
                 }
             }
@@ -298,46 +166,16 @@ namespace DDD.TNFY.TCG.Effects
 
         private static bool IsConditionMet(AuraActivationCondition condition, Player owner)
         {
-            switch (condition)
-            {
-                case AuraActivationCondition.Always:
-                    return true;
-
-                case AuraActivationCondition.OnceMaxManaReached:
-                    return owner.HasReachedMaxMana;
-
-                default:
-                    return false;
-            }
+            return condition == AuraActivationCondition.Always || (condition == AuraActivationCondition.OnceMaxManaReached && owner.HasReachedMaxMana);
         }
 
-        private static bool IsInScope(AuraScope scope, BoardUnit unit, GameState state, BoardUnit sourceUnit)
+        private static bool IsInScope(AuraScope scope, BoardUnit unit, BoardUnit sourceUnit) => scope switch
         {
-            switch (scope)
-            {
-                case AuraScope.AllOwnUnits:
-                    return true;
-
-                case AuraScope.EdgeUnits:
-                    return IsEdgeUnit(unit, state);
-
-                case AuraScope.AdjacentToSource:
-                    return sourceUnit != null && unit != sourceUnit && System.Math.Abs(unit.SlotIndex - sourceUnit.SlotIndex) == 1;
-
-                case AuraScope.Self:
-                    return sourceUnit != null && unit == sourceUnit;
-
-                default:
-                    return false;
-            }
-        }
-
-        private static bool IsEdgeUnit(BoardUnit unit, GameState state)
-        {
-            const int leftmostSlot = 0;
-            int rightmostSlot = Board.SlotsPerSide - 1;
-
-            return unit.SlotIndex == leftmostSlot || unit.SlotIndex == rightmostSlot;
-        }
+            AuraScope.AllOwnUnits => true,
+            AuraScope.EdgeUnits => unit.SlotIndex == 0 || unit.SlotIndex == Board.SlotsPerSide - 1,
+            AuraScope.AdjacentToSource => sourceUnit != null && unit != sourceUnit && Mathf.Abs(unit.SlotIndex - sourceUnit.SlotIndex) == 1,
+            AuraScope.Self => unit == sourceUnit,
+            _ => false
+        };
     }
 }

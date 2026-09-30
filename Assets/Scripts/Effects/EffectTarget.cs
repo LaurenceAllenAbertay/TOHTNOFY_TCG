@@ -42,15 +42,13 @@ namespace DDD.TNFY.TCG.Effects
         public PlayerSide SourceOwner { get; }
         public BoardUnit SourceUnit { get; }
         public EffectTarget ChosenTarget { get; }
-        public PlayerSide TriggeringPlayer { get; }
 
-        public EffectContext(GameState gameState, PlayerSide sourceOwner, BoardUnit sourceUnit, EffectTarget chosenTarget = default, PlayerSide? triggeringPlayer = null)
+        public EffectContext(GameState gameState, PlayerSide sourceOwner, BoardUnit sourceUnit, EffectTarget chosenTarget = default)
         {
             GameState = gameState;
             SourceOwner = sourceOwner;
             SourceUnit = sourceUnit;
             ChosenTarget = chosenTarget;
-            TriggeringPlayer = triggeringPlayer ?? sourceOwner;
         }
     }
 }
