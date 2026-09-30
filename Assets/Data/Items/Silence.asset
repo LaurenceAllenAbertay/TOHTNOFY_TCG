@@ -16,7 +16,7 @@ MonoBehaviour:
   cardName: Brodie's Infamous Bit
   manaCost: 2
   rarity: 1
-  cardArt: {fileID: 21300000, guid: d2407ecae31bf944cab77a606f399758, type: 3}
+  cardArt: {fileID: 21300000, guid: a5cd5ceea992d824e947bccc0fed09c3, type: 3}
   abilityText: Silence a unit.
   effects:
   - trigger: 0

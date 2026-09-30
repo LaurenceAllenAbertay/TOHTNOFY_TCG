@@ -125,7 +125,7 @@ namespace DDD.TNFY.TCG.Core
 
             foreach (BoardUnit unit in state.Board.GetUnits(side))
             {
-                if (IsHangingInLane(state, unit))
+                if (side != state.ActivePlayer && IsHangingInLane(state, unit))
                 {
                     continue;
                 }
@@ -168,12 +168,12 @@ namespace DDD.TNFY.TCG.Core
 
         private static int GetUnitManaCost(GameState state, BoardUnit unit)
         {
-            if (AIOpponentReplyModel.IsAbstractUnit(unit))
-            {
-                return AIOpponentReplyModel.EstimateManaCostForStats(unit.GetCurrentAttack(state), unit.GetEffectiveMaxHealth(state));
-            }
-
             return unit.SourceCard.ManaCost;
+        }
+
+        public static float GetPrintedStatValue(UnitCardData card)
+        {
+            return card.Attack * AttackValueWeight + card.Health * HealthValueWeight;
         }
 
         private static bool IsBlockedByTaunt(GameState state, BoardUnit defender)
@@ -365,13 +365,13 @@ namespace DDD.TNFY.TCG.Core
 
         private static float ScoreAbstractPlacement(GameState state, PlayerSide side, AITurnAction action)
         {
-            if (!AIOpponentReplyModel.TryGetAbstractStats(state, side, action.SlotIndex, action.AbstractCategory,
-                    out int attack, out int _, out int manaCost))
+            if (!AIOpponentReplyModel.TryGetReplyUnit(state, side, action.SlotIndex, action.AbstractCategory, out UnitCardData replyCard))
             {
                 return float.NegativeInfinity;
             }
 
-            float score = manaCost * 10f;
+            int attack = replyCard.Attack;
+            float score = replyCard.ManaCost * 10f;
 
             switch (action.AbstractCategory)
             {
@@ -398,12 +398,12 @@ namespace DDD.TNFY.TCG.Core
 
         private static float ScoreAbstractRemoval(GameState state, PlayerSide side, AITurnAction action)
         {
-            if (!AIOpponentReplyModel.TryGetAbstractRemovalCost(state, side, action.SlotIndex, out BoardUnit target, out int manaCost))
+            if (!AIOpponentReplyModel.TryGetReplyRemoval(state, side, action.SlotIndex, out BoardUnit target, out ItemCardData removalItem))
             {
                 return float.NegativeInfinity;
             }
 
-            return manaCost * 10f + 15f + GetUnitValue(state, target);
+            return removalItem.ManaCost * 10f + 15f + GetUnitValue(state, target);
         }
 
         private static float ScoreTargetedAction(GameState state, PlayerSide aiSide, float baseScore, CardEffect effect, EffectTarget target)

@@ -7,22 +7,190 @@ namespace DDD.TNFY.TCG.Core
 {
     public static class AIOpponentReplyModel
     {
-        private static UnitCardData abstractUnitTemplate;
+        private static readonly List<UnitCardData> replyUnits = new List<UnitCardData>();
+        private static readonly List<ItemCardData> removalItems = new List<ItemCardData>();
 
-        private static UnitCardData AbstractUnitTemplate
+        private static UnitCardData[] cheapestKillerByMinAttack = new UnitCardData[0];
+        private static UnitCardData[] cheapestSurvivorByMinHealth = new UnitCardData[0];
+        private static UnitCardData[] strongestByMaxCost = new UnitCardData[0];
+        private static UnitCardData cheapestBlocker;
+
+        public static void ConfigureCardPool(IReadOnlyList<CardData> cardPool)
         {
-            get
+            replyUnits.Clear();
+            removalItems.Clear();
+            cheapestBlocker = null;
+
+            if (cardPool != null)
             {
-                if (abstractUnitTemplate == null)
+                foreach (CardData card in cardPool)
                 {
-                    abstractUnitTemplate = ScriptableObject.CreateInstance<UnitCardData>();
-                    abstractUnitTemplate.name = "AI Abstract Opponent Unit";
-                    abstractUnitTemplate.hideFlags = HideFlags.HideAndDontSave;
-                    Debug.Log("[AIOpponentReplyModel] Created the shared abstract unit template (0/0, no keywords, no effects).");
+                    if (card is UnitCardData unit && IsUsableReplyUnit(unit))
+                    {
+                        replyUnits.Add(unit);
+                    }
+                    else if (card is ItemCardData item && IsUsableRemovalItem(item))
+                    {
+                        removalItems.Add(item);
+                    }
+                }
+            }
+
+            replyUnits.Sort((a, b) => a.ManaCost.CompareTo(b.ManaCost));
+            removalItems.Sort((a, b) => a.ManaCost.CompareTo(b.ManaCost));
+
+            int maxAttack = 0;
+            int maxHealth = 0;
+            int maxCost = 0;
+
+            foreach (UnitCardData unit in replyUnits)
+            {
+                maxAttack = Mathf.Max(maxAttack, unit.Attack);
+                maxHealth = Mathf.Max(maxHealth, unit.Health);
+                maxCost = Mathf.Max(maxCost, unit.ManaCost);
+            }
+
+            cheapestKillerByMinAttack = new UnitCardData[maxAttack + 1];
+
+            for (int attack = 1; attack <= maxAttack; attack++)
+            {
+                int requiredAttack = attack;
+                cheapestKillerByMinAttack[attack] = FindCheapest(unit => !unit.HasKeyword(Keyword.Piercing) && unit.Attack >= requiredAttack, unit => unit.Health);
+            }
+
+            cheapestSurvivorByMinHealth = new UnitCardData[maxHealth + 1];
+
+            for (int health = 1; health <= maxHealth; health++)
+            {
+                int requiredHealth = health;
+                cheapestSurvivorByMinHealth[health] = FindCheapest(unit => !unit.HasKeyword(Keyword.Piercing) && unit.Health >= requiredHealth, unit => unit.Attack);
+            }
+
+            cheapestBlocker = FindCheapest(unit => !unit.HasKeyword(Keyword.Piercing), unit => Mathf.RoundToInt(AIHeuristics.GetPrintedStatValue(unit)));
+
+            strongestByMaxCost = replyUnits.Count > 0 ? new UnitCardData[maxCost + 1] : new UnitCardData[0];
+
+            for (int mana = 0; mana < strongestByMaxCost.Length; mana++)
+            {
+                UnitCardData strongest = null;
+
+                foreach (UnitCardData unit in replyUnits)
+                {
+                    if (unit.ManaCost > mana)
+                    {
+                        break;
+                    }
+
+                    if (strongest == null || AIHeuristics.GetPrintedStatValue(unit) > AIHeuristics.GetPrintedStatValue(strongest))
+                    {
+                        strongest = unit;
+                    }
                 }
 
-                return abstractUnitTemplate;
+                strongestByMaxCost[mana] = strongest;
             }
+
+            LogConfiguredPool(cardPool != null ? cardPool.Count : 0);
+        }
+
+        private static bool IsUsableReplyUnit(UnitCardData unit)
+        {
+            if (unit.Health <= 0)
+            {
+                return false;
+            }
+
+            foreach (CardEffect effect in unit.Effects)
+            {
+                if (effect.action == EffectActionType.RandomizeStatsOnDraw)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsUsableRemovalItem(ItemCardData item)
+        {
+            CardEffect effect = item.PrimaryEffect;
+
+            if (effect == null)
+            {
+                return false;
+            }
+
+            bool removesUnit = effect.action == EffectActionType.BounceUnit
+                || (effect.action == EffectActionType.DealDamage && effect.amount > 0);
+
+            bool canPickEnemyUnit = effect.targetType == TargetType.AnyUnit
+                || effect.targetType == TargetType.AnyEnemyUnit
+                || effect.targetType == TargetType.AnyUnitOrLeader
+                || effect.targetType == TargetType.AnyEnemyUnitOrLeader;
+
+            return removesUnit && canPickEnemyUnit;
+        }
+
+        private static UnitCardData FindCheapest(System.Func<UnitCardData, bool> qualifies, System.Func<UnitCardData, int> tieBreakHigherIsBetter)
+        {
+            UnitCardData best = null;
+
+            foreach (UnitCardData unit in replyUnits)
+            {
+                if (best != null && unit.ManaCost > best.ManaCost)
+                {
+                    break;
+                }
+
+                if (!qualifies(unit))
+                {
+                    continue;
+                }
+
+                if (best == null || tieBreakHigherIsBetter(unit) > tieBreakHigherIsBetter(best))
+                {
+                    best = unit;
+                }
+            }
+
+            return best;
+        }
+
+        private static void LogConfiguredPool(int poolSize)
+        {
+            if (replyUnits.Count == 0)
+            {
+                Debug.LogError($"[AIOpponentReplyModel] Card pool ({poolSize} card(s)) contains no usable unit cards - the AI will assume the opponent can never play a unit. Check the Card Database assigned to MatchBootstrapper.");
+                return;
+            }
+
+            List<string> killers = new List<string>();
+
+            for (int attack = 1; attack < cheapestKillerByMinAttack.Length; attack++)
+            {
+                killers.Add($"{attack}->{DescribeCard(cheapestKillerByMinAttack[attack])}");
+            }
+
+            List<string> survivors = new List<string>();
+
+            for (int health = 1; health < cheapestSurvivorByMinHealth.Length; health++)
+            {
+                survivors.Add($"{health}->{DescribeCard(cheapestSurvivorByMinHealth[health])}");
+            }
+
+            List<string> strongest = new List<string>();
+
+            for (int mana = 0; mana < strongestByMaxCost.Length; mana++)
+            {
+                strongest.Add($"{mana}->{DescribeCard(strongestByMaxCost[mana])}");
+            }
+
+            Debug.Log($"[AIOpponentReplyModel] Built opponent reply tables from {poolSize} card(s): {replyUnits.Count} usable unit(s), {removalItems.Count} removal item(s) [{string.Join(", ", removalItems.ConvertAll(item => $"{item.CardName}({item.ManaCost}, {item.PrimaryEffect.action} {item.PrimaryEffect.amount})"))}].\n    Threat (cheapest killer) by target health: {string.Join(", ", killers)}\n    Wall (cheapest survivor) by health needed: {string.Join(", ", survivors)}\n    Chump (cheapest blocker): {DescribeCard(cheapestBlocker)}\n    OpenLane (strongest affordable) by mana: {string.Join(", ", strongest)}");
+        }
+
+        private static string DescribeCard(UnitCardData card)
+        {
+            return card != null ? $"{card.CardName} {card.Attack}/{card.Health} ({card.ManaCost})" : "none";
         }
 
         public static List<AITurnAction> EnumerateActions(GameState state, PhaseManager phases, PlayerSide side)
@@ -46,27 +214,27 @@ namespace DDD.TNFY.TCG.Core
 
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
             {
-                if (state.Board.GetUnit(side, slot) != null)
+                if (state.Board.GetUnit(side, slot) != null || !phases.IsSlotLegalForPlacement(slot))
                 {
                     continue;
                 }
 
                 if (state.Board.GetOpponentUnit(side, slot) == null)
                 {
-                    TryAddPlacement(state, side, slot, AIAbstractUnitCategory.OpenLane, actions);
+                    TryAddPlacement(state, side, slot, AIAbstractUnitCategory.OpenLane, actions, null, null);
                     continue;
                 }
 
-                TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Chump, actions);
-                TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Wall, actions);
-                TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Threat, actions);
+                UnitCardData threatCard = TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Threat, actions, null, null);
+                UnitCardData wallCard = TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Wall, actions, threatCard, null);
+                TryAddPlacement(state, side, slot, AIAbstractUnitCategory.Chump, actions, threatCard, wallCard);
             }
 
             Player actor = state.GetPlayer(side);
 
             for (int slot = 0; slot < Board.SlotsPerSide; slot++)
             {
-                if (TryGetAbstractRemovalCost(state, side, slot, out _, out int removalCost) && CanAfford(actor, removalCost))
+                if (TryGetReplyRemoval(state, side, slot, out _, out ItemCardData removalItem) && CanAfford(actor, removalItem.ManaCost))
                 {
                     actions.Add(AITurnAction.AbstractRemovalAt(slot));
                 }
@@ -87,19 +255,28 @@ namespace DDD.TNFY.TCG.Core
             return actions;
         }
 
-        private static void TryAddPlacement(GameState state, PlayerSide side, int slot, AIAbstractUnitCategory category, List<AITurnAction> actions)
+        private static UnitCardData TryAddPlacement(GameState state, PlayerSide side, int slot, AIAbstractUnitCategory category,
+            List<AITurnAction> actions, UnitCardData alreadyOffered, UnitCardData alsoAlreadyOffered)
         {
-            if (!TryGetAbstractStats(state, side, slot, category, out _, out _, out int manaCost))
+            if (!TryGetReplyUnit(state, side, slot, category, out UnitCardData card))
             {
-                return;
+                return null;
             }
 
-            if (!CanAfford(state.GetPlayer(side), manaCost))
+            if (card == alreadyOffered || card == alsoAlreadyOffered)
             {
-                return;
+                return null;
+            }
+
+            Player placer = state.GetPlayer(side);
+
+            if (!CanAfford(placer, AuraCalculator.GetUnitCost(card, placer)))
+            {
+                return null;
             }
 
             actions.Add(AITurnAction.PlaceAbstractUnitAt(slot, category));
+            return card;
         }
 
         private static bool CanAfford(Player placer, int manaCost)
@@ -107,12 +284,9 @@ namespace DDD.TNFY.TCG.Core
             return placer.Hand.Count > 0 && placer.CurrentMana >= manaCost;
         }
 
-        public static bool TryGetAbstractStats(GameState state, PlayerSide side, int slot, AIAbstractUnitCategory category,
-            out int attack, out int health, out int manaCost)
+        public static bool TryGetReplyUnit(GameState state, PlayerSide side, int slot, AIAbstractUnitCategory category, out UnitCardData card)
         {
-            attack = 0;
-            health = 0;
-            manaCost = 0;
+            card = null;
 
             BoardUnit facing = state.Board.GetOpponentUnit(side, slot);
 
@@ -123,73 +297,77 @@ namespace DDD.TNFY.TCG.Core
                     return false;
                 }
 
-                int size = Mathf.Max(1, state.GetPlayer(side).MaxManaThisGame / 2);
-                attack = size;
-                health = size;
+                card = StrongestAffordable(state.GetPlayer(side).CurrentMana);
+                return card != null;
             }
-            else
+
+            if (facing == null)
             {
-                if (facing == null)
-                {
-                    return false;
-                }
-
-                int facingAttack = facing.GetCurrentAttack(state);
-                int facingHealth = facing.CurrentHealth;
-
-                switch (category)
-                {
-                    case AIAbstractUnitCategory.Chump:
-                        if (facingAttack <= 0)
-                        {
-                            return false;
-                        }
-
-                        attack = 1;
-                        health = 1;
-                        break;
-
-                    case AIAbstractUnitCategory.Wall:
-                        attack = Mathf.Max(0, facingHealth - 1);
-                        health = Mathf.Max(0, facingAttack) + 1;
-                        break;
-
-                    case AIAbstractUnitCategory.Threat:
-                        attack = Mathf.Max(1, facingHealth);
-                        health = Mathf.Max(0, facingAttack) + 1;
-                        break;
-
-                    default:
-                        return false;
-                }
+                return false;
             }
 
-            manaCost = EstimateManaCostForStats(attack, health);
-            return true;
+            int facingAttack = facing.GetCurrentAttack(state);
+
+            switch (category)
+            {
+                case AIAbstractUnitCategory.Chump:
+                    if (facingAttack <= 0)
+                    {
+                        return false;
+                    }
+
+                    card = cheapestBlocker;
+                    break;
+
+                case AIAbstractUnitCategory.Wall:
+                    card = Lookup(cheapestSurvivorByMinHealth, Mathf.Max(1, facingAttack + 1));
+                    break;
+
+                case AIAbstractUnitCategory.Threat:
+                    card = Lookup(cheapestKillerByMinAttack, Mathf.Max(1, facing.CurrentHealth));
+                    break;
+            }
+
+            return card != null;
         }
 
-        public static int EstimateManaCostForStats(int attack, int health)
+        private static UnitCardData Lookup(UnitCardData[] table, int index)
         {
-            return Mathf.Max(1, Mathf.CeilToInt((attack + health) / 2f));
+            return index >= 0 && index < table.Length ? table[index] : null;
         }
 
-        public static bool TryGetAbstractRemovalCost(GameState state, PlayerSide side, int targetSlot, out BoardUnit target, out int manaCost)
+        private static UnitCardData StrongestAffordable(int mana)
         {
+            if (strongestByMaxCost.Length == 0 || mana < 0)
+            {
+                return null;
+            }
+
+            return strongestByMaxCost[Mathf.Min(mana, strongestByMaxCost.Length - 1)];
+        }
+
+        public static bool TryGetReplyRemoval(GameState state, PlayerSide side, int targetSlot, out BoardUnit target, out ItemCardData item)
+        {
+            item = null;
             target = state.Board.GetUnit(side.Opposite(), targetSlot);
-            manaCost = 0;
 
             if (target == null || target.CurrentHealth <= 0)
             {
                 return false;
             }
 
-            manaCost = Mathf.Max(1, target.CurrentHealth);
-            return true;
-        }
+            foreach (ItemCardData candidate in removalItems)
+            {
+                CardEffect effect = candidate.PrimaryEffect;
 
-        public static bool IsAbstractUnit(BoardUnit unit)
-        {
-            return unit != null && abstractUnitTemplate != null && unit.SourceCard == abstractUnitTemplate;
+                if (effect.action == EffectActionType.BounceUnit || effect.amount >= target.CurrentHealth)
+                {
+                    item = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public static bool TryPlaceAbstractUnit(AITurnAction action, GameState state, PhaseManager phases)
@@ -197,40 +375,31 @@ namespace DDD.TNFY.TCG.Core
             PlayerSide side = state.ActivePlayer;
             int slot = action.SlotIndex;
 
-            if (state.Board.GetUnit(side, slot) != null)
+            if (state.Board.GetUnit(side, slot) != null || !phases.IsSlotLegalForPlacement(slot))
             {
                 return false;
             }
 
-            if (!TryGetAbstractStats(state, side, slot, action.AbstractCategory, out int attack, out int health, out int manaCost))
+            if (!TryGetReplyUnit(state, side, slot, action.AbstractCategory, out UnitCardData card))
             {
                 return false;
             }
 
             Player placer = state.GetPlayer(side);
+            int manaCost = AuraCalculator.GetUnitCost(card, placer);
 
             if (!CanAfford(placer, manaCost))
             {
                 return false;
             }
 
-            if (!phases.SpawnUnit(side, slot, AbstractUnitTemplate))
+            if (!phases.SpawnUnit(side, slot, card))
             {
                 return false;
             }
 
-            BoardUnit unit = state.Board.GetUnit(side, slot);
-
-            unit.BonusAttack = attack - unit.GetCurrentAttack(state);
-            unit.MaxHealth = health;
-            int auraHealthBonus = unit.GetEffectiveMaxHealth(state) - health;
-            unit.MaxHealth = Mathf.Max(1, health - auraHealthBonus);
-            unit.CurrentHealth = unit.GetEffectiveMaxHealth(state);
-
             placer.CurrentMana -= manaCost;
             placer.Hand.RemoveAt(placer.Hand.Count - 1);
-
-            phases.SyncQualifyingEnemyAuraHealth();
 
             return true;
         }
@@ -239,22 +408,23 @@ namespace DDD.TNFY.TCG.Core
         {
             PlayerSide side = state.ActivePlayer;
 
-            if (!TryGetAbstractRemovalCost(state, side, action.SlotIndex, out BoardUnit target, out int manaCost))
+            if (!TryGetReplyRemoval(state, side, action.SlotIndex, out BoardUnit target, out ItemCardData item))
             {
                 return false;
             }
 
             Player caster = state.GetPlayer(side);
 
-            if (!CanAfford(caster, manaCost))
+            if (!CanAfford(caster, item.ManaCost))
             {
                 return false;
             }
 
-            caster.CurrentMana -= manaCost;
+            caster.CurrentMana -= item.ManaCost;
             caster.Hand.RemoveAt(caster.Hand.Count - 1);
 
-            phases.DamageUnit(target, manaCost, side, DamageSourceType.Effect);
+            EffectContext context = new EffectContext(state, side, null, EffectTarget.ForUnit(target));
+            EffectExecutor.Execute(item.PrimaryEffect, context, phases);
 
             return true;
         }

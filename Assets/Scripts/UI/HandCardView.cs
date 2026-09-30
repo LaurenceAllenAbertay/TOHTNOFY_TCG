@@ -22,6 +22,8 @@ namespace DDD.TNFY.TCG.UI
         [SerializeField] private float hoverLerpSpeed = 12f;
         [SerializeField] private float slotLerpSpeed = 14f;
 
+        private const float DrawArrivalThreshold = 0.001f;
+
         private CanvasGroup canvasGroup;
         private bool isHovered;
         private Vector2 visualRootRestPosition;
@@ -31,8 +33,11 @@ namespace DDD.TNFY.TCG.UI
         private PlayerSide ownerSide;
         private GameState boundState;
         private bool useLiveCost;
+        private Vector3 restScale = Vector3.one;
+        private bool isArrivingFromDeck;
 
         public CardData Card { get; private set; }
+        public bool IsArrivingFromDeck => isArrivingFromDeck;
 
         private void Awake()
         {
@@ -47,6 +52,11 @@ namespace DDD.TNFY.TCG.UI
                 selfRect = transform as RectTransform;
             }
 
+            if (selfRect != null)
+            {
+                restScale = selfRect.localScale;
+            }
+
             if (visualRoot != null)
             {
                 visualRootRestPosition = visualRoot.anchoredPosition;
@@ -56,6 +66,7 @@ namespace DDD.TNFY.TCG.UI
         private void Update()
         {
             UpdateSlotPosition();
+            UpdateDrawGrowth();
             UpdateHoverOffset();
         }
 
@@ -74,6 +85,24 @@ namespace DDD.TNFY.TCG.UI
 
             float t = 1f - Mathf.Exp(-slotLerpSpeed * Time.deltaTime);
             selfRect.anchoredPosition = Vector2.Lerp(selfRect.anchoredPosition, targetSlotPosition, t);
+        }
+
+        private void UpdateDrawGrowth()
+        {
+            if (!isArrivingFromDeck || selfRect == null)
+            {
+                return;
+            }
+
+            float t = 1f - Mathf.Exp(-slotLerpSpeed * Time.deltaTime);
+            selfRect.localScale = Vector3.Lerp(selfRect.localScale, restScale, t);
+
+            if ((selfRect.localScale - restScale).sqrMagnitude <= DrawArrivalThreshold * DrawArrivalThreshold)
+            {
+                selfRect.localScale = restScale;
+                isArrivingFromDeck = false;
+                Debug.Log($"[HandCardView] {(Card != null ? Card.CardName : "Face-down card")} finished arriving from the deck at {selfRect.anchoredPosition} (target {targetSlotPosition}).");
+            }
         }
 
         private void UpdateHoverOffset()
@@ -97,6 +126,20 @@ namespace DDD.TNFY.TCG.UI
             {
                 selfRect.anchoredPosition = position;
             }
+        }
+
+        public void BeginDrawFrom(RectTransform origin)
+        {
+            if (selfRect == null || origin == null)
+            {
+                return;
+            }
+
+            selfRect.position = origin.position;
+            selfRect.localScale = Vector3.zero;
+            isArrivingFromDeck = true;
+
+            Debug.Log($"[HandCardView] {(Card != null ? Card.CardName : "Face-down card")} starting draw from '{origin.name}' at anchored {selfRect.anchoredPosition} -> slot {targetSlotPosition}, rest scale {restScale}.");
         }
 
         public void SetSlotLerpEnabled(bool enabled)

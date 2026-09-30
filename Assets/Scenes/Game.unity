@@ -2366,6 +2366,7 @@ MonoBehaviour:
   handContainer: {fileID: 466868581}
   faceUpCardPrefab: {fileID: 4758169881461946567, guid: 0e4ef8bc1fd00ca4ca0fe13dda31c2af, type: 3}
   faceDownCardPrefab: {fileID: 4758169881461946567, guid: c53eae322f0ca6e4ab98d02727a3da8a, type: 3}
+  drawOrigin: {fileID: 155767970}
   cardSlotWidth: 180
   cardSpacing: 0
   cardSlotY: 0
@@ -7722,6 +7723,7 @@ MonoBehaviour:
   handContainer: {fileID: 1699180750}
   faceUpCardPrefab: {fileID: 4758169881461946567, guid: 0e4ef8bc1fd00ca4ca0fe13dda31c2af, type: 3}
   faceDownCardPrefab: {fileID: 4758169881461946567, guid: c53eae322f0ca6e4ab98d02727a3da8a, type: 3}
+  drawOrigin: {fileID: 0}
   cardSlotWidth: 180
   cardSpacing: 0
   cardSlotY: 0
@@ -7817,12 +7819,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   aiControlEnabled: 0
   aiSide: 1
-  thinkTimeSeconds: 5
+  thinkTimeSeconds: 4.5
   delayBetweenActionsSeconds: 1
   mulliganMaxCostToKeep: 2
   mctsMaxIterations: 50000
   mctsMaxRolloutDepth: 25
-  mctsFrameBudgetMilliseconds: 5
+  mctsFrameBudgetMilliseconds: 8
   mctsExplorationConstant: 1
   mctsValueScale: 40
 --- !u!114 &1715400187

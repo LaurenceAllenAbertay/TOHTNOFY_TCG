@@ -842,7 +842,7 @@ namespace DDD.TNFY.TCG.Core
             return true;
         }
 
-        private bool IsSlotLegalForPlacement(int slotIndex)
+        public bool IsSlotLegalForPlacement(int slotIndex)
         {
             PlayerSide opponentSide = state.ActivePlayer.Opposite();
             List<int> tauntSlots = new List<int>();

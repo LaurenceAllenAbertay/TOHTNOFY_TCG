@@ -174,6 +174,8 @@ namespace DDD.TNFY.TCG.Core
 
             Debug.Log($"[MatchBootstrapper] Vs AI match - human loaded their {humanDeck.Count}-card Constructed deck with leader '{(manager.State.PlayerA.Leader != null ? manager.State.PlayerA.Leader.LeaderName : "none")}'; AI given a random {aiDeck.Count}-card draft-legal deck with leader '{(manager.State.PlayerB.Leader != null ? manager.State.PlayerB.Leader.LeaderName : "none")}'.");
 
+            Debug.Log($"[MatchBootstrapper] Vs AI deck curves - human: {DescribeManaCurve(humanDeck)} | AI: {DescribeManaCurve(aiDeck)}");
+
             ListShuffler.Shuffle(manager.State.PlayerA.Deck);
             ListShuffler.Shuffle(manager.State.PlayerB.Deck);
 
@@ -203,6 +205,32 @@ namespace DDD.TNFY.TCG.Core
             }
 
             manager.Phases.StartMatch();
+        }
+
+        private static string DescribeManaCurve(List<CardData> deck)
+        {
+            SortedDictionary<int, int> countsByCost = new SortedDictionary<int, int>();
+            int units = 0;
+
+            foreach (CardData card in deck)
+            {
+                countsByCost.TryGetValue(card.ManaCost, out int count);
+                countsByCost[card.ManaCost] = count + 1;
+
+                if (card is UnitCardData)
+                {
+                    units++;
+                }
+            }
+
+            List<string> parts = new List<string>();
+
+            foreach (KeyValuePair<int, int> entry in countsByCost)
+            {
+                parts.Add($"{entry.Key}:{entry.Value}");
+            }
+
+            return $"{deck.Count} cards, {units} units, {deck.Count - units} items, cost curve [{string.Join(" ", parts)}]";
         }
 
         private List<CardData> BuildDraftLegalRandomDeck()

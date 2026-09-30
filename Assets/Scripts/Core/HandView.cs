@@ -11,6 +11,7 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private Transform handContainer;
         [SerializeField] private UI.HandCardView faceUpCardPrefab;
         [SerializeField] private UI.HandCardView faceDownCardPrefab;
+        [SerializeField] private RectTransform drawOrigin;
         [SerializeField] private float cardSlotWidth = 160f;
         [SerializeField] private float cardSpacing = 0f;
         [SerializeField] private float cardSlotY = 0f;
@@ -18,6 +19,8 @@ namespace DDD.TNFY.TCG.Core
         [SerializeField] private float minCardSlotWidth = 60f;
 
         private readonly List<UI.HandCardView> spawnedViews = new List<UI.HandCardView>();
+        private readonly List<CardData> previousHand = new List<CardData>();
+        private readonly List<CardData> previousDeck = new List<CardData>();
         private bool? shownFaceUp;
         private int shownHandCount = -1;
         private CardData shownLastCard;
@@ -45,6 +48,7 @@ namespace DDD.TNFY.TCG.Core
 
             Player player = gameManager.State.GetPlayer(ActualSide);
             List<CardData> hand = player.Hand;
+            List<CardData> deck = player.Deck;
             bool isFaceUp = side == PlayerSide.PlayerA;
             CardData lastCard = hand.Count > 0 ? hand[hand.Count - 1] : null;
 
@@ -54,14 +58,24 @@ namespace DDD.TNFY.TCG.Core
 
             if (!handChanged)
             {
+                if (deck.Count != previousDeck.Count)
+                {
+                    SnapshotCards(previousDeck, deck);
+                }
+
                 return;
             }
 
-            Rebuild(isFaceUp, hand);
+            HashSet<int> drawnHandIndices = FindDrawnHandIndices(hand, deck);
+
+            Rebuild(isFaceUp, hand, drawnHandIndices);
 
             shownFaceUp = isFaceUp;
             shownHandCount = hand.Count;
             shownLastCard = lastCard;
+
+            SnapshotCards(previousHand, hand);
+            SnapshotCards(previousDeck, deck);
         }
 
         public void CommitReorder()
@@ -147,7 +161,77 @@ namespace DDD.TNFY.TCG.Core
             return cardSpacing * scale;
         }
 
-        private void Rebuild(bool isFaceUp, List<CardData> hand)
+        private HashSet<int> FindDrawnHandIndices(List<CardData> hand, List<CardData> deck)
+        {
+            HashSet<int> drawnIndices = new HashSet<int>();
+
+            Dictionary<CardData, int> previousHandCounts = CountCards(previousHand);
+            Dictionary<CardData, int> currentHandCounts = CountCards(hand);
+            Dictionary<CardData, int> previousDeckCounts = CountCards(previousDeck);
+            Dictionary<CardData, int> currentDeckCounts = CountCards(deck);
+
+            Dictionary<CardData, int> remainingDrawnCopies = new Dictionary<CardData, int>();
+
+            foreach (KeyValuePair<CardData, int> entry in currentHandCounts)
+            {
+                int addedToHand = entry.Value - CountOf(previousHandCounts, entry.Key);
+                int leftDeck = CountOf(previousDeckCounts, entry.Key) - CountOf(currentDeckCounts, entry.Key);
+                int drawnCopies = Mathf.Min(addedToHand, leftDeck);
+
+                if (drawnCopies > 0)
+                {
+                    remainingDrawnCopies[entry.Key] = drawnCopies;
+                }
+            }
+
+            for (int i = hand.Count - 1; i >= 0; i--)
+            {
+                CardData card = hand[i];
+
+                if (card != null && remainingDrawnCopies.TryGetValue(card, out int remaining) && remaining > 0)
+                {
+                    drawnIndices.Add(i);
+                    remainingDrawnCopies[card] = remaining - 1;
+                }
+            }
+
+            if (drawnIndices.Count > 0)
+            {
+                Debug.Log($"[HandView] {ActualSide} drew {drawnIndices.Count} card(s) at hand index(es) [{string.Join(", ", drawnIndices)}]. Hand {previousHand.Count} -> {hand.Count}, deck {previousDeck.Count} -> {deck.Count}. drawOrigin={(drawOrigin != null ? drawOrigin.name : "NULL (cards will snap into place)")}.");
+            }
+
+            return drawnIndices;
+        }
+
+        private static Dictionary<CardData, int> CountCards(List<CardData> cards)
+        {
+            Dictionary<CardData, int> counts = new Dictionary<CardData, int>();
+
+            foreach (CardData card in cards)
+            {
+                if (card == null)
+                {
+                    continue;
+                }
+
+                counts[card] = CountOf(counts, card) + 1;
+            }
+
+            return counts;
+        }
+
+        private static int CountOf(Dictionary<CardData, int> counts, CardData card)
+        {
+            return counts.TryGetValue(card, out int count) ? count : 0;
+        }
+
+        private static void SnapshotCards(List<CardData> snapshot, List<CardData> source)
+        {
+            snapshot.Clear();
+            snapshot.AddRange(source);
+        }
+
+        private void Rebuild(bool isFaceUp, List<CardData> hand, HashSet<int> drawnHandIndices)
         {
             foreach (UI.HandCardView existingView in spawnedViews)
             {
@@ -179,6 +263,19 @@ namespace DDD.TNFY.TCG.Core
             }
 
             RefreshSlotPositions(snapImmediately: true);
+
+            if (drawOrigin == null)
+            {
+                return;
+            }
+
+            foreach (int handIndex in drawnHandIndices)
+            {
+                if (handIndex >= 0 && handIndex < spawnedViews.Count && spawnedViews[handIndex] != null)
+                {
+                    spawnedViews[handIndex].BeginDrawFrom(drawOrigin);
+                }
+            }
         }
     }
 }

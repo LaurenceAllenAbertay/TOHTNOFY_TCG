@@ -34,7 +34,22 @@ namespace DDD.TNFY.TCG.Core
         private void Awake()
         {
             gameManager = GetComponent<GameManager>();
+            ConfigureOpponentReplyModel();
             RebuildPlanner();
+        }
+
+        private void ConfigureOpponentReplyModel()
+        {
+            MatchBootstrapper bootstrapper = GetComponent<MatchBootstrapper>();
+
+            if (bootstrapper == null)
+            {
+                Debug.LogWarning($"[AIController] No MatchBootstrapper on '{gameObject.name}' - the opponent reply model gets no card pool, so the AI will assume the opponent can never play a unit or removal.");
+                AIOpponentReplyModel.ConfigureCardPool(null);
+                return;
+            }
+
+            AIOpponentReplyModel.ConfigureCardPool(bootstrapper.CardPool);
         }
 
         private void OnEnable()
@@ -251,9 +266,7 @@ namespace DDD.TNFY.TCG.Core
         private IEnumerator RunActionPhase()
         {
             const int maxSafetyIterations = 60;
-            const int maxRejectedActionsPerTurn = 3;
             int safetyIterations = 0;
-            int rejectedActions = 0;
             bool isFirstActionThisTurn = true;
 
             planner.DiscardTree();
@@ -350,18 +363,8 @@ namespace DDD.TNFY.TCG.Core
 
                 if (!applied)
                 {
-                    rejectedActions++;
-
-                    if (rejectedActions >= maxRejectedActionsPerTurn)
-                    {
-                        Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state - that's {rejectedActions} rejected action(s) this turn, so the AI is ending its turn instead of stalling the match.");
-                        phases.EndActionPhase();
-                        break;
-                    }
-
-                    Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state ({rejectedActions}/{maxRejectedActionsPerTurn} this turn) - discarding the search tree and planning again from the live board.");
-                    planner.DiscardTree();
-                    continue;
+                    Debug.LogWarning($"[AIController] MCTS chose {bestAction.Value} but PhaseManager rejected it against the live state - stopping to avoid a stuck turn.");
+                    break;
                 }
 
                 planner.AdvanceTreeToLastChosenAction();

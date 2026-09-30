@@ -244,6 +244,8 @@ namespace DDD.TNFY.TCG.Core
 
             LogHealthPaymentDecision(root, best, probeState, rootState);
 
+            LogEndTurnWithCardsInHand(root, best, probeState, rootState);
+
             onComplete?.Invoke(best.IncomingAction);
         }
 
@@ -873,6 +875,40 @@ namespace DDD.TNFY.TCG.Core
                 : "none";
 
             Debug.Log($"[AIMonteCarloTurnPlanner] HEALTH PAYMENT: {aiSide} chose {chosen.IncomingAction}, paying {healthCost} health with its leader on {probeState.GetPlayer(aiSide).LeaderHealth}. Chosen (visits={chosen.VisitCount}, normalized {chosen.NormalizedAverage:F3}) line ends in: {DescribeExpectedLineOutcome(root, rootState, chosen)} || Best option that pays no health: {alternativeDescription}");
+        }
+
+        private void LogEndTurnWithCardsInHand(MCTSNode root, MCTSNode chosen, GameState probeState, GameState rootState)
+        {
+            if (chosen.IncomingAction.Kind != AITurnActionKind.EndPhase)
+            {
+                return;
+            }
+
+            MCTSNode bestPlay = null;
+
+            foreach (MCTSNode child in root.Children)
+            {
+                AITurnActionKind kind = child.IncomingAction.Kind;
+
+                if (kind != AITurnActionKind.PlayUnit && kind != AITurnActionKind.PlayItem)
+                {
+                    continue;
+                }
+
+                if (bestPlay == null || child.VisitCount > bestPlay.VisitCount)
+                {
+                    bestPlay = child;
+                }
+            }
+
+            if (bestPlay == null)
+            {
+                return;
+            }
+
+            Player ai = probeState.GetPlayer(aiSide);
+
+            Debug.Log($"[AIMonteCarloTurnPlanner] HELD CARDS: {aiSide} ended its turn with {ai.CurrentMana}/{ai.MaxManaThisGame} mana unspent and hand [{string.Join(", ", ai.Hand.ConvertAll(card => $"{card.CardName}({card.ManaCost})"))}]. EndPhase (visits={chosen.VisitCount}, normalized {chosen.NormalizedAverage:F3}) ends in: {DescribeExpectedLineOutcome(root, rootState, chosen)} || Best card play {bestPlay.IncomingAction} (visits={bestPlay.VisitCount}, normalized {bestPlay.NormalizedAverage:F3}) expected reply:{DescribePrincipalVariation(bestPlay)} || ends in: {DescribeExpectedLineOutcome(root, rootState, bestPlay)}");
         }
 
         private string DescribeExpectedLineOutcome(MCTSNode root, GameState rootState, MCTSNode forcedFirstStep = null)

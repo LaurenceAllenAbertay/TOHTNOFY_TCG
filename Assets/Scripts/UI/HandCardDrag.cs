@@ -169,6 +169,12 @@ namespace DDD.TNFY.TCG.UI
                 return false;
             }
 
+            if (handCardView.IsArrivingFromDeck)
+            {
+                Debug.Log($"[HandCardDrag] Ignored drag on {handCardView.Card.CardName} - it is still arriving from the deck.");
+                return false;
+            }
+
             return handCardView.Card is UnitCardData || handCardView.Card is ItemCardData;
         }
 
