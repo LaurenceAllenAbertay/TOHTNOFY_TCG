@@ -13,18 +13,37 @@ namespace DDD.TNFY.TCG.Cards
         Legendary
     }
 
+    public enum CardCategory
+    {
+        Any,
+        Unit,
+        Item
+    }
+
+    public static class CardRarityReference
+    {
+        private static readonly Dictionary<CardRarity, Color> Colors = new Dictionary<CardRarity, Color>
+        {
+            { CardRarity.Common, new Color(0.75f, 0.75f, 0.75f) },
+            { CardRarity.Uncommon, new Color(0.2f, 0.8f, 0.2f) },
+            { CardRarity.Rare, new Color(0.2f, 0.5f, 0.95f) },
+            { CardRarity.Epic, new Color(0.65f, 0.25f, 0.9f) },
+            { CardRarity.Legendary, new Color(0.95f, 0.6f, 0.1f) }
+        };
+
+        public static bool TryGetColor(CardRarity rarity, out Color color) => Colors.TryGetValue(rarity, out color);
+    }
+
     public abstract class CardData : ScriptableObject
     {
         [SerializeField] private string cardId;
         [SerializeField] private string cardName;
-        [SerializeField] private int manaCost;
+        [SerializeField] protected int manaCost;
         [SerializeField] private CardRarity rarity;
         [SerializeField] private Sprite cardArt;
         [TextArea(2, 4)]
         [SerializeField] private string abilityText;
-
-        [SerializeField]
-        private List<CardEffect> effects = new List<CardEffect>();
+        [SerializeField] private List<CardEffect> effects = new List<CardEffect>();
 
         public string CardId => cardId;
         public string CardName => cardName;
@@ -33,10 +52,5 @@ namespace DDD.TNFY.TCG.Cards
         public Sprite CardArt => cardArt;
         public string AbilityText => abilityText;
         public IReadOnlyList<CardEffect> Effects => effects;
-
-        protected void SetManaCost(int newManaCost)
-        {
-            manaCost = newManaCost;
-        }
     }
 }

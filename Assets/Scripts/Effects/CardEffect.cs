@@ -21,4 +21,20 @@ namespace DDD.TNFY.TCG.Effects
         public int randomizeMax;
         public CardData[] fixedChoiceOptions;
     }
+
+    [Serializable]
+    public class LeaderAura
+    {
+        public AuraScope scope;
+        public AuraActivationCondition activationCondition;
+        public AuraGrant grant;
+    }
+
+    [Serializable]
+    public class AuraGrant
+    {
+        public EffectActionType action;
+        public int amount;
+        public Keyword keyword;
+    }
 }

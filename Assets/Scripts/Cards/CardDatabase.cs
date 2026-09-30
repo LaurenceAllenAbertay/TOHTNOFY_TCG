@@ -19,9 +19,6 @@ namespace DDD.TNFY.TCG.Cards
         [SerializeField] private List<DefaultDeckCardEntry> defaultDeck = new List<DefaultDeckCardEntry>();
         [SerializeField] private List<LeaderData> allLeaders = new List<LeaderData>();
 
-        private Dictionary<string, CardData> lookup;
-        private Dictionary<string, LeaderData> leaderLookup;
-
         public IReadOnlyList<CardData> AllCards => allCards;
         public int MaxCopiesPerCard => maxCopiesPerCard;
         public int TargetDeckSize => targetDeckSize;
@@ -30,64 +27,14 @@ namespace DDD.TNFY.TCG.Cards
 
         public bool TryGetCard(string cardId, out CardData card)
         {
-            if (lookup == null)
-            {
-                BuildLookup();
-            }
-
-            return lookup.TryGetValue(cardId, out card);
+            card = allCards.Find(c => c != null && c.CardId == cardId);
+            return card != null;
         }
 
         public bool TryGetLeader(string leaderId, out LeaderData leader)
         {
-            if (leaderLookup == null)
-            {
-                BuildLeaderLookup();
-            }
-
-            if (string.IsNullOrEmpty(leaderId))
-            {
-                leader = null;
-                return false;
-            }
-
-            return leaderLookup.TryGetValue(leaderId, out leader);
-        }
-
-        private void BuildLookup()
-        {
-            lookup = new Dictionary<string, CardData>();
-
-            foreach (CardData card in allCards)
-            {
-                if (card == null)
-                {
-                    continue;
-                }
-
-                lookup[card.CardId] = card;
-            }
-        }
-
-        private void BuildLeaderLookup()
-        {
-            leaderLookup = new Dictionary<string, LeaderData>();
-
-            foreach (LeaderData leader in allLeaders)
-            {
-                if (leader == null)
-                {
-                    continue;
-                }
-
-                leaderLookup[leader.LeaderId] = leader;
-            }
-        }
-
-        private void OnValidate()
-        {
-            lookup = null;
-            leaderLookup = null;
+            leader = string.IsNullOrEmpty(leaderId) ? null : allLeaders.Find(l => l != null && l.LeaderId == leaderId);
+            return leader != null;
         }
     }
 }
